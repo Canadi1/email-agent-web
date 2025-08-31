@@ -1,0 +1,2139 @@
+<!DOCTYPE html>
+{% load i18n %}
+<html lang="{{ LANGUAGE_CODE }}" dir="{% if LANGUAGE_BIDI %}rtl{% else %}ltr{% endif %}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Email AI Agent</title>
+    <style>
+        :root {
+            --primary-color: #4a90e2;
+            --secondary-color: #f5f5f5;
+            --text-color: #333;
+            --error-color: #d9534f;
+            --success-color: #5cb85c;
+            --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+        [data-theme="dark"] {
+            --primary-color: #8ab4f8;
+            --secondary-color: #121212;
+            --text-color: #e6e6e6;
+            --error-color: #cf6679;
+            --success-color: #81c995;
+        }
+        body {
+            font-family: var(--font-family);
+            background-color: var(--secondary-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+        }
+        .container {
+            width: 100%;
+            max-width: 800px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        [data-theme="dark"] .container { background-color: #1e1e1e; }
+        .overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(255, 255, 255, 0.65);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+        }
+        [data-theme="dark"] .overlay { background: rgba(0, 0, 0, 0.6); }
+        .overlay-content {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: var(--text-color);
+            font-weight: 500;
+        }
+        .spinner {
+            width: 32px;
+            height: 32px;
+            border: 4px solid #ddd;
+            border-top-color: var(--primary-color);
+            border-radius: 50%;
+            animation: spin 0.9s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        header {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        header h1 {
+            margin: 0;
+            font-size: 1.8em;
+        }
+        main {
+            padding: 20px;
+        }
+        .command-form {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        #command-input {
+            flex-grow: 1;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 1em;
+        }
+        #command-submit {
+            padding: 10px 20px;
+            border: none;
+            background-color: var(--primary-color);
+            color: white;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1em;
+            transition: background-color 0.3s;
+        }
+        #command-submit:hover {
+            background-color: #357abd;
+        }
+        .results {
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            min-height: 100px;
+            padding: 15px;
+            background-color: #fafafa;
+            max-height: 70vh; /* Allow long results to be scrollable */
+            overflow-y: auto;
+        }
+        [data-theme="dark"] .results { background-color: #121212; border-color: #333; }
+        .confirmation-dialog {
+            background-color: #fffbe6;
+            border: 1px solid #ffe58f;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        [data-theme="dark"] .confirmation-dialog { background-color: #1b1b1b; border-color: #777; }
+        .confirmation-dialog p {
+            margin-top: 0;
+        }
+        .confirmation-buttons {
+            display: flex;
+            gap: 10px;
+        }
+        .confirm-btn, .cancel-btn {
+            padding: 8px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9em;
+        }
+        .confirm-btn {
+            background-color: var(--error-color);
+            color: white;
+        }
+        .cancel-btn {
+            background-color: #ccc;
+        }
+        .email-list {
+            list-style-type: none;
+            padding: 0;
+        }
+        .email-item {
+            border-bottom: 1px solid #eee;
+            padding: 10px 0;
+        }
+        .email-item:last-child {
+            border-bottom: none;
+        }
+        .email-sender {
+            font-weight: bold;
+        }
+        .email-subject {
+            color: #555;
+        }
+        [data-theme="dark"] .email-subject { color: #ccc; }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 20px;
+        }
+        .stat-card {
+            background: #f9f9f9;
+            padding: 15px;
+            border-radius: 4px;
+        }
+        [data-theme="dark"] .stat-card { background: #1b1b1b; }
+        .stat-card h3 {
+            margin-top: 0;
+        }
+        .stat-list {
+            list-style-type: none;
+            padding: 0;
+        }
+        [data-theme="dark"] .stat-list { color: #ccc; }
+        .bar-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .bar-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 4px 0;
+        }
+        .bar-label {
+            width: 84px;
+            font-size: 0.9em;
+            color: #333;
+            flex-shrink: 0;
+        }
+        .bar-label-wide {
+            width: 180px;
+            font-size: 0.9em;
+            color: #333;
+            flex-shrink: 0;
+            overflow: hidden;
+        }
+        [data-theme="dark"] .bar-label, [data-theme="dark"] .bar-label-wide { color: #ccc; }
+        /* Remove unused suggestions grid styles */
+        .bar-track {
+            background: #eee;
+            flex: 1;
+            height: 12px;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+        [data-theme="dark"] .bar-track { background: #333; }
+        [data-theme="dark"] input, [data-theme="dark"] textarea, [data-theme="dark"] select { background-color: #121212; color: var(--text-color); border-color: #444; }
+
+        /* Theme toggle */
+        .theme-switch { margin-top: 8px; display: inline-block; }
+        .theme-toggle-btn { cursor: pointer; border: 1px solid #ccc; border-radius: 999px; padding: 4px 8px; background: #fff; color: #333; display: inline-flex; align-items: center; gap: 10px; }
+        .theme-toggle-btn:hover { background: #f0f0f0; }
+        [data-theme="dark"] .theme-toggle-btn { background: #1e1e1e; color: #e6e6e6; border-color: #444; }
+        [data-theme="dark"] .theme-toggle-btn:hover { background: #2a2a2a; }
+        .switch-track { position: relative; width: 60px; height: 30px; background: #ececec; border-radius: 999px; display: inline-flex; align-items: center; justify-content: space-between; padding: 0 10px; box-sizing: border-box; overflow: hidden; }
+        .switch-icon { width: 16px; height: 16px; color: #9aa0a6; display: inline-flex; align-items: center; justify-content: center; z-index: 2; position: relative; }
+        .switch-icon.sun { color: #ffffff; margin-left: -3px; }
+        .switch-icon.moon { color: #9aa0a6; margin-right: -3px; }
+        .switch-icon svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+        .switch-icon.moon { color: #9aa0a6; }
+        .switch-thumb { position: absolute; top: 4px; left: 4px; width: 22px; height: 22px; background: var(--primary-color); border-radius: 50%; box-shadow: 0 1px 4px rgba(0,0,0,0.25); transition: left .18s ease; z-index: 1; }
+        .switch-track::before { content: ''; position: absolute; top: 4px; left: 4px; width: 22px; height: 22px; background: rgba(59, 130, 246, 0.15); border-radius: 50%; transition: left .18s ease; z-index: 0; }
+        [data-theme="dark"] .switch-track { background: #333; }
+        [data-theme="dark"] .switch-thumb { left: calc(100% - 26px); background: var(--primary-color); }
+        [data-theme="dark"] .switch-track::before { left: calc(100% - 26px); }
+        [data-theme="dark"] .switch-icon.moon { color: #ffffff; }
+        
+        /* Hebrew RTL switch fix - handled by JavaScript */
+        html[lang="he"] .switch-track { direction: ltr; }
+        .bar-fill {
+            height: 100%;
+            background: var(--primary-color);
+        }
+        .pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 10px;
+            border-radius: 999px;
+            background: #f1f3f4;
+            color: #202124;
+            white-space: nowrap;
+        }
+        [data-theme="dark"] .pill { background: #666; color: #fff; }
+        .pill-swatch {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        /* Ensure long quick-command pills don't overflow and X stays clickable */
+        .fav-item { 
+            max-width: 100%; 
+            min-width: 0; 
+            margin-bottom: 8px;
+        }
+        .fav-item:last-child {
+            margin-bottom: 0;
+        }
+        
+        /* Fix pill spacing in favorites list */
+        /* Desktop: 3 columns, fill top->bottom with exactly 4 items per column */
+        @media (min-width: 769px) {
+            #favorites-list {
+                display: grid;
+                grid-auto-flow: column;               /* fill columns first */
+                grid-template-rows: repeat(4, max-content); /* 4 rows per column */
+                grid-auto-columns: 1fr;               /* equal column widths */
+                gap: 8px;
+                margin-top: 10px;
+            }
+            #favorites-list li { margin: 0; }
+        }
+
+        /* Mobile: 2 columns */
+        @media (max-width: 768px) {
+            #favorites-list {
+                display: grid;
+                grid-template-columns: repeat(2, 1fr); /* 2 equal columns on mobile */
+                gap: 8px;
+            }
+            #favorites-list li { margin: 0; }
+        }
+
+        /* Ensure no leftover margins from previous rules */
+        #favorites-list li { margin: 0; }
+        
+        /* PC-only: Move Quick Commands title and pills higher */
+        @media (min-width: 769px) {
+            .stat-card h3 {
+                margin-top: -36px !important;
+            }
+            #favorites-list {
+                margin-top: 2px !important;
+            }
+        }
+        .fav-item .pill {
+            min-width: 0;
+            max-width: calc(100% - 48px); /* leave room for the X button */
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            flex: 0 1 auto; /* do not stretch across the whole row */
+        }
+        .fav-item .cancel-btn { flex-shrink: 0; }
+        .error-message {
+            color: var(--error-color);
+            padding: 15px;
+            border: 1px solid var(--error-color);
+            background-color: #f2dede;
+            border-radius: 4px;
+        }
+        .example-commands {
+            margin-top: 20px;
+        }
+        .example-commands h3 {
+            margin-bottom: 10px;
+        }
+        .example-commands ul {
+            padding-left: 20px;
+            color: #666;
+        }
+        [data-theme="dark"] .example-commands ul { color: #ccc; }
+        
+        /* Dark-mode overrides for inline-styled elements */
+        [data-theme="dark"] details > summary { color: #ccc !important; }
+        [data-theme="dark"] details > div { color: #ccc !important; }
+        [data-theme="dark"] .bar-item > div[style*="text-align:right"] { color: #ccc !important; }
+        [data-theme="dark"] details.stat-card div { color: #ccc !important; }
+        [data-theme="dark"] [style*="color:#555"] { color: #ccc !important; }
+        [data-theme="dark"] [style*="color:#666"] { color: #ccc !important; }
+        [data-theme="dark"] [style*="color:#777"] { color: #ccc !important; }
+        [data-theme="dark"] [style*="color:#888"] { color: #ccc !important; }
+        [data-theme="dark"] [style*="color:#999"] { color: #ccc !important; }
+        
+        /* Additional dark-mode overrides for specific sections */
+        [data-theme="dark"] .stat-card summary { color: #ccc !important; }
+        [data-theme="dark"] .stat-card details > div { color: #ccc !important; }
+        [data-theme="dark"] .stat-card details > p { color: #ccc !important; }
+        [data-theme="dark"] .stat-card h4 { color: #fff !important; }
+        [data-theme="dark"] .stat-card .stat-list li { color: #eee !important; }
+        [data-theme="dark"] .stat-card .bar-list li { color: #eee !important; }
+        [data-theme="dark"] .stat-card .bar-label { color: #eee !important; }
+        .all-commands {
+            margin-top: 20px;
+        }
+        .all-commands-toggle {
+            cursor: pointer;
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+        .all-commands-list {
+            display: none; /* Hidden by default */
+            margin-top: 10px;
+            padding-left: 20px;
+            list-style-type: none;
+        }
+        .all-commands-list li {
+            margin-bottom: 5px;
+        }
+        .autocomplete-suggestions {
+            border: 1px solid #ddd;
+            border-top: none;
+            max-height: 150px;
+            overflow-y: auto;
+            background-color: #fff;
+            position: absolute;
+            width: calc(100% - 42px); /* Adjust based on form padding/border */
+            z-index: 1000;
+        }
+        [data-theme="dark"] .autocomplete-suggestions { background-color: #1e1e1e; border-color: #444; }
+        [data-theme="dark"] .autocomplete-suggestions div:hover { background-color: #2a2a2a; }
+        .autocomplete-suggestions div {
+            padding: 10px;
+            cursor: pointer;
+        }
+        .autocomplete-suggestions div:hover {
+            background-color: #f0f0f0;
+        }
+        .autocomplete-suggestions div.active {
+            background-color: #e8f0fe;
+        }
+        [data-theme="dark"] .autocomplete-suggestions div.active { background-color: #2f2f2f; color: var(--text-color); }
+
+
+        .contact-suggestions {
+            border: 1px solid #ddd;
+            border-top: none;
+            max-height: 220px;
+            overflow-y: auto;
+            overflow-x: hidden;
+            background-color: #fff;
+            position: absolute;
+            z-index: 1100;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+            border-radius: 0 0 6px 6px;
+        }
+        [data-theme="dark"] .contact-suggestions { background-color: #1e1e1e; border-color: #444; }
+        [data-theme="dark"] .contact-suggestions div:hover { background-color: #2a2a2a; }
+        .contact-suggestions div { padding: 10px; cursor: pointer; display:flex; align-items:center; justify-content:space-between; gap:8px; }
+        .contact-suggestions div:hover { background-color: #f0f0f0; }
+        .contact-suggestions div.active { background-color: #e8f0fe; }
+        [data-theme="dark"] .contact-suggestions div.active { background-color: #2f2f2f; color: var(--text-color); }
+        .contact-remove { color:#a00; font-weight:700; padding:0 6px; cursor:pointer; }
+        .contact-remove:hover { color:#d00; }
+        .contact-suggestions .contact-text { flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; direction:ltr; }
+
+        /* Quick Commands inline autocomplete suggestion */
+        .fav-inline-suggestion {
+            position: absolute;
+            pointer-events: none;
+            color: #999;
+            font-size: 14px;
+            font-family: inherit;
+            line-height: 1.2;
+            padding: 0;
+            border: none;
+            background: transparent;
+            z-index: 1000;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            word-wrap: break-word;
+        }
+        [data-theme="dark"] .fav-inline-suggestion {
+            color: #666;
+        }
+        .command-form {
+            position: relative; /* Needed for absolute positioning of suggestions */
+            align-items: flex-start;
+        }
+        .snackbar {
+            visibility: hidden;
+            min-width: 240px;
+            max-width: 90vw;
+            background-color: #323232;
+            color: #fff;
+            text-align: left;
+            border-radius: 4px;
+            padding: 12px 16px;
+            position: fixed;
+            left: 50%;
+            bottom: 24px;
+            transform: translateX(-50%);
+            z-index: 3000;
+            box-shadow: 0 6px 18px rgba(0,0,0,0.2);
+            opacity: 0;
+            transition: opacity .25s ease, bottom .25s ease;
+        }
+        .snackbar.show { visibility: visible; opacity: 1; bottom: 32px; }
+        .snackbar.success { background-color: var(--success-color); }
+        .snackbar.error { background-color: var(--error-color); }
+        .snackbar.info { background-color: #4285f4; }
+        .snackbar a { color: #fff; text-decoration: underline; margin-left: 10px; }
+        .results.highlight {
+            animation: flashHighlight 1.2s ease;
+        }
+        @keyframes flashHighlight {
+            0% { box-shadow: 0 0 0 0 rgba(74,144,226,0.6); }
+            50% { box-shadow: 0 0 0 6px rgba(74,144,226,0.15); }
+            100% { box-shadow: 0 0 0 0 rgba(74,144,226,0); }
+        }
+        @media (min-width: 600px) {
+            .stats-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+        
+        /* Quick Commands - PC version */
+        .quick-commands-buttons input {
+            min-width: 220px;
+        }
+        
+        /* Quick Commands - PC version button positioning */
+        /* English version - restore to perfect positioning */
+        .quick-commands-buttons #clear-fav-form .cancel-btn {
+            transform: translateX(4px);
+        }
+        
+        /* Hebrew version - adjust for RTL layout */
+        html[lang="he"] .quick-commands-buttons #clear-fav-form .cancel-btn {
+            transform: translateX(1px);
+        }
+        
+        /* Mobile-specific fixes */
+        @media (max-width: 768px) {
+            .command-form {
+                flex-direction: column;
+                gap: 10px;
+            }
+            
+            #command-input {
+                width: 100%;
+                box-sizing: border-box;
+            }
+            
+            #command-submit {
+                width: 100%;
+                padding: 12px 20px;
+            }
+            
+            /* Mobile Quick Commands autocomplete fixes */
+            .fav-inline-suggestion {
+                font-size: 17px !important; /* Larger font for mobile */
+                line-height: 1.4 !important; /* Better line height for mobile */
+                top: 5px !important; /* Better vertical alignment on mobile */
+            }
+            
+            .quick-commands-buttons {
+                display: flex;
+                gap: 8px;
+                flex-wrap: nowrap;
+                align-items: center;
+            }
+            
+            .quick-commands-buttons .cancel-btn {
+                padding: 8px 16px;
+                font-size: 0.9em;
+                min-width: auto;
+                flex-shrink: 0;
+            }
+            
+            .quick-commands-buttons form {
+                flex: 2;
+                min-width: 0;
+            }
+            
+            .quick-commands-buttons input {
+                width: 100%;
+                box-sizing: border-box;
+                padding: 12px 16px;
+                font-size: 1em;
+                min-width: 250px;
+            }
+            
+            .quick-commands-buttons .cancel-btn[form="add-fav-form"] {
+                margin-left: -15px;
+            }
+            
+            .quick-commands-buttons #clear-fav-form .cancel-btn {
+                transform: translateX(15px);
+            }
+            
+            /* Hebrew mobile adjustments */
+            html[lang="he"] .quick-commands-buttons .cancel-btn[form="add-fav-form"] {
+                margin-left: -6px;
+            }
+            
+            html[lang="he"] .quick-commands-buttons #clear-fav-form .cancel-btn {
+                transform: translateX(-1px);
+            }
+        }
+    </style>
+</head>
+<body data-i18n-view-details="{% trans 'View details' %}"
+      data-i18n-loading="{% trans 'Loading…' %}"
+      data-i18n-no-more-results="{% trans 'No more results' %}"
+      data-i18n-load-more="{% trans 'Load more' %}"
+      data-i18n-analyzing="{% trans 'Analyzing...' %}"
+      data-i18n-undoing="{% trans 'Undoing...' %}"
+      data-i18n-loaded-more-with-count="{% trans 'Loaded {count} more' %}"
+      data-i18n-failed-load-more="{% trans 'Failed to load more' %}"
+      data-i18n-confirm-clear-favorites="{% trans 'Clear all favorites?' %}">
+    <div id="loading-overlay" class="overlay" aria-hidden="true">
+        <div class="overlay-content">
+            <div class="spinner" aria-hidden="true"></div>
+            <div>{% trans "Processing…" %}</div>
+        </div>
+    </div>
+    <div id="snackbar" class="snackbar" role="status" aria-live="polite"></div>
+    <div class="container">
+        <header>
+            <h1>{% trans "Email AI Agent" %}</h1>
+            <form action="{% url 'set_language' %}" method="post" style="margin-top:8px;">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                {% get_current_language as LANGUAGE_CODE %}
+                {% get_available_languages as LANGUAGES %}
+                <label for="language-select" style="font-size:0.9em;">{% trans "Language" %}:</label>
+                <select id="language-select" name="language" onchange="this.form.submit()" style="padding:6px 8px;border:1px solid #ccc;border-radius:4px;">
+                    {% for lang in LANGUAGES %}
+                    <option value="{{ lang.0 }}" {% if lang.0 == LANGUAGE_CODE %}selected{% endif %}>{{ lang.1 }}</option>
+                    {% endfor %}
+                </select>
+            </form>
+            <div class="theme-switch">
+                <button id="theme-toggle" type="button" class="theme-toggle-btn" aria-label="Toggle theme">
+                    <span class="switch-track">
+                        <span class="switch-icon sun" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" aria-hidden="true">
+                                <circle cx="12" cy="12" r="4"/>
+                                <path d="M12 2v2M12 20v2M4 12H2M22 12h-2M5 5l-1.5-1.5M20.5 20.5L19 19M5 19l-1.5 1.5M20.5 3.5L19 5"/>
+                            </svg>
+                        </span>
+                        <span class="switch-icon moon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                            </svg>
+                        </span>
+                        <span class="switch-thumb"></span>
+                    </span>
+                </button>
+            </div>
+        </header>
+        <main>
+            
+            {% if not is_agent_ready %}
+                <div class="error-message">
+                    <strong>{% trans 'Connection Error:' %}</strong> {{ error_message }}
+                </div>
+            {% else %}
+                <form method="post" class="command-form" id="command-form" autocomplete="off">
+                    {% csrf_token %}
+                    <input type="text" id="command-input" name="command" dir="auto" placeholder="{% trans 'e.g., list recent emails' %}" autofocus autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+                    <button type="submit" id="command-submit">{% trans 'Process' %}</button>
+                </form>
+                {% if show_compose %}
+                <div class="stat-card" style="margin-bottom:16px;">
+                    <h3 style="margin-top:0;">{% trans 'Compose Email' %}</h3>
+                    <form method="post" id="compose-form" style="display:grid; gap:10px;">
+                        {% csrf_token %}
+                        <input type="hidden" name="compose_send" value="1">
+                        <label>
+                            <div style="font-weight:600; margin-bottom:4px;">{% trans 'To' %}</div>
+                            <input name="compose_to" type="email" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px;" required placeholder="name@example.com" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+                        </label>
+                        <label>
+                            <div style="font-weight:600; margin-bottom:4px;">{% trans 'Subject' %}</div>
+                            <input name="compose_subject" type="text" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px;" placeholder="{% trans 'Subject (optional)' %}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+                        </label>
+                        <label>
+                            <div style="font-weight:600; margin-bottom:4px;">{% trans 'Message' %}</div>
+                            <textarea name="compose_body" rows="8" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px;" placeholder="{% trans 'Write your message...' %}"></textarea>
+                        </label>
+                        <div>
+                            <button type="submit" class="cancel-btn" style="background:#4a90e2;color:#fff;">{% trans 'Send' %}</button>
+                        </div>
+                    </form>
+                </div>
+                {% endif %}
+                <form method="post" style="display:flex; align-items:center; gap:8px; margin:-10px 0 12px 0;">
+                    {% csrf_token %}
+                    <label for="per_page" style="font-size:0.9em;color:#555;">{% trans 'Results per page:' %}</label>
+                    <select name="per_page" id="per_page" onchange="this.form.submit()" style="padding:6px 8px;border:1px solid #ccc;border-radius:4px;">
+                        <option value="10" {% if per_page == 10 %}selected{% endif %}>10</option>
+                        <option value="25" {% if per_page == 25 %}selected{% endif %}>25</option>
+                        <option value="50" {% if per_page == 50 %}selected{% endif %}>50</option>
+                        <option value="100" {% if per_page == 100 %}selected{% endif %}>100</option>
+                    </select>
+                </form>
+
+                <div class="stat-card" style="margin-bottom:16px;">
+                    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+                        <h3 style="margin:0;">{% trans 'Quick Commands' %}</h3>
+                        <div class="quick-commands-buttons" style="display:flex;flex-direction:column;gap:8px;">
+                            <form method="post" id="add-fav-form" style="display:flex;gap:8px;align-items:center;">
+                                {% csrf_token %}
+                                <input type="hidden" name="add_favorite" value="1">
+                                <input type="text" name="fav_command" id="fav-input" placeholder="{% trans 'Save custom command' %}" style="padding:6px 8px;border:1px solid #ccc;border-radius:4px;" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+                            </form>
+                            <div style="display:flex;justify-content:flex-start;align-items:center;gap:40px;">
+                                <button type="submit" form="add-fav-form" class="cancel-btn" style="background:#4a90e2;color:#fff;">{% trans 'Add Favorite' %}</button>
+                                <form method="post" id="clear-fav-form" style="margin:0;">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="clear_favorites" value="1">
+                                    <button type="submit" class="cancel-btn" style="background:#d9534f;color:#fff;">{% trans 'Clear all' %}</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    {% if favorite_commands %}
+                    <ul class="stat-list" id="favorites-list" style="margin-top:10px;">
+                        {% for fc in favorite_commands %}
+                        <li>
+                            <form method="post" class="fav-item" style="display:flex;align-items:center;gap:6px;width:100%;">
+                                {% csrf_token %}
+                                <input type="hidden" name="fav_command" value="{{ fc }}">
+                                <button type="button" class="pill" title="{{ fc }}" onclick='insertCommand("{{ fc|escapejs }}")'>{{ fc }}</button>
+                                <input type="hidden" name="remove_favorite" value="1">
+                                <button type="submit" class="cancel-btn" title="{% trans 'Remove' %}" style="padding:4px 8px;">×</button>
+                            </form>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    <p style="color:#666;margin-top:10px;">{% trans 'No favorites yet. Add one above.' %}</p>
+                    {% endif %}
+                </div>
+
+                {% if confirmation_message %}
+                <div class="confirmation-dialog">
+                    <p><strong>{% trans 'Confirmation Required:' %}</strong> {{ confirmation_message }}</p>
+                    {% if result.preview %}
+                    <div style="margin:10px 0;">
+                        <div style="font-weight:600; margin-bottom:6px;">{% trans 'Preview (first 10)' %}</div>
+                        <ul class="email-list">
+                            {% for p in result.preview %}
+                            <li class="email-item">
+                                <div class="email-sender" dir="auto">{{ p.sender }}</div>
+                                <div class="email-subject" dir="auto">{{ p.subject }}</div>
+                                {% if p.date %}<div style="color:#666; font-size:0.85em;">{{ p.date }}</div>{% endif %}
+                            </li>
+                            {% endfor %}
+                        </ul>
+                        {% if result.total_estimated %}
+                        <div style="color:#666; font-size:0.9em; margin-top:6px;">{% trans 'Estimated total affected:' %} {{ result.total_estimated }}</div>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                    <form method="post" id="confirm-form">
+                        {% csrf_token %}
+                        <input type="hidden" name="confirmation_data" value="{{ confirmation_data }}">
+                        <div class="confirmation-buttons">
+                            <button type="submit" class="confirm-btn" id="confirm-btn">{% trans 'Confirm' %}</button>
+                            <a href="{% url 'index' %}" class="cancel-btn">{% trans 'Cancel' %}</a>
+                        </div>
+                    </form>
+                </div>
+                {% endif %}
+
+                <div class="results">
+                    {% if result %}
+                        {% if result.status == 'success' %}
+                            <div class="success-message">{{ result.message }}</div>
+                            {% if result.type == 'email_list' and result.data %}
+                                <ul class="email-list" id="email-list">
+                                {% for email in result.data %}
+                                    <li class="email-item">
+                                        <div class="email-sender" dir="auto">{{ email.sender }}</div>
+                                        <div class="email-subject" dir="auto">{{ email.subject }}</div>
+                                    </li>
+                                {% endfor %}
+                                </ul>
+                                {% if result.next_page_token %}
+                                <form method="post" id="load-more-form">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="load_more" value="1">
+                                    <input type="hidden" name="load_more_token" id="load_more_token" value="{{ result.next_page_token }}">
+                                    <input type="hidden" name="list_context" id="list_context" value='{{ result.list_context_json|default:"" }}'>
+                                    <button type="submit" id="load-more-btn">{% trans 'Load more' %}</button>
+                                    <span id="load-more-inline" style="display:none;margin-left:8px;">{% trans 'Loading…' %}</span>
+                                </form>
+                                {% endif %}
+                            {% elif result.type == 'label_list' and result.data %}
+                                <div class="stat-card">
+                                    <h3>{% trans 'Your Labels' %}</h3>
+                                    <ul class="stat-list">
+                                        {% for label in result.data %}
+                                        <li>{{ label.name }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                </div>
+                            {% endif %}
+                        {% elif result.status == 'error' %}
+                            <div class="error-message">
+                                <p>{{ result.message }}</p>
+                                {% if result.debug_info %}
+                                <pre style="font-size: 0.8em; margin-top: 10px;">Debug Info: {{ result.debug_info }}</pre>
+                                {% endif %}
+                            </div>
+                        {% elif result.status == 'info' %}
+                            <div class="info-message">{{ result.message }}</div>
+                        {% elif result.total_inbox is not None %}
+                            <div class="stat-card">
+                                <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+                                    <h3 style="margin:0;">{% trans 'Email Statistics' %}</h3>
+                                    <button type="button" id="full-stats-btn" class="cancel-btn" style="background:#4a90e2;color:#fff;">{% trans 'Full analysis' %}</button>
+                                </div>
+                                <p><strong>{% trans 'Total Inbox Emails:' %}</strong> {{ result.total_inbox }}</p>
+                                <p><strong>{% trans 'Sample Analyzed:' %}</strong> {{ result.sample_analyzed }} {% if result.analysis_scope == 'full' %}({% trans 'full' %}){% else %}({% trans 'sample' %}){% endif %}
+                                <details style="margin-top:6px;">
+                                    <summary style="cursor:pointer;color:#555;">{% trans 'What is "sample analyzed"?' %}</summary>
+                                    <div style="margin-top:6px;color:#666;">{% trans 'Number of recent emails examined to compute stats quickly. Choose "Full analysis" to analyze all emails.' %}</div>
+                                </details></p>
+                                
+                                {% if result.analysis_limited %}
+                                <div style="background:#fff3cd; border:1px solid #ffeaa7; border-radius:4px; padding:12px; margin:12px 0; color:#856404;">
+                                    <strong>📊 {% trans 'Analysis Note:' %}</strong> {{ result.analysis_limit_note }}
+                                </div>
+                                {% endif %}
+                                <div class="stats-grid">
+                                    <div>
+                                        <h4>{% trans 'Top Senders' %}</h4>
+                                        <ul class="stat-list">
+                                            {% for sender, count in result.top_senders %}
+                                            <li dir="auto">{{ sender }}: {{ count }}</li>
+                                            {% endfor %}
+                                        </ul>
+                                    </div>
+                                    <div>
+                                        <h4>{% trans 'Top Domains' %}</h4>
+                                        <ul class="stat-list">
+                                            {% for domain, count in result.top_domains %}
+                                            <li>{{ domain }}: {{ count }}</li>
+                                            {% endfor %}
+                                        </ul>
+                                    </div>
+                                </div>
+                                <div class="stats-grid" style="margin-top:12px;">
+                                    <div>
+                                        <h4>{% trans 'Top Subject Terms' %}</h4>
+                                        <ul class="stat-list">
+                                            {% for term, count in result.top_subject_terms %}
+                                            <li>{{ term }}: {{ count }}</li>
+                                            {% endfor %}
+                                        </ul>
+                                    </div>
+                                    <div>
+                                        <h4>{% trans 'Emails by Hour' %}</h4>
+                                        <details>
+                                            <summary style="cursor:pointer;color:#555;">{% trans 'What is this?' %}</summary>
+                                            <div style="margin-top:6px;color:#666;">{% trans 'Count of analyzed emails by the hour of day they were received (local time).' %}</div>
+                                        </details>
+                                        <ul class="bar-list">
+                                            {% for hb in result.hour_bars %}
+                                            <li class="bar-item">
+                                                <div class="bar-label">{{ hb.hour }}:00</div>
+                                                <div class="bar-track">
+                                                    <div class="bar-fill" data-width="{{ hb.pct }}"></div>
+                                                </div>
+                                                <div style="width:36px; text-align:right; font-size:0.9em; color:#666;">{{ hb.count }}</div>
+                                            </li>
+                                            {% endfor %}
+                                        </ul>
+                                    </div>
+                                </div>
+                                <h4 style="margin-top:12px;">{% trans 'Label Distribution' %}</h4>
+                                <details>
+                                    <summary style="cursor:pointer;color:#555;">{% trans 'What does this show?' %}</summary>
+                                    <div style="margin-top:6px;color:#666;">{% trans 'Friendly label names (e.g., Inbox, Promotions) and how many analyzed emails had each label.' %}</div>
+                                </details>
+                                <ul class="bar-list">
+                                    {% for lb in result.label_bars %}
+                                    <li class="bar-item">
+                                        <div class="bar-label bar-label-wide">
+                                            <span class="pill" title="{{ lb.name }}"><span class="pill-swatch" data-color="{{ lb.color }}"></span>{{ lb.name }}</span>
+                                        </div>
+                                        <div class="bar-track">
+                                            <div class="bar-fill" data-color="{{ lb.color }}" data-width="{{ lb.pct }}"></div>
+                                        </div>
+                                        <div style="width:36px; text-align:right; font-size:0.9em; color:#666;">{{ lb.count }}</div>
+                                    </li>
+                                    {% endfor %}
+                                </ul>
+                                <h4>{% trans 'Insights' %}</h4>
+                                <ul>
+                                    {% for insight in result.insights %}
+                                    <li dir="auto">{{ insight }}</li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                        {% endif %}
+                    {% else %}
+                        <p>{% trans 'Enter a command to get started.' %}</p>
+                    {% endif %}
+                </div>
+
+                
+                <div class="example-commands">
+                    <h3>{% trans 'Example Commands' %}</h3>
+                    <ul>
+                        {% for cmd in example_commands %}
+                        <li><code>{{ cmd }}</code></li>
+                        {% endfor %}
+                    </ul>
+                </div>
+
+                <div class="all-commands">
+                    <p class="all-commands-toggle" data-show="{% trans 'Show All Commands' %}" data-hide="{% trans 'Hide All Commands' %}" onclick="toggleCommands()">{% trans 'Show All Commands' %} &#9662;</p>
+                    <ul class="all-commands-list" id="all-commands-list">
+                        <!-- This list can be populated from the view if we want it to be dynamic -->
+                        <li><b>{% trans 'list recent emails' %}</b> - {% trans 'Shows the 10 most recent emails.' %}</li>
+                        <li><b>{% trans 'list archived emails' %}</b> - {% trans 'Emails not in Inbox.' %}</li>
+                        <li><b>{% trans 'list all mail' %}</b> - {% trans 'Everything in All Mail (excludes Spam/Trash).' %}</li>
+                        <li><b>{% trans 'list emails from [sender/domain]' %}</b> - {% trans "e.g., 'list emails from [domain]'" %}</li>
+                        <li><b>{% trans 'list emails from [timeframe]' %}</b> - {% trans "e.g., 'last week', 'yesterday', '2 days ago'" %}</li>
+                        <li><b>{% trans 'list emails before [duration]' %}</b> - {% trans "e.g., '6 months', '2 weeks'" %}</li>
+                        <li><b>{% trans 'list emails from [duration] ago' %}</b> - {% trans "e.g., '4 months ago'" %}</li>
+                        <li><b>{% trans 'list emails older than [duration]' %}</b> - {% trans "e.g., '6 months', '1 year'" %}</li>
+                        <li><b>{% trans 'list emails before 6 months' %}</b></li>
+                        <li><b>{% trans 'list emails before 2 weeks' %}</b></li>
+                        <li><b>{% trans 'list emails from 4 months ago' %}</b></li>
+                        <li><b>{% trans 'search emails with subject "[keyword]"' %}</b> - {% trans 'Finds emails with a specific subject.' %}</li>
+                        <li><b>{% trans 'show email stats' %}</b> - {% trans 'Displays a report of top senders and domains.' %}</li>
+                        <li><b>{% trans 'delete emails from [sender/domain]' %}</b> - {% trans 'Moves emails to Trash.' %}</li>
+                        <li><b>{% trans 'delete all promotions older than [duration]' %}</b> - {% trans 'Cleans up the Promotions tab.' %}</li>
+                        <li><b>{% trans 'archive emails from [sender] older than 6 months' %}</b> - {% trans 'Archives messages from a sender with an age filter.' %}</li>
+                        <li><b>{% trans 'archive all emails older than [duration]' %}</b> - {% trans 'Bulk archives old emails.' %}</li>
+                        <li><b>{% trans 'list verification codes' %}</b> - {% trans 'Finds login and 2FA codes.' %}</li>
+                        <li><b>{% trans 'list verification codes older than [duration]' %}</b> - {% trans 'Lists codes by age window.' %}</li>
+                        <li><b>{% trans 'delete verification codes older than [duration]' %}</b> - {% trans 'Cleans codes past a safe window.' %}</li>
+                        <li><b>{% trans 'archive verification codes older than [duration]' %}</b> - {% trans 'Archives codes after a period.' %}</li>
+                        <li><b>{% trans 'list shipping emails' %}</b> - {% trans 'Carrier updates and delivery notices.' %}</li>
+                        <li><b>{% trans 'list shipping emails older than [duration]' %}</b> - {% trans 'Carrier updates and delivery notices.' %}</li>
+                        <li><b>{% trans 'archive shipping emails older than [duration]' %}</b> - {% trans 'Archives old shipping updates.' %}</li>
+                        <li><b>{% trans 'delete shipping emails older than [duration]' %}</b> - {% trans 'Deletes stale shipping updates.' %}</li>
+                        <li><b>{% trans 'list account security emails' %}</b> - {% trans 'Security alerts and sign-in notices.' %}</li>
+                        <li><b>{% trans 'list account security emails older than [duration]' %}</b> - {% trans 'Older security notices.' %}</li>
+                        <li><b>{% trans 'archive account security emails older than [duration]' %}</b> - {% trans 'Archives older security alerts.' %}</li>
+                        <li><b>{% trans 'delete account security emails older than [duration]' %}</b> - {% trans 'Deletes stale security alerts.' %}</li>
+                        <li><b>{% trans 'label emails from [sender] as "[label]"' %}</b> - {% trans 'Organizes emails with a label.' %}</li>
+                        <li><b>{% trans 'list labels' %}</b> - {% trans 'Shows all your custom Gmail labels.' %}</li>
+                        <li><b>{% trans 'show label "[label]"' %}</b> - {% trans 'Displays all emails with a specific label.' %}</li>
+                        <li><b>{% trans 'restore emails from [sender]' %}</b> - {% trans 'Moves archived emails back to the inbox.' %}</li>
+                        <li><b>{% trans 'send email' %}</b> - {% trans 'Composes and sends an email.' %}</li>
+                    </ul>
+                </div>
+
+                <div class="stat-card" style="margin-top:20px;">
+                    <h3>{% trans 'Undo Recent Actions' %}</h3>
+                    {% if recent_actions %}
+                        <ul class="stat-list">
+                            {% for act in recent_actions %}
+                            <li>
+                                <form method="post" class="undo-form" style="display:inline-block; margin-right:10px;">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="undo_action_id" value="{{ act.id }}">
+                                    <button type="submit" class="cancel-btn undo-btn">{% trans 'Undo' %}</button>
+                                </form>
+                                <span>{{ act.type }} ({{ act.count }})</span>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    {% else %}
+                        <p>{% trans 'No recent undoable actions.' %}</p>
+                    {% endif %}
+                </div>
+            {% endif %}
+            <details class="stat-card" style="margin-top:16px;">
+                <summary style="cursor:pointer;color:#555; font-weight:600;">{% trans 'About this app' %}</summary>
+                <div style="margin-top:8px; color:#666;">
+                    <p style="margin:0 0 6px 0; color:#666;">{% trans 'Manage your Gmail with natural-language commands: list, delete, archive, label, restore, and view stats.' %}</p>
+                    <p style="margin:0; color:#666;">{% trans 'Works in English and Hebrew. No data is stored on this server; actions run via your Google account.' %}</p>
+                </div>
+            </details>
+        </main>
+    </div>
+
+    <script>
+    console.log('=== SCRIPT SECTION LOADING ===');
+    
+    function toggleCommands() {
+        var list = document.getElementById("all-commands-list");
+        var toggle = document.querySelector(".all-commands-toggle");
+        if (list.style.display === "block") {
+            list.style.display = "none";
+            var showTxt = toggle ? toggle.getAttribute('data-show') || 'Show All Commands' : 'Show All Commands';
+            toggle.innerHTML = showTxt + " &#9662;";
+        } else {
+            list.style.display = "block";
+            var hideTxt = toggle ? toggle.getAttribute('data-hide') || 'Hide All Commands' : 'Hide All Commands';
+            toggle.innerHTML = hideTxt + " &#9652;";
+        }
+    }
+
+    function showCustomConfirmDialog() {
+        var emailCount = 0;
+        
+        // Find the paragraph containing "Total Inbox Emails:" and extract the count
+        var paragraphs = document.querySelectorAll('p');
+        for (var i = 0; i < paragraphs.length; i++) {
+            var p = paragraphs[i];
+            if (p.textContent.includes('Total Inbox Emails:') || p.textContent.includes('סך ההודעות בתיבת הדואר הנכנס:')) {
+                var text = p.textContent;
+                var match = text.match(/Total Inbox Emails:\s*(\d+)|סך ההודעות בתיבת הדואר הנכנס:\s*(\d+)/);
+                if (match) {
+                    emailCount = parseInt(match[1] || match[2]) || 0;
+                }
+                break;
+            }
+        }
+        
+        // Check if we're in Hebrew mode
+        var isHebrew = document.documentElement.lang === 'he';
+        
+        // Create custom popup
+        var popup = document.createElement('div');
+        popup.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 3000;
+        `;
+        
+        var content = document.createElement('div');
+        content.style.cssText = `
+            background: var(--secondary-color);
+            color: var(--text-color);
+            padding: 30px;
+            border-radius: 12px;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--primary-color);
+        `;
+        
+        var title = document.createElement('h3');
+        title.style.cssText = 'margin: 0 0 20px 0; color: var(--primary-color); font-size: 1.3em;';
+        title.textContent = isHebrew ? 'אישור ניתוח מלא' : 'Confirm Full Analysis';
+        
+        var message = document.createElement('div');
+        message.style.cssText = 'margin-bottom: 25px; line-height: 1.6;';
+        
+        var intro = document.createElement('p');
+        intro.textContent = isHebrew ? 
+            'זה יבצע ניתוח מקיף של הודעות הדואר הנכנס שלך.' :
+            'This will perform a comprehensive analysis of your inbox emails.';
+        
+        message.appendChild(intro);
+        
+        if (emailCount > 1000) {
+            var warning = document.createElement('p');
+            warning.style.cssText = 'color: #f39c12; font-weight: bold; margin: 15px 0;';
+            warning.innerHTML = isHebrew ? 
+                '⚠️  <strong>חשוב:</strong> יש לך ' + emailCount + ' הודעות בתיבת הדואר הנכנס שלך.' :
+                '⚠️  <strong>IMPORTANT:</strong> You have ' + emailCount + ' emails in your inbox.';
+            
+            var limit = document.createElement('p');
+            limit.textContent = isHebrew ? 
+                'כדי להבטיח זמן עיבוד סביר, הניתוח יוגבל ל-1000 ההודעות האחרונות.' :
+                'To ensure reasonable processing time, the analysis will be limited to the most recent 1000 emails.';
+            
+            var time = document.createElement('p');
+            time.style.cssText = 'margin: 15px 0; font-weight: bold;';
+            time.textContent = isHebrew ? 'זמן עיבוד צפוי: 2-3 דקות' : 'Expected processing time: 2-3 minutes';
+            
+            var insight = document.createElement('p');
+            insight.textContent = isHebrew ? 
+                'זה נותן לך תובנות מקיפות תוך שמירה על זמני המתנה סבירים.' :
+                'This gives you comprehensive insights while keeping wait times manageable.';
+            
+            message.appendChild(warning);
+            message.appendChild(limit);
+            message.appendChild(time);
+            message.appendChild(insight);
+        } else {
+            var time = document.createElement('p');
+            time.style.cssText = 'margin: 15px 0; font-weight: bold;';
+            time.textContent = isHebrew ? 'זמן עיבוד צפוי: 1-2 דקות' : 'Expected processing time: 1-2 minutes';
+            
+            var all = document.createElement('p');
+            all.textContent = isHebrew ? 
+                'זה ינתח את כל ' + emailCount + ' ההודעות בתיבת הדואר הנכנס שלך.' :
+                'This will analyze all ' + emailCount + ' emails in your inbox.';
+            
+            message.appendChild(time);
+            message.appendChild(all);
+        }
+        
+        var question = document.createElement('p');
+        question.style.cssText = 'margin: 20px 0; font-weight: bold; font-size: 1.1em;';
+        question.textContent = isHebrew ? 
+            'האם אתה רוצה להמשיך עם הניתוח המלא?' :
+            'Do you want to proceed with the full analysis?';
+        
+        message.appendChild(question);
+        
+        var buttons = document.createElement('div');
+        buttons.style.cssText = 'display: flex; gap: 15px; justify-content: flex-end;';
+        
+        var cancelBtn = document.createElement('button');
+        cancelBtn.style.cssText = `
+            padding: 10px 20px;
+            border: 1px solid var(--primary-color);
+            background: transparent;
+            color: var(--primary-color);
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1em;
+        `;
+        cancelBtn.textContent = isHebrew ? 'ביטול' : 'Cancel';
+        cancelBtn.onclick = function() {
+            document.body.removeChild(popup);
+        };
+        
+        var confirmBtn = document.createElement('button');
+        confirmBtn.style.cssText = `
+            padding: 10px 20px;
+            border: none;
+            background: var(--primary-color);
+            color: white;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: bold;
+        `;
+        confirmBtn.textContent = isHebrew ? 'המשך' : 'Continue';
+        confirmBtn.onclick = function() {
+            document.body.removeChild(popup);
+            
+            // Show loading screen
+            const overlay = document.getElementById('loading-overlay');
+            if (overlay) {
+                overlay.style.display = 'flex';
+            }
+            
+            // Create and submit the form
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '';
+            
+            const csrfToken = document.querySelector('input[name="csrfmiddlewaretoken"]');
+            if (csrfToken) {
+                const csrfInput = document.createElement('input');
+                csrfInput.type = 'hidden';
+                csrfInput.name = 'csrfmiddlewaretoken';
+                csrfInput.value = csrfToken.value;
+                form.appendChild(csrfInput);
+            }
+            
+            const statsFullInput = document.createElement('input');
+            statsFullInput.type = 'hidden';
+            statsFullInput.name = 'stats_full';
+            statsFullInput.value = '1';
+            form.appendChild(statsFullInput);
+            
+            document.body.appendChild(form);
+            form.submit();
+        };
+        
+        buttons.appendChild(cancelBtn);
+        buttons.appendChild(confirmBtn);
+        
+        content.appendChild(title);
+        content.appendChild(message);
+        content.appendChild(buttons);
+        popup.appendChild(content);
+        
+        document.body.appendChild(popup);
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        // Theme init
+        try {
+            const savedTheme = localStorage.getItem('theme');
+            if (savedTheme === 'dark') {
+                document.body.setAttribute('data-theme', 'dark');
+            }
+            const toggleBtn = document.getElementById('theme-toggle');
+            const label = document.getElementById('theme-label');
+            function applyThemeUI() {
+                const isDark = document.body.getAttribute('data-theme') === 'dark';
+                if (label) label.textContent = isDark ? (document.documentElement.dir === 'rtl' ? 'כהה' : 'Dark') : (document.documentElement.dir === 'rtl' ? 'בהיר' : 'Light');
+                
+                // Fix Hebrew switch positioning
+                const isHebrew = document.documentElement.lang === 'he';
+                if (isHebrew) {
+                    const switchThumb = document.querySelector('.switch-thumb');
+                    const switchTrack = document.querySelector('.switch-track');
+                    if (switchThumb && switchTrack) {
+                        if (isDark) {
+                            // Dark mode: thumb on right (showing moon)
+                            switchThumb.style.left = 'calc(100% - 26px)';
+                            switchTrack.style.setProperty('--thumb-left', 'calc(100% - 26px)');
+                        } else {
+                            // Light mode: thumb on left (showing sun)
+                            switchThumb.style.left = '4px';
+                            switchTrack.style.setProperty('--thumb-left', '4px');
+                        }
+                    }
+                }
+            }
+            applyThemeUI();
+            if (toggleBtn) {
+                toggleBtn.addEventListener('click', function(){
+                    const isDark = document.body.getAttribute('data-theme') === 'dark';
+                    if (isDark) {
+                        document.body.removeAttribute('data-theme');
+                        localStorage.setItem('theme', 'light');
+                    } else {
+                        document.body.setAttribute('data-theme', 'dark');
+                        localStorage.setItem('theme', 'dark');
+                    }
+                    applyThemeUI();
+                });
+            }
+        } catch(e) {}
+        
+        // Listen for language changes to fix Hebrew switch
+        const languageSelect = document.getElementById('language-select');
+        if (languageSelect) {
+            languageSelect.addEventListener('change', function() {
+                // Wait a bit for the page to reload with new language
+                setTimeout(() => {
+                    if (document.documentElement.lang === 'he') {
+                        applyThemeUI();
+                    }
+                }, 100);
+            });
+        }
+        
+        const commandInput = document.getElementById('command-input');
+        const form = document.getElementById('command-form');
+        const processBtn = document.getElementById('command-submit');
+        const overlay = document.getElementById('loading-overlay');
+        const snackbar = document.getElementById('snackbar');
+        const i18n = document.body ? document.body.dataset : {};
+        let suggestionsContainer = null;
+        let isSubmitting = false;
+        // Set up event delegation for Full Analysis button (works even if button doesn't exist yet)
+        document.addEventListener('click', function(e) {
+            if (e.target && e.target.id === 'full-stats-btn') {
+                console.log('Full Analysis button clicked via event delegation!');
+                e.preventDefault();
+                showCustomConfirmDialog();
+            }
+        });
+        console.log('Event delegation set up for Full Analysis button');
+        
+        // Apply dynamic bar styles after DOM is ready
+        try {
+            document.querySelectorAll('.bar-fill').forEach(function(el){
+                const pct = el.getAttribute('data-width');
+                if (pct !== null) {
+                    el.style.width = pct + '%';
+                }
+                const color = el.getAttribute('data-color');
+                if (color) {
+                    el.style.background = color;
+                }
+            });
+            document.querySelectorAll('.pill-swatch').forEach(function(el){
+                const color = el.getAttribute('data-color');
+                if (color) el.style.background = color;
+            });
+        } catch (e) {}
+
+
+        function showSnackbar(message, type, options) {
+            if (!snackbar) return;
+            snackbar.innerHTML = '';
+            const msgSpan = document.createElement('span');
+            msgSpan.textContent = message || '';
+            snackbar.appendChild(msgSpan);
+            if (options && options.details) {
+                const anchor = document.createElement('a');
+                anchor.href = '#';
+                anchor.textContent = i18n.i18nViewDetails || 'View details';
+                anchor.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const resultsBox = document.querySelector('.results');
+                    if (resultsBox) {
+                        resultsBox.scrollIntoView({behavior: 'smooth', block: 'start'});
+                        resultsBox.classList.remove('highlight');
+                        // trigger reflow to restart animation if applied recently
+                        void resultsBox.offsetWidth;
+                        resultsBox.classList.add('highlight');
+                    }
+                });
+                snackbar.appendChild(anchor);
+            }
+            snackbar.className = 'snackbar show';
+            if (type === 'success') snackbar.classList.add('success');
+            else if (type === 'error') snackbar.classList.add('error');
+            else snackbar.classList.add('info');
+            setTimeout(() => { snackbar.className = 'snackbar'; }, 5000);
+        }
+
+        // Show snackbar if server rendered a message
+        try {
+            const initialStatus = "{{ result.status|default_if_none:'' }}".trim();
+            const initialMsg = "{{ result.message|default_if_none:''|escapejs }}".trim();
+            if (initialStatus && initialMsg) {
+                showSnackbar(initialMsg, initialStatus, {details: true});
+            }
+        } catch (e) {}
+
+        const commands = (() => {
+            console.log('Raw autocomplete_commands_json:', '{{ autocomplete_commands_json|escapejs }}');
+            try {
+                const parsed = JSON.parse('{{ autocomplete_commands_json|escapejs }}');
+                console.log('Parsed commands:', parsed);
+                if (Array.isArray(parsed) && parsed.length) return parsed;
+            } catch(e) {
+                console.error('Autocomplete JSON parse failed', e);
+            }
+            console.log('Using fallback commands');
+            return [
+                'list recent emails',
+                'list emails from [domain.com]',
+                'list emails from last week',
+                'list emails from last month',
+                'list emails from yesterday',
+                'list emails from 2 days ago',
+                'list emails older than 6 months',
+                'list emails older than 1 year',
+                'search emails with subject "[keyword]"',
+                'show email stats',
+                'delete emails from [domain.com]',
+                'delete all promotions',
+                'delete emails from [sender] older than 30 days',
+                'delete all emails older than 2 years',
+                'archive emails from [sender]',
+                'archive all emails older than 1 year',
+                'label emails from [sender] as "[label]"',
+                'list labels',
+                'show label "[label]"',
+                'restore emails from [sender]',
+                'send email'
+            ];
+        })();
+
+        // Fuzzy helpers
+        function levenshtein(a, b) {
+            a = a || ''; b = b || '';
+            const m = a.length, n = b.length;
+            if (m === 0) return n; if (n === 0) return m;
+            const dp = new Array(n + 1);
+            for (let j = 0; j <= n; j++) dp[j] = j;
+            for (let i = 1; i <= m; i++) {
+                let prev = dp[0]; dp[0] = i;
+                for (let j = 1; j <= n; j++) {
+                    const temp = dp[j];
+                    if (a.charCodeAt(i - 1) === b.charCodeAt(j - 1)) {
+                        dp[j] = prev;
+                    } else {
+                        dp[j] = Math.min(prev + 1, dp[j] + 1, dp[j - 1] + 1);
+                    }
+                    prev = temp;
+                }
+            }
+            return dp[n];
+        }
+        function similarity(q, s) {
+            if (!q || !s) return 0;
+            const a = q.toLowerCase().trim();
+            const b = s.toLowerCase().trim();
+            const maxLen = Math.max(a.length, b.length) || 1;
+            const dist = levenshtein(a, b);
+            return 1 - (dist / maxLen);
+        }
+        function getSuggestions(input, maxShow) {
+            const q = (input || '').toLowerCase().trim();
+            const scored = [];
+            const includeMatches = [];
+            for (let i = 0; i < commands.length; i++) {
+                const cmd = commands[i];
+                const lc = cmd.toLowerCase();
+                if (lc.includes(q) && q.length > 0) {
+                    // Base score for position and length
+                    const pos = lc.indexOf(q);
+                    let score = 1.0 - (pos / Math.max(1, lc.length)) - (lc.length - q.length) * 0.001;
+                    
+                    // Bonus for common/relevant commands
+                    if (cmd.includes('recent') || cmd.includes('send') || cmd.includes('delete') || 
+                        cmd.includes('archive') || cmd.includes('stats') || cmd.includes('list')) {
+                        score += 0.2;
+                    }
+                    
+                    // Extra bonus for very common commands
+                    if (cmd === 'list recent emails' || cmd === 'send email' || 
+                        cmd === 'show email stats' || cmd === 'delete all promotions') {
+                        score += 0.3;
+                    }
+                    
+                    // Bonus for commands that start with the input
+                    if (lc.startsWith(q)) {
+                        score += 0.1;
+                    }
+                    
+                    includeMatches.push({ cmd, score, type: 'include', pos });
+                }
+            }
+            includeMatches.sort((a, b) => b.score - a.score);
+            for (let k = 0; k < includeMatches.length; k++) scored.push(includeMatches[k]);
+            if (scored.length < maxShow) {
+                // Fuzzy fill
+                for (let i = 0; i < commands.length; i++) {
+                    const cmd = commands[i];
+                    const lc = cmd.toLowerCase();
+                    if (lc.includes(q)) continue; // already included
+                    const sim = similarity(q, lc);
+                    if (sim >= 0.45 || q.length >= 3) {
+                        scored.push({ cmd, score: sim, type: 'fuzzy' });
+                    }
+                }
+                // sort fuzzy tail by score
+                scored.sort((a, b) => b.score - a.score);
+            }
+            const unique = [];
+            const seen = new Set();
+            for (let i = 0; i < scored.length && unique.length < maxShow; i++) {
+                const c = scored[i].cmd;
+                if (!seen.has(c)) { seen.add(c); unique.push(scored[i]); }
+            }
+            return unique;
+        }
+
+        // Prevent duplicate submissions and show overlay
+        if (form) {
+            form.addEventListener('submit', function(e) {
+                if (isSubmitting) {
+                    e.preventDefault();
+                    return;
+                }
+                isSubmitting = true;
+                if (overlay) overlay.style.display = 'flex';
+                if (processBtn) processBtn.disabled = true;
+                if (commandInput) commandInput.readOnly = true; // keep value posted
+            });
+        }
+
+        if (commandInput) {
+            commandInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' && isSubmitting) {
+                    e.preventDefault();
+                }
+            });
+        }
+
+        // Confirmation form: show overlay and prevent duplicate submits
+        const confirmForm = document.getElementById('confirm-form');
+        if (confirmForm) {
+            confirmForm.addEventListener('submit', function(e) {
+                if (isSubmitting) {
+                    e.preventDefault();
+                    return;
+                }
+                isSubmitting = true;
+                if (overlay) overlay.style.display = 'flex';
+                const confirmBtn = document.getElementById('confirm-btn');
+                if (confirmBtn) confirmBtn.disabled = true;
+            });
+        }
+
+        // Full stats form: show overlay and prevent duplicate submits
+        const fullStatsForm = document.getElementById('full-stats-form');
+        if (fullStatsForm) {
+            fullStatsForm.addEventListener('submit', function(e) {
+                if (isSubmitting) {
+                    e.preventDefault();
+                    return;
+                }
+                isSubmitting = true;
+                if (overlay) overlay.style.display = 'flex';
+                const fullBtn = document.getElementById('full-stats-btn');
+                if (fullBtn) {
+                    fullBtn.disabled = true;
+                    fullBtn.textContent = i18n.i18nAnalyzing || 'Analyzing...';
+                }
+            });
+        }
+
+        // Undo forms: show overlay and prevent duplicate submits
+        const undoForms = document.querySelectorAll('.undo-form');
+        if (undoForms && undoForms.length) {
+            undoForms.forEach(function(uf) {
+                uf.addEventListener('submit', function(e) {
+                    if (isSubmitting) {
+                        e.preventDefault();
+                        return;
+                    }
+                    isSubmitting = true;
+                    if (overlay) overlay.style.display = 'flex';
+                    const btn = uf.querySelector('.undo-btn');
+                    if (btn) {
+                        btn.disabled = true;
+                        btn.textContent = i18n.i18nUndoing || 'Undoing...';
+                    }
+                });
+            });
+        }
+
+        // Load more handler (progressive enhancement)
+        const loadMoreForm = document.getElementById('load-more-form');
+        if (loadMoreForm) {
+            loadMoreForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                const btn = document.getElementById('load-more-btn');
+                const tokenEl = document.getElementById('load_more_token');
+                const ctxEl = document.getElementById('list_context');
+                const emailList = document.getElementById('email-list');
+                const inline = document.getElementById('load-more-inline');
+                if (!btn || !tokenEl || !ctxEl || !emailList) return;
+                if (btn.disabled) return;
+                btn.disabled = true;
+                const oldText = btn.textContent;
+                btn.textContent = i18n.i18nLoading || 'Loading...';
+                if (inline) inline.style.display = 'inline';
+                const formData = new FormData(loadMoreForm);
+                fetch('', { method: 'POST', body: formData })
+                    .then(r => r.json())
+                    .then(data => {
+                        const items = data.data || [];
+                        items.forEach(item => {
+                            const li = document.createElement('li');
+                            li.className = 'email-item';
+                            const sender = document.createElement('div');
+                            sender.className = 'email-sender';
+                            sender.setAttribute('dir','auto');
+                            sender.textContent = item.sender || '';
+                            const subject = document.createElement('div');
+                            subject.className = 'email-subject';
+                            subject.setAttribute('dir','auto');
+                            subject.textContent = item.subject || '';
+                            li.appendChild(sender);
+                            li.appendChild(subject);
+                            emailList.appendChild(li);
+                        });
+                        if (items.length) {
+                            const tmpl = i18n.i18nLoadedMoreWithCount || 'Loaded {count} more';
+                            const msg = tmpl.replace('{count}', items.length);
+                            showSnackbar(msg, 'success');
+                        }
+                        if (data.next_page_token) {
+                            tokenEl.value = data.next_page_token;
+                            btn.disabled = false;
+                            btn.textContent = i18n.i18nLoadMore || 'Load more';
+                        } else {
+                            btn.disabled = true;
+                            btn.textContent = i18n.i18nNoMoreResults || 'No more results';
+                        }
+                    })
+                    .catch(() => {
+                        btn.disabled = false;
+                        btn.textContent = oldText;
+                        showSnackbar(i18n.i18nFailedLoadMore || 'Failed to load more', 'error');
+                    })
+                    .finally(() => { if (inline) inline.style.display = 'none'; });
+            });
+        }
+
+        // Overlay suggestions just under the input (with fuzzy fallback) + keyboard navigation
+        let debounceTimer = null;
+        let activeIndex = -1;
+        let suggestionItems = [];
+        let activeByKeyboard = false; // only accept Enter when set via arrows
+
+        function positionSuggestions() {
+            if (!suggestionsContainer || !commandInput) return;
+            try {
+                const left = commandInput.offsetLeft;
+                const top = commandInput.offsetTop + commandInput.offsetHeight + 4;
+                suggestionsContainer.style.left = left + 'px';
+                suggestionsContainer.style.top = top + 'px';
+                suggestionsContainer.style.width = commandInput.offsetWidth + 'px';
+            } catch(e) {}
+        }
+
+        function renderSuggestions(input) {
+            closeAllLists();
+            activeIndex = -1;
+            suggestionItems = [];
+            activeByKeyboard = false;
+            if (!input) return;
+            suggestionsContainer = document.createElement('div');
+            suggestionsContainer.className = 'autocomplete-suggestions';
+            suggestionsContainer.setAttribute('role','listbox');
+            const wrapper = commandInput.parentNode;
+            wrapper.style.position = 'relative';
+            wrapper.appendChild(suggestionsContainer);
+            positionSuggestions();
+
+            const maxShow = 12;
+            const items = getSuggestions(input.toLowerCase(), maxShow);
+            items.forEach((item, idx) => {
+                const { cmd, type } = item;
+                const div = document.createElement('div');
+                div.setAttribute('role','option');
+                div.style.padding = '10px';
+                div.style.cursor = 'pointer';
+                const lc = cmd.toLowerCase();
+                const pos = lc.indexOf(input.toLowerCase());
+                if (type === 'include' && pos >= 0) {
+                    const bold = cmd.substring(0, pos + input.length);
+                    const rest = cmd.substring(pos + input.length);
+                    div.innerHTML = `<strong>${bold}</strong>${rest}`;
+                } else {
+                    div.textContent = cmd;
+                }
+                div.addEventListener('mouseenter', () => {
+                    setActive(idx);
+                    activeByKeyboard = false;
+                });
+                div.addEventListener('click', () => {
+                    commandInput.value = cmd;
+                    closeAllLists();
+                    commandInput.focus();
+                });
+                suggestionsContainer.appendChild(div);
+                suggestionItems.push(div);
+            });
+        }
+
+        function setActive(index) {
+            if (!suggestionItems.length) return;
+            removeActive();
+            if (index < 0) {
+                activeIndex = suggestionItems.length - 1;
+            } else if (index >= suggestionItems.length) {
+                activeIndex = 0;
+            } else {
+                activeIndex = index;
+            }
+            const el = suggestionItems[activeIndex];
+            if (el) {
+                el.classList.add('active');
+                el.setAttribute('aria-selected','true');
+                el.scrollIntoView({block:'nearest'});
+            }
+        }
+
+        function removeActive() {
+            suggestionItems.forEach(el => {
+                el.classList.remove('active');
+                el.removeAttribute('aria-selected');
+            });
+        }
+
+
+
+        commandInput.addEventListener('input', function() {
+            const val = this.value || '';
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => {
+                renderSuggestions(val);
+            }, 80);
+        });
+
+        commandInput.addEventListener('keydown', function(e) {
+            if (!suggestionsContainer) {
+                if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                    renderSuggestions(this.value || '');
+                } else {
+                    return;
+                }
+            }
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                setActive(activeIndex + 1);
+                activeByKeyboard = true;
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                setActive(activeIndex - 1);
+                activeByKeyboard = true;
+            } else if (e.key === 'Enter') {
+                if (suggestionItems.length && activeIndex >= 0 && activeByKeyboard) {
+                    e.preventDefault();
+                    const el = suggestionItems[activeIndex];
+                    const text = el ? el.textContent : '';
+                    if (text) commandInput.value = text;
+                    closeAllLists();
+                }
+            } else if (e.key === 'Tab') {
+                if (suggestionItems.length) {
+                    const first = suggestionItems[0];
+                    const text = first ? first.textContent : '';
+                    if (text) commandInput.value = text;
+                    closeAllLists();
+                }
+            } else if (e.key === 'Escape') {
+                closeAllLists();
+            }
+        });
+
+        window.addEventListener('resize', positionSuggestions);
+
+        // Insert command into input
+        window.insertCommand = function(cmd) {
+            const ci = document.getElementById('command-input');
+            if (ci) {
+                ci.value = cmd || '';
+                ci.focus();
+            }
+        }
+
+        // Remove any existing suggestion overlay
+        function closeAllLists() {
+            if (suggestionsContainer && suggestionsContainer.parentNode) {
+                suggestionsContainer.parentNode.removeChild(suggestionsContainer);
+                suggestionsContainer = null;
+            }
+        }
+
+        // Close overlay suggestions when clicking elsewhere
+        document.addEventListener('click', function (e) {
+            if (!e.target || (e.target !== commandInput && !e.target.closest('.autocomplete-suggestions'))) {
+                closeAllLists();
+            }
+        });
+
+        // Quick Commands inline autocomplete
+        console.log('=== QUICK COMMANDS AUTCOMPLETE INITIALIZING ===');
+        const favInput = document.getElementById('fav-input');
+        let favInlineSuggestion = null;
+        
+        console.log('favInput found:', favInput);
+        console.log('commands array length:', commands.length);
+        console.log('Sample commands:', commands.slice(0, 3));
+
+        function showFavInlineSuggestion(input) {
+            if (!input || input.length < 2) {
+                hideFavInlineSuggestion();
+                return;
+            }
+            
+            const bestMatch = getBestFavInlineSuggestion(input);
+            if (bestMatch && bestMatch.cmd !== input) {
+                showFavInlineSuggestionText(bestMatch.cmd, input);
+            } else {
+                hideFavInlineSuggestion();
+            }
+        }
+
+        function getBestFavInlineSuggestion(input) {
+            const q = input.toLowerCase().trim();
+            let bestMatch = null;
+            let bestScore = 0;
+            
+            // First try to find commands that start with the input
+            for (let i = 0; i < commands.length; i++) {
+                const cmd = commands[i];
+                const lc = cmd.toLowerCase();
+                if (lc.startsWith(q)) {
+                    // Prioritize shorter commands and common ones
+                    let score = 1.0;
+                    
+                    // Bonus for shorter commands (easier to type)
+                    score += (20 - cmd.length) * 0.01;
+                    
+                    // Bonus for common commands (list, send, delete, etc.)
+                    if (cmd.includes('recent') || cmd.includes('send') || cmd.includes('delete') || 
+                        cmd.includes('archive') || cmd.includes('stats')) {
+                        score += 0.1;
+                    }
+                    
+                    // Bonus for exact word matches
+                    if (q === 'list' && cmd.includes('recent')) score += 0.2;
+                    if (q === 'send' && cmd.includes('email')) score += 0.2;
+                    if (q === 'delete' && cmd.includes('promotions')) score += 0.2;
+                    
+                    if (score > bestScore) {
+                        bestScore = score;
+                        bestMatch = { cmd, score };
+                    }
+                }
+            }
+            
+            // If no exact start match, try partial matches
+            if (!bestMatch) {
+                for (let i = 0; i < commands.length; i++) {
+                    const cmd = commands[i];
+                    const lc = cmd.toLowerCase();
+                    if (lc.includes(q)) {
+                        // Lower score for partial matches, but still prioritize shorter commands
+                        let score = 0.7 + (20 - cmd.length) * 0.005;
+                        if (score > bestScore) {
+                            bestScore = score;
+                            bestMatch = { cmd, score };
+                        }
+                    }
+                }
+            }
+            
+            return bestMatch;
+        }
+
+        function showFavInlineSuggestionText(fullCommand, partialInput) {
+            console.log('showFavInlineSuggestionText called with:', fullCommand, partialInput);
+            hideFavInlineSuggestion();
+            
+            // Create a simple suggestion span
+            const suggestionSpan = document.createElement('span');
+            suggestionSpan.id = 'fav-inline-suggestion';
+            suggestionSpan.className = 'fav-inline-suggestion';
+            suggestionSpan.textContent = fullCommand.substring(partialInput.length);
+            console.log('Suggestion text:', suggestionSpan.textContent);
+            
+            // Insert the suggestion right after the input
+            favInput.parentNode.insertBefore(suggestionSpan, favInput.nextSibling);
+            
+            // Position it relative to the input's parent container
+            const inputStyle = window.getComputedStyle(favInput);
+            const paddingLeft = parseInt(inputStyle.paddingLeft);
+            const paddingTop = parseInt(inputStyle.paddingTop);
+            const textWidth = getFavTextWidth(partialInput, favInput);
+            
+            // Calculate available width to prevent overflow
+            const inputWidth = favInput.offsetWidth;
+            const paddingRight = parseInt(inputStyle.paddingRight);
+            const availableWidth = inputWidth - paddingLeft - paddingRight - textWidth - 10; // Reduced buffer to 10px
+            
+            suggestionSpan.style.position = 'absolute';
+            suggestionSpan.style.left = (paddingLeft + textWidth + 2) + 'px';
+            suggestionSpan.style.top = paddingTop + 'px';
+            suggestionSpan.style.zIndex = '1000';
+            
+            // Always show the suggestion, but adjust positioning if needed
+            const suggestionText = suggestionSpan.textContent;
+            const suggestionWidth = getFavTextWidth(suggestionText, favInput);
+            
+            // If suggestion is too wide, truncate it but always show something
+            if (suggestionWidth > availableWidth) {
+                let truncatedText = suggestionText;
+                while (truncatedText.length > 0 && getFavTextWidth(truncatedText + '...', favInput) > availableWidth) {
+                    truncatedText = truncatedText.slice(0, -1);
+                }
+                if (truncatedText.length > 0) {
+                    suggestionSpan.textContent = truncatedText + '...';
+                } else {
+                    // Even if we can only show a few characters, show them
+                    suggestionSpan.textContent = suggestionText.substring(0, 3) + '...';
+                }
+            }
+            
+            // Position suggestion to align with your text, but ensure it fits
+            let finalLeft = paddingLeft + textWidth + 2;
+            let remainingSpace = inputWidth - paddingRight - finalLeft - 10;
+            
+            // Always ensure suggestion fits within available space
+            if (suggestionWidth > remainingSpace) {
+                // Calculate exactly how many characters can fit
+                let charWidth = suggestionWidth / suggestionText.length;
+                let maxChars = Math.floor(remainingSpace / charWidth);
+                
+                if (maxChars > 0) {
+                    // Truncate to fit exactly in remaining space
+                    suggestionSpan.textContent = suggestionText.substring(0, maxChars) + '...';
+                } else {
+                    // Even one character won't fit - hide suggestion
+                    suggestionSpan.remove();
+                    return;
+                }
+            }
+            
+            suggestionSpan.style.left = finalLeft + 'px';
+            suggestionSpan.style.maxWidth = remainingSpace + 'px';
+            
+            console.log('Suggestion positioned at:', suggestionSpan.style.left, suggestionSpan.style.top);
+            console.log('Suggestion element:', suggestionSpan);
+        }
+
+        function hideFavInlineSuggestion() {
+            const existing = document.getElementById('fav-inline-suggestion');
+            if (existing) {
+                existing.remove();
+            }
+        }
+
+        function getFavTextWidth(text, element) {
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+            context.font = window.getComputedStyle(element).font;
+            return context.measureText(text).width;
+        }
+        
+        // Test function - call this in console to test
+        function testFavAutocomplete() {
+            console.log('Testing fav autocomplete...');
+            if (favInput) {
+                favInput.value = 'list';
+                favInput.dispatchEvent(new Event('input'));
+            } else {
+                console.log('favInput not found!');
+            }
+        }
+
+        // Add event listeners for quick commands input
+        if (favInput) {
+            console.log('Setting up event listeners for favInput');
+            // Ensure the input wrapper has relative positioning
+            const inputWrapper = favInput.parentNode;
+            inputWrapper.style.position = 'relative';
+            
+            favInput.addEventListener('input', function() {
+                const val = this.value || '';
+                console.log('Input value:', val);
+                if (val.length > 0) {
+                    const bestMatch = getBestFavInlineSuggestion(val);
+                    console.log('Best match:', bestMatch);
+                    if (bestMatch && bestMatch.score > 0.5) {
+                        console.log('Showing suggestion for:', bestMatch.cmd);
+                        showFavInlineSuggestionText(bestMatch.cmd, val);
+                    } else {
+                        console.log('No good match, hiding suggestion');
+                        hideFavInlineSuggestion();
+                    }
+                } else {
+                    console.log('Empty input, hiding suggestion');
+                    hideFavInlineSuggestion();
+                }
+            });
+
+            favInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Tab') {
+                    // Accept inline suggestion if available
+                    const inlineSuggestion = document.getElementById('fav-inline-suggestion');
+                    if (inlineSuggestion) {
+                        const currentValue = favInput.value;
+                        // Get the full command from the original best match, not the truncated suggestion
+                        const bestMatch = getBestFavInlineSuggestion(currentValue);
+                        if (bestMatch) {
+                            favInput.value = bestMatch.cmd;
+                        } else {
+                            // Fallback to suggestion text if no match found
+                            const suggestionText = inlineSuggestion.textContent;
+                            favInput.value = currentValue + suggestionText;
+                        }
+                        hideFavInlineSuggestion();
+                        e.preventDefault();
+                    }
+                } else if (e.key === 'ArrowRight') {
+                    // Accept inline suggestion if available
+                    const inlineSuggestion = document.getElementById('fav-inline-suggestion');
+                    if (inlineSuggestion) {
+                        const currentValue = favInput.value;
+                        // Get the full command from the original best match, not the truncated suggestion
+                        const bestMatch = getBestFavInlineSuggestion(currentValue);
+                        if (bestMatch) {
+                            favInput.value = bestMatch.cmd;
+                        } else {
+                            // Fallback to suggestion text if no match found
+                            const suggestionText = inlineSuggestion.textContent;
+                            favInput.value = currentValue + suggestionText;
+                        }
+                        hideFavInlineSuggestion();
+                        e.preventDefault();
+                    }
+                } else if (e.key === 'Escape') {
+                    hideFavInlineSuggestion();
+                }
+            });
+
+            // Hide suggestion when clicking elsewhere
+            favInput.addEventListener('blur', function() {
+                setTimeout(hideFavInlineSuggestion, 100);
+            });
+        }
+
+        // Compose To: custom contact suggestions
+        const composeForm = document.getElementById('compose-form');
+        const toInput = composeForm ? composeForm.querySelector('input[name="compose_to"]') : null;
+        let contactsBox = null;
+        let contactsItems = [];
+        let contactsActive = -1;
+        let contactsDebounce = null;
+
+        function closeContacts() {
+            if (contactsBox && contactsBox.parentNode) {
+                contactsBox.parentNode.removeChild(contactsBox);
+                contactsBox = null;
+                contactsItems = [];
+                contactsActive = -1;
+            }
+        }
+        function positionContacts() {
+            if (!toInput || !contactsBox) return;
+            const r = toInput.getBoundingClientRect();
+            const parentRect = toInput.offsetParent ? toInput.offsetParent.getBoundingClientRect() : {left:0,top:0};
+            contactsBox.style.left = (toInput.offsetLeft) + 'px';
+            contactsBox.style.top = (toInput.offsetTop + toInput.offsetHeight) + 'px';
+            contactsBox.style.width = toInput.offsetWidth + 'px';
+        }
+        function renderContacts(list) {
+            closeContacts();
+            if (!toInput || !Array.isArray(list) || !list.length) return;
+            const wrapper = toInput.parentNode;
+            wrapper.style.position = 'relative';
+            contactsBox = document.createElement('div');
+            contactsBox.className = 'contact-suggestions';
+            contactsBox.setAttribute('role','listbox');
+            wrapper.appendChild(contactsBox);
+            positionContacts();
+            list.forEach((c, idx) => {
+                const div = document.createElement('div');
+                div.setAttribute('role','option');
+                const nm = (c.name || '').trim();
+                const em = (c.email || '').trim();
+                const left = document.createElement('span');
+                left.className = 'contact-text';
+                left.textContent = nm ? (nm + ' <' + em + '>') : em;
+                const remove = document.createElement('span');
+                remove.textContent = '×';
+                remove.className = 'contact-remove';
+                remove.title = 'Hide this contact';
+                remove.addEventListener('click', function(e){
+                    e.stopPropagation();
+                    hideContact(em).then(() => {
+                        // Refresh suggestions with current query
+                        const q = (toInput.value || '').trim();
+                        fetchContacts(q).then(renderContacts);
+                    });
+                });
+                div.addEventListener('mouseenter', () => { setActiveContact(idx); });
+                div.addEventListener('click', () => {
+                    toInput.value = em;
+                    closeContacts();
+                    toInput.focus();
+                });
+                div.appendChild(left);
+                div.appendChild(remove);
+                contactsBox.appendChild(div);
+                contactsItems.push(div);
+            });
+        }
+        function setActiveContact(idx) {
+            if (!contactsItems.length) return;
+            contactsItems.forEach(el => { el.classList.remove('active'); el.removeAttribute('aria-selected'); });
+            if (idx < 0) idx = contactsItems.length - 1;
+            if (idx >= contactsItems.length) idx = 0;
+            contactsActive = idx;
+            const el = contactsItems[contactsActive];
+            if (el) { el.classList.add('active'); el.setAttribute('aria-selected','true'); el.scrollIntoView({block:'nearest'}); }
+        }
+        // Prefetch contacts once for instant filtering
+        let cachedContacts = null;
+        function fetchContacts(q) {
+            const fd = new FormData();
+            fd.append('get_contacts', '1');
+            fd.append('q', q || '');
+            fd.append('limit', '50');
+            // CSRF token
+            const csrf = (composeForm && composeForm.querySelector('input[name="csrfmiddlewaretoken"]')) ? composeForm.querySelector('input[name="csrfmiddlewaretoken"]').value : '';
+            return fetch('', { method: 'POST', headers: {'X-CSRFToken': csrf}, body: fd })
+                .then(r => r.json())
+                .then(d => Array.isArray(d.contacts) ? d.contacts : [])
+                .catch(() => []);
+        }
+        function prefetchContacts() {
+            if (cachedContacts !== null) return Promise.resolve(cachedContacts);
+            return fetchContacts('')
+                .then(list => { cachedContacts = list; return list; })
+                .catch(() => { cachedContacts = []; return []; });
+        }
+        function hideContact(email) {
+            const fd = new FormData();
+            fd.append('hide_contact', '1');
+            fd.append('email', email || '');
+            const csrf = (composeForm && composeForm.querySelector('input[name="csrfmiddlewaretoken"]')) ? composeForm.querySelector('input[name="csrfmiddlewaretoken"]').value : '';
+            return fetch('', { method: 'POST', headers: {'X-CSRFToken': csrf}, body: fd })
+                .then(r => r.json())
+                .catch(() => ({}));
+        }
+        if (toInput) {
+            toInput.setAttribute('autocomplete', 'off');
+            // Prefetch so first keystroke is instant
+            prefetchContacts();
+            // Also prefetch on pageshow (when navigating back/forward without full reload)
+            window.addEventListener('pageshow', function(){
+                prefetchContacts();
+            });
+            // Refocus handler to ensure suggestions render after language switch without reload
+            document.addEventListener('visibilitychange', function(){
+                if (!document.hidden && document.activeElement === toInput && (!contactsBox)) {
+                    const q = (toInput.value || '').trim();
+                    prefetchContacts().then(() => {
+                        if (q) {
+                            const lc = q.toLowerCase();
+                            const filtered = (cachedContacts || []).filter(c => {
+                                const em = (c.email||'').toLowerCase();
+                                const nm = (c.name||'').toLowerCase();
+                                return em.includes(lc) || (nm && nm.includes(lc));
+                            }).slice(0, 20);
+                            renderContacts(filtered);
+                        } else {
+                            renderContacts((cachedContacts || []).slice(0, 20));
+                        }
+                    });
+                }
+            });
+            // Show suggestions on focus (before typing)
+            toInput.addEventListener('focus', function() {
+                const q = (this.value || '').trim();
+                prefetchContacts().then(() => {
+                    if (q) {
+                        const lc = q.toLowerCase();
+                        const filtered = (cachedContacts || []).filter(c => {
+                            const em = (c.email||'').toLowerCase();
+                            const nm = (c.name||'').toLowerCase();
+                            return em.includes(lc) || (nm && nm.includes(lc));
+                        }).slice(0, 20);
+                        renderContacts(filtered);
+                    } else {
+                        renderContacts((cachedContacts || []).slice(0, 20));
+                    }
+                });
+            });
+            toInput.addEventListener('input', function() {
+                const q = (this.value || '').trim();
+                clearTimeout(contactsDebounce);
+                contactsDebounce = setTimeout(() => {
+                    if (!q) { closeContacts(); return; }
+                    if (cachedContacts && cachedContacts.length) {
+                        const lc = q.toLowerCase();
+                        const filtered = cachedContacts.filter(c => {
+                            const em = (c.email||'').toLowerCase();
+                            const nm = (c.name||'').toLowerCase();
+                            return em.includes(lc) || (nm && nm.includes(lc));
+                        }).slice(0, 20);
+                        renderContacts(filtered);
+                    } else {
+                        fetchContacts(q).then(renderContacts);
+                    }
+                }, 120);
+            });
+            toInput.addEventListener('keydown', function(e) {
+                if (!contactsBox) return;
+                if (e.key === 'ArrowDown') { e.preventDefault(); setActiveContact(contactsActive + 1); }
+                else if (e.key === 'ArrowUp') { e.preventDefault(); setActiveContact(contactsActive - 1); }
+                else if (e.key === 'Enter') {
+                    if (contactsActive >= 0 && contactsItems[contactsActive]) {
+                        e.preventDefault();
+                        const text = contactsItems[contactsActive].textContent || '';
+                        // extract email from "Name <email>"
+                        const m = text.match(/<([^>]+)>/);
+                        const em = m ? m[1] : text;
+                        toInput.value = em.trim();
+                        closeContacts();
+                    }
+                } else if (e.key === 'Escape') { closeContacts(); }
+            });
+            document.addEventListener('click', function(e){
+                if (!e.target || (e.target !== toInput && !e.target.closest('.contact-suggestions'))) {
+                    closeContacts();
+                }
+            });
+            window.addEventListener('resize', positionContacts);
+        }
+    });
+    </script>
+</body>
+</html>
+

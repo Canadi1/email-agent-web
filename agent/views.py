@@ -1,0 +1,525 @@
+from django.shortcuts import render
+from django.http import JsonResponse
+from django.utils.translation import gettext as _
+from django.utils import translation
+from .email_ai_agent import GmailAIAgent
+import os
+import json
+import re
+
+# Instantiate the agent once.
+# In a real app, you might use a singleton pattern or Django's app registry
+# to manage the agent's lifecycle.
+gemini_api_key = os.getenv('GEMINI_API_KEY')
+if not gemini_api_key:
+    gemini_api_key = "AIzaSyCLldSk-Pv0X6-nPOOjjYMEbB0AsuatmJc"
+agent_instance = GmailAIAgent(gemini_api_key=gemini_api_key)
+
+def index(request):
+    """
+    Main view for the email agent.
+    Handles command processing and displays results.
+    """
+    # Attempt to set up the Gmail API on each request if not already done.
+    # The setup_gmail_api method is now idempotent.
+    is_agent_ready = agent_instance.setup_gmail_api()
+    
+    context = {
+        'is_agent_ready': is_agent_ready,
+        'example_commands': [
+            _("delete all promotions older than 30 days"),
+            _("list emails from google.com"),
+            _("show email stats"),
+            _("send email"),
+            _("label emails from amazon.com as Shopping"),
+        ]
+    }
+
+    if not is_agent_ready:
+        context['error_message'] = "Failed to connect to Gmail API. Please ensure 'credentials.json' is present and that you have authenticated at least once if 'token.pickle' does not exist."
+        return render(request, 'agent/index.html', context)
+
+    if request.method == 'POST':
+        # Hide a contact (stored in session) - AJAX
+        if request.POST.get('hide_contact') == '1':
+            try:
+                addr = (request.POST.get('email') or '').strip().lower()
+                if addr:
+                    hidden = request.session.get('hidden_contacts', [])
+                    if addr not in hidden:
+                        hidden.append(addr)
+                        # keep at most 500 hidden contacts
+                        if len(hidden) > 500:
+                            hidden = hidden[-500:]
+                        request.session['hidden_contacts'] = hidden
+                return JsonResponse({"status": "ok"})
+            except Exception as e:
+                return JsonResponse({"status": "error", "error": str(e)}, status=500)
+
+        # Contacts suggestions (AJAX)
+        if request.POST.get('get_contacts') == '1':
+            try:
+                q = (request.POST.get('q') or '').strip().lower()
+                try:
+                    limit = int(request.POST.get('limit', '200'))
+                except Exception:
+                    limit = 200
+                # Fetch and filter recent contacts from Sent mailbox
+                contacts = agent_instance.get_recent_contacts(
+                    max_messages=min(600, max(50, limit*2)),
+                    max_results=min(600, max(50, limit*2))
+                )
+                hidden = set(addr.lower() for addr in request.session.get('hidden_contacts', []) if isinstance(addr, str))
+                # Merge session-saved custom contacts at the top
+                custom_saved = request.session.get('custom_contacts', [])
+                try:
+                    for addr in custom_saved:
+                        if not isinstance(addr, str):
+                            continue
+                        em = (addr or '').strip()
+                        if not em or em.lower() in hidden:
+                            continue
+                        if not any((c.get('email', '').strip().lower() == em.lower()) for c in contacts):
+                            contacts.insert(0, {"email": em, "name": "", "count": 999999})
+                except Exception:
+                    pass
+                results = []
+                seen = set()
+                for c in contacts:
+                    email_addr = (c.get('email', '') or '').strip()
+                    name = c.get('name', '')
+                    key = email_addr.lower()
+                    if not email_addr or key in hidden or key in seen:
+                        continue
+                    if not q or (q in key) or (name and q in name.lower()):
+                        results.append({"email": email_addr, "name": name})
+                        seen.add(key)
+                    if len(results) >= min(20, max(10, limit)):
+                        break
+                return JsonResponse({"contacts": results})
+            except Exception as e:
+                return JsonResponse({"contacts": [], "error": str(e)}, status=500)
+
+        # Handle Load More (AJAX)
+        if request.POST.get('load_more') == '1':
+            try:
+                token = request.POST.get('load_more_token')
+                list_context_raw = request.POST.get('list_context', '{}')
+                list_context = json.loads(list_context_raw)
+                mode = list_context.get('mode')
+                if not token or not mode:
+                    return JsonResponse({"error": "Invalid pagination request"}, status=400)
+                if mode == 'label':
+                    label = list_context.get('label')
+                    per_page = request.session.get('per_page', 50)
+                    res = agent_instance.get_emails_by_label(label, max_results=per_page, page_token=token)
+                    emails = res.get('emails', []) if isinstance(res, dict) else []
+                    next_token = res.get('next_page_token') if isinstance(res, dict) else None
+                    return JsonResponse({"data": emails, "next_page_token": next_token})
+                if mode == 'date_range':
+                    target = list_context.get('target')
+                    per_page = request.session.get('per_page', 50)
+                    res = agent_instance.list_emails_by_date_range(target, max_results=per_page, page_token=token)
+                    emails = res.get('emails', [])
+                    next_token = res.get('next_page_token')
+                    return JsonResponse({"data": emails, "next_page_token": next_token})
+                if mode == 'category':
+                    category = list_context.get('category')
+                    per_page = request.session.get('per_page', 50)
+                    res = agent_instance.list_emails_by_category(category, max_results=per_page, page_token=token)
+                    emails = res.get('emails', []) if isinstance(res, dict) else []
+                    next_token = res.get('next_page_token') if isinstance(res, dict) else None
+                    return JsonResponse({"data": emails, "next_page_token": next_token})
+                if mode == 'older_than':
+                    target = list_context.get('target')
+                    per_page = request.session.get('per_page', 50)
+                    res = agent_instance.list_emails_older_than(target, max_results=per_page, page_token=token)
+                    emails = res.get('emails', [])
+                    next_token = res.get('next_page_token')
+                    return JsonResponse({"data": emails, "next_page_token": next_token})
+                if mode == 'recent':
+                    per_page = request.session.get('per_page', 50)
+                    res = agent_instance.list_recent_emails(max_results=per_page, page_token=token)
+                    return JsonResponse({"data": res.get('emails', []), "next_page_token": res.get('next_page_token')})
+                if mode == 'archived':
+                    per_page = request.session.get('per_page', 50)
+                    res = agent_instance.list_archived_emails(max_results=per_page, page_token=token)
+                    return JsonResponse({"data": res.get('emails', []), "next_page_token": res.get('next_page_token')})
+                if mode == 'all_mail':
+                    per_page = request.session.get('per_page', 50)
+                    res = agent_instance.list_all_emails(max_results=per_page, page_token=token)
+                    return JsonResponse({"data": res.get('emails', []), "next_page_token": res.get('next_page_token')})
+                if mode == 'custom_category':
+                    per_page = request.session.get('per_page', 50)
+                    category_key = list_context.get('category') or list_context.get('category_key')
+                    older_than_days = list_context.get('older_than_days')
+                    res = agent_instance.list_emails_by_custom_category(category_key, max_results=per_page, page_token=token, older_than_days=older_than_days)
+                    return JsonResponse({"data": res.get('emails', []), "next_page_token": res.get('next_page_token')})
+                if mode == 'domain':
+                    target = list_context.get('target')
+                    per_page = request.session.get('per_page', 50)
+                    older = list_context.get('older_than_days')
+                    res = agent_instance.list_emails_by_domain(target, max_results=per_page, page_token=token, older_than_days=older)
+                    return JsonResponse({"data": res.get('emails', []), "next_page_token": res.get('next_page_token')})
+                if mode == 'sender':
+                    target = list_context.get('target')
+                    per_page = request.session.get('per_page', 50)
+                    older = list_context.get('older_than_days')
+                    res = agent_instance.list_emails_by_sender(target, max_results=per_page, page_token=token, older_than_days=older)
+                    return JsonResponse({"data": res.get('emails', []), "next_page_token": res.get('next_page_token')})
+                return JsonResponse({"error": "Unsupported pagination mode"}, status=400)
+            except Exception as e:
+                return JsonResponse({"error": str(e)}, status=500)
+
+        # Favorites management (add/remove)
+        if request.POST.get('add_favorite') == '1':
+            fav_cmd = request.POST.get('fav_command', '').strip()
+            if fav_cmd:
+                favs = request.session.get('favorite_commands', [])
+                # Guard against overly long junk favorites and de-dup by moving to front
+                if len(fav_cmd) > 200:
+                    context['result'] = {"status": "error", "message": _("Favorite too long (max 200 chars).")}
+                else:
+                    if fav_cmd in favs:
+                        favs = [c for c in favs if c != fav_cmd]
+                    favs.insert(0, fav_cmd)
+                    favs = favs[:12]
+                    request.session['favorite_commands'] = favs
+            if 'result' not in context:
+                context['result'] = {"status": "success", "message": _("Added to favorites.")}
+        elif request.POST.get('remove_favorite') == '1':
+            fav_cmd = request.POST.get('fav_command', '').strip()
+            favs = request.session.get('favorite_commands', [])
+            if fav_cmd in favs:
+                favs = [c for c in favs if c != fav_cmd]
+                request.session['favorite_commands'] = favs
+            context['result'] = {"status": "success", "message": _("Removed from favorites.")}
+        elif request.POST.get('clear_favorites') == '1':
+            request.session['favorite_commands'] = []
+            context['result'] = {"status": "success", "message": _("Cleared all favorites.")}
+
+        # unified handling for actions/commands
+        result = None
+        last_command = ''
+
+        if request.POST.get('stats_full') == '1':
+            result = agent_instance.show_email_stats(full=True)
+        else:
+            undo_action_id = request.POST.get('undo_action_id')
+            confirmation_data_str = request.POST.get('confirmation_data', '')
+            command = request.POST.get('command', '').strip()
+            last_command = command
+            # If Hebrew locale, map common Hebrew phrases to English before parsing
+            if (getattr(request, 'LANGUAGE_CODE', None) or translation.get_language() or '').startswith('he') and command:
+                command = _translate_hebrew_command_to_english(command)
+            # Results-per-page selection (persist in session)
+            per_page_raw = request.POST.get('per_page')
+            if per_page_raw:
+                try:
+                    per_page_val = int(per_page_raw)
+                    if per_page_val in [10,25,50,100]:
+                        request.session['per_page'] = per_page_val
+                except Exception:
+                    pass
+            per_page = request.session.get('per_page', 50)
+
+            # Compose email submit handler
+            if request.POST.get('compose_send') == '1':
+                to_addr = request.POST.get('compose_to', '').strip()
+                subject = request.POST.get('compose_subject', '').strip()
+                body = request.POST.get('compose_body', '').strip()
+                if not to_addr:
+                    result = {"status": "error", "message": _("Recipient is required.")}
+                else:
+                    send_res = agent_instance.send_email(to_addr, subject, body)
+                    if isinstance(send_res, dict) and send_res.get('success'):
+                        result = {"status": "success", "message": _("Email sent.")}
+                        # Save valid recipient to custom contacts for autocomplete
+                        try:
+                            addr_norm = (to_addr or '').strip()
+                            if hasattr(agent_instance, '_is_valid_email_address') and agent_instance._is_valid_email_address(addr_norm):
+                                hidden = set(a.lower() for a in request.session.get('hidden_contacts', []) if isinstance(a, str))
+                                if addr_norm.lower() not in hidden:
+                                    saved = request.session.get('custom_contacts', [])
+                                    lower_set = set(a.lower() for a in saved if isinstance(a, str))
+                                    if addr_norm.lower() not in lower_set:
+                                        saved.insert(0, addr_norm)
+                                        request.session['custom_contacts'] = saved[:200]
+                        except Exception:
+                            pass
+                    else:
+                        err = ''
+                        if isinstance(send_res, dict):
+                            err = send_res.get('error', '')
+                        result = {"status": "error", "message": _("Failed to send email: %(err)s") % {"err": err}}
+            elif undo_action_id:
+                result = agent_instance.undo_action(undo_action_id)
+            elif confirmation_data_str:
+                try:
+                    confirmation_data = json.loads(confirmation_data_str)
+                    result = agent_instance.process_natural_language_command(command=None, confirmation_data=confirmation_data)
+                except json.JSONDecodeError:
+                    result = {"status": "error", "message": "Invalid confirmation data."}
+            elif command:
+                # Inject per-page into list commands by temporarily setting default
+                prev_default = getattr(agent_instance, 'default_max_results', 50)
+                agent_instance.default_max_results = per_page
+                try:
+                    # If user asked to compose without details, show compose UI instead of parsing
+                    normalized = (command or '').strip().lower()
+                    if normalized in [
+                        'send email', 'compose email', 'send mail', 'compose'
+                    ]:
+                        context['show_compose'] = True
+                        result = {"status": "info", "message": _("Compose Email")}
+                    else:
+                        result = agent_instance.process_natural_language_command(command)
+                finally:
+                    agent_instance.default_max_results = prev_default
+                # Track history in session for autocomplete
+                try:
+                    hist = request.session.get('command_history', [])
+                    if command and command not in hist:
+                        hist.insert(0, command)
+                        hist = hist[:20]
+                        request.session['command_history'] = hist
+                except Exception:
+                    pass
+
+        if isinstance(result, dict) and result.get('list_context'):
+            try:
+                result['list_context_json'] = json.dumps(result.get('list_context'))
+            except Exception:
+                result['list_context_json'] = ''
+
+        if result is not None:
+            context['result'] = result
+        if last_command:
+            context['last_command'] = last_command
+
+        # If the action requires a second step (confirmation), prepare data for the template.
+        result_obj = context.get('result')
+        if isinstance(result_obj, dict) and result_obj.get('status') == 'confirmation_required':
+            context['confirmation_data'] = json.dumps(result_obj.get('action_details'))
+            context['confirmation_message'] = result_obj.get('message')
+            # Pass preview and total_estimated for the dialog
+            context['result']['preview'] = result_obj.get('preview')
+            context['result']['total_estimated'] = result_obj.get('total_estimated')
+
+    # Add example commands for the user interface
+    example_commands = [
+        _("list recent emails"),
+        _("list emails from [domain]"),
+        _("list emails from last week"),
+        _("list emails older than 6 months"),
+        _("list archived emails"),
+        _("list all mail"),
+        _("search emails with subject \"[keyword]\""),
+        _("show email stats"),
+        _("delete emails from [domain]"),
+        _("delete all promotions older than 30 days"),
+        _("archive all emails older than 1 year"),
+        _("label emails from [domain] as \"[label]\""),
+        _("list labels"),
+        _("show label \"[label]\""),
+        _("restore emails from [sender]"),
+        _("send email")
+    ]
+    context['example_commands'] = example_commands
+
+    # Provide favorites and history for quick commands and autocomplete
+    favorites = request.session.get('favorite_commands', [])
+    history = request.session.get('command_history', [])
+    context['favorite_commands'] = favorites
+    context['command_history'] = history
+
+    # Build autocomplete list: commands only (no history/favorites)
+    curated_extras = [
+        _("list emails from today"),
+        _("list emails from yesterday"),
+        _("list emails from last week"),
+        _("list emails from last month"),
+        _("list emails from last year"),
+        _("list emails before a week"),
+        _("list emails before a month"),
+        _("list emails before a year"),
+        _("list emails older than [duration]"),
+        _("list emails older than 1 year"),
+        _("list emails older than 30 days"),
+        _("list emails before [duration]"),
+        _("list emails from [duration] ago"),
+        _("list emails before 6 months"),
+        _("list emails before 2 weeks"),
+        _("list emails from 4 months ago"),
+        _("list archived emails"),
+        _("list all mail"),
+        _("list emails from [domain] older than [duration]"),
+        _("list emails from [sender] older than [duration]"),
+        _("delete emails from [domain] older than 30 days"),
+        _("archive emails from [sender]"),
+        _("archive emails from [sender] older than 6 months"),
+        _("list shipping emails"),
+        _("list verification codes"),
+        _("archive verification codes"),
+        _("delete verification codes"),
+        _("list verification codes older than [duration]"),
+        _("delete verification codes older than 14 days"),
+        _("archive verification codes older than 30 days"),
+        _("list shipping emails older than [duration]"),
+        _("archive shipping emails"),
+        _("delete shipping emails"),
+        _("archive shipping emails older than 90 days"),
+        _("delete shipping emails older than 180 days"),
+        _("list account security emails"),
+        _("list account security emails older than [duration]"),
+        _("archive account security emails older than 90 days"),
+        _("delete account security emails older than 180 days"),
+        _("label emails from [domain] as \"[label]\""),
+        _("search emails with subject \"[keyword]\""),
+        _("send email")
+    ]
+    seen_lower = set()
+    autocomplete_list = []
+    for arr in [example_commands, curated_extras]:
+        for c in arr:
+            key = c.lower()
+            if key not in seen_lower:
+                seen_lower.add(key)
+                autocomplete_list.append(c)
+    try:
+        context['autocomplete_commands_json'] = json.dumps(autocomplete_list)
+    except Exception:
+        context['autocomplete_commands_json'] = json.dumps(example_commands)
+
+    # Provide recent undoable actions and per-page to template
+    context['recent_actions'] = agent_instance.get_recent_actions()
+    context['per_page'] = request.session.get('per_page', 50)
+    
+    return render(request, 'agent/index.html', context)
+
+
+def _translate_hebrew_command_to_english(command: str) -> str:
+    """Best-effort mapping from common Hebrew phrases to the English grammar our parser expects."""
+    if not command:
+        return command
+    c = command.strip()
+    orig = c  # keep original for context-sensitive decisions
+    # Normalize punctuation styles
+    # Longer phrases first
+    replacements = [
+        # Actions (line-start variants)
+        (r"^[\s]*העבר\s+לארכיון", "archive "),
+        (r"^[\s]*הצג\s+סטטיסטיק(?:ה|ות|ת)(?:\s+דוא""?ל)?", "show email stats"),
+        (r"^[\s]*הראה\s+סטטיסטיק(?:ה|ות|ת)(?:\s+דוא""?ל)?", "show email stats"),
+        (r"^[\s]*סטטיסטיק(?:ה|ות|ת)(?:\s+דוא""?ל)?$", "show email stats"),
+        (r"^[\s]*(שלח|כתוב|חבר)\s+(דוא\"?ל|דואל|מייל)\s*$", "send email"),
+        (r"^[\s]*שלח\s+(דוא""ל|מייל)\s+ל", "send email to "),
+        (r"^[\s]*הצ[א]?ג\s+תווית\s+\"([^\"]+)\"", r'show label "\1"'),
+        (r"^[\s]*הצ[א]?ג\s+תווית\s+'([^']+)'", r'show label "\1"'),
+        (r"^[\s]*הצ[א]?ג\s+תווית\s+([^\s\"']+)", r'show label "\1"'),
+        (r'^[\s]*([^"\s\']+)\s+הצ[א]?ג\s+תווית\b', r'show label "\1"'),
+        (r"^[\s]*הצ[א]?ג|^[\s]*הראה|^[\s]*רש(?:ו)?ם", "list "),
+        (r"^[\s]*מחק", "delete "),
+        (r"^[\s]*ארכב", "archive "),
+        (r"^[\s]*תייג|^[\s]*הוסף\s+תווית", "label "),
+        (r"^[\s]*שחזר", "restore "),
+        (r"^[\s]*חפש", "search "),
+
+        # Time phrases and ranges
+        (r"שבוע\s+שעבר", "last week"),
+        (r"חודש\s+שעבר", "last month"),
+        (r"שנה\s+שעברה", "last year"),
+        (r"מהשבוע\s+שעבר", "from last week"),
+        (r"מהחודש\s+שעבר", "from last month"),
+        (r"מהשנה\s+שעברה", "from last year"),
+        # 'before' without a number should mean the previous calendar period
+        (r"\bלפני\s*שבוע(?:\b|$)", "last week"),
+        (r"\bלפני\s*חודש(?:\b|$)", "last month"),
+        (r"\bלפני\s*שנה(?:\b|$)", "last year"),
+        (r"\bמלפני\s*שבוע(?:\b|$)", "last week"),
+        (r"\bמלפני\s*חודש(?:\b|$)", "last month"),
+        (r"\bמלפני\s*שנה(?:\b|$)", "last year"),
+        (r"אתמול", "yesterday"),
+        (r"היום", "today"),
+
+        # 'older than' Hebrew forms (singular/plural) optionally with 'יותר' and with/without hyphen after 'מ'
+        (r"ישנ(?:ה|ים|ות)?(?:\s+יותר)?\s+מ[-–—־]?\s*", "older than "),
+        (r"לפני\s+", "older than "),
+
+        # Units
+        (r"\bיומיים\b", "2 days"),
+        (r"\bיום\b", "day"),
+        (r"\bימים\b", "days"),
+        (r"\bשבועיים\b", "2 weeks"),
+        (r"\bשבוע\b", "week"),
+        (r"\bשבועות\b", "weeks"),
+        (r"\bחודשיים\b", "2 months"),
+        (r"\bחודש\b", "month"),
+        (r"\bחודשים\b", "months"),
+        (r"\bשנתיים\b", "2 years"),
+        (r"\bשנה\b", "year"),
+        (r"\bשנים\b", "years"),
+
+        # Keywords and targets
+        (r"אימיילים|מיילים|דואר|דוא""ל", "emails"),
+        (r"\bאת\s*כל\b|\bכל\b", "all "),
+        (r"עם\s+נושא", "with subject"),
+        (r"קודים\s+לאימות|קוד(?:י)?\s+אימות", "verification codes"),
+        (r"משלוח(?:ים)?|שילוח|משלוחים", "shipping emails"),
+        (r"קידומי\s*המכירות|קידומי\s*מכירות|קידומי\s*שיווק|קידומי\s*המחירות|קידומי\s*המחירו?ת|קידומי\s*מכירה", "promotions"),
+        (r"אבטחת\s+חשבון|אבטחה", "account security emails"),
+        (r"קידומים|מבצעים|פרסומים", "promotions"),
+        (r"תוויות", "labels"),
+        (r"\bהצ[א]?ג\s+תווית\b", "show label"),
+
+        # 'from' forms
+        (r"\bמאת\s+", "from "),
+        (r"\bמ\s+", "from "),
+        # standalone prefix form with hyphen: 'מ-<token>' or 'מ־<token>' etc.
+        (r"\bמ[-–—־]", "from "),
+    ]
+    for pattern, repl in replacements:
+        try:
+            c = re.sub(pattern, repl, c, flags=re.IGNORECASE)
+        except re.error:
+            continue
+    # Convert 'מלפני/לפני' forms to 'from N unit ago' when written as a compound with 'מ'
+    def _he_to_en_unit(unit_he: str, qty: int) -> str:
+        u = unit_he
+        if u.startswith('יום'):
+            return 'day' if qty == 1 else 'days'
+        if u.startswith('שבוע'):
+            return 'week' if qty == 1 else 'weeks'
+        if u.startswith('חודש'):
+            return 'month' if qty == 1 else 'months'
+        if u.startswith('שנה') or u.startswith('שנים'):
+            return 'year' if qty == 1 else 'years'
+        return 'days'
+    def _mlifnei_repl(m):
+        qty = int(m.group(1))
+        unit_he = m.group(2)
+        unit_en = _he_to_en_unit(unit_he, qty)
+        return f"from {qty} {unit_en} ago"
+    # 'מלפני 4 חודשים' or 'מ לפני 4 חודשים'
+    c = re.sub(r"\bמ\s*לפני\s*(\d+)\s*(יום(?:ים)?|שבוע(?:ות)?|חודש(?:ים)?|שנה(?:ים)?)\b", _mlifnei_repl, c, flags=re.IGNORECASE)
+    # For Hebrew 'לפני ...' we prefer a bounded window ("from N <unit> ago")
+    # EXCEPT for custom categories (verification/shipping/security), where we keep 'older than'
+    custom_hebrew_tokens = [
+        r"קודים\s*לאימות", r"קוד\s*אימות", r"קודי\s*אימות",
+        r"משלוח", r"שילוח", r"משלוחים",
+        r"אבטחת\s*חשבון", r"אבטחה"
+    ]
+    is_custom_category_he = any(re.search(tok, orig) for tok in custom_hebrew_tokens)
+    if (re.search(r"\bמלפני\b", orig) or re.search(r"\bמ\s*לפני\b", orig) or re.search(r"\bלפני\b", orig)) and not is_custom_category_he:
+        c = re.sub(
+            r"^(list\b.*)older than\s*(\d+)\s*(day|days|week|weeks|month|months|year|years)",
+            lambda m: f"{m.group(1)}from {m.group(2)} {m.group(3)} ago",
+            c,
+            flags=re.IGNORECASE,
+        )
+    # If we have 'older than <unit>' without a number, assume 1 unit
+    c = re.sub(r"\b(older than|before)\s+(day|days|week|weeks|month|months|year|years)\b",
+               lambda m: f"{m.group(1)} 1 {m.group(2)}", c)
+    # Normalize multiple spaces that can result from replacements
+    c = re.sub(r"\s{2,}", " ", c).strip()
+    return c

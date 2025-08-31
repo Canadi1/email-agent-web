@@ -1,0 +1,1152 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-08-24 21:01+0300\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: he\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=4; plural=(n == 1 && n % 1 == 0) ? 0 : (n == 2 && n % "
+"1 == 0) ? 1: (n % 10 == 0 && n % 1 == 0 && n > 10) ? 2 : 3;\n"
+
+#: .\agent\email_ai_agent.py:267
+#, python-format
+msgid "No emails found older than %(days)d days"
+msgstr "לא נמצאו מיילים ישנים מ-%(days)d ימים"
+
+#: .\agent\email_ai_agent.py:272
+#, python-format
+msgid ""
+"Found %(count)d emails older than %(days)d days. Do you want to move them to "
+"Trash?"
+msgstr "נמצאו %(count)d מיילים ישנים מ-%(days)d ימים. להעבירם לאשפה?"
+
+#: .\agent\email_ai_agent.py:306
+#, python-format
+msgid "Trashed %(count)d emails older than %(days)d days"
+msgstr "הועברו לאשפה %(count)d מיילים ישנים מ-%(days)d ימים"
+
+#: .\agent\email_ai_agent.py:339
+#, python-format
+msgid "No emails found older than %(days)d days to archive."
+msgstr "לא נמצאו מיילים ישנים מ-%(days)d ימים לארכוב."
+
+#: .\agent\email_ai_agent.py:344
+#, python-format
+msgid ""
+"Found %(count)d emails older than %(days)d days. Do you want to archive them?"
+msgstr "נמצאו %(count)d מיילים ישנים מ-%(days)d ימים. לארכב אותם?"
+
+#: .\agent\email_ai_agent.py:380
+#, python-format
+msgid "Archived %(count)d emails older than %(days)d days."
+msgstr "נארכבו %(count)d מיילים ישנים מ-%(days)d ימים."
+
+#: .\agent\email_ai_agent.py:428
+msgid "No emails found for analysis"
+msgstr "לא נמצאו מיילים לניתוח"
+
+#: .\agent\email_ai_agent.py:493
+msgid "Unknown"
+msgstr "לא ידוע"
+
+#: .\agent\email_ai_agent.py:495 .\agent\email_ai_agent.py:844
+msgid "Inbox"
+msgstr "דואר נכנס"
+
+#: .\agent\email_ai_agent.py:495 .\agent\email_ai_agent.py:845
+msgid "Sent"
+msgstr "נשלחו"
+
+#: .\agent\email_ai_agent.py:495 .\agent\email_ai_agent.py:846
+msgid "Starred"
+msgstr "מסומנים בכוכב"
+
+#: .\agent\email_ai_agent.py:495 .\agent\email_ai_agent.py:847
+msgid "Important"
+msgstr "חשובים"
+
+#: .\agent\email_ai_agent.py:495 .\agent\email_ai_agent.py:848
+msgid "Drafts"
+msgstr "טיוטות"
+
+#: .\agent\email_ai_agent.py:495 .\agent\email_ai_agent.py:849
+msgid "Trash"
+msgstr "אשפה"
+
+#: .\agent\email_ai_agent.py:495 .\agent\email_ai_agent.py:850
+msgid "Spam"
+msgstr "ספאם"
+
+#: .\agent\email_ai_agent.py:495 .\agent\email_ai_agent.py:851
+msgid "Unread"
+msgstr "לא נקראו"
+
+#: .\agent\email_ai_agent.py:496 .\agent\email_ai_agent.py:852
+msgid "Personal"
+msgstr "אישי"
+
+#: .\agent\email_ai_agent.py:496 .\agent\email_ai_agent.py:853
+msgid "Social"
+msgstr "חברתי"
+
+#: .\agent\email_ai_agent.py:496 .\agent\email_ai_agent.py:854
+msgid "Promotions"
+msgstr "קידומי מכירות"
+
+#: .\agent\email_ai_agent.py:496 .\agent\email_ai_agent.py:855
+msgid "Updates"
+msgstr "עדכונים"
+
+#: .\agent\email_ai_agent.py:496 .\agent\email_ai_agent.py:856
+msgid "Forums"
+msgstr "פורומים"
+
+#: .\agent\email_ai_agent.py:512
+#, python-format
+msgid "Most active sender: %(sender)s (%(count)d emails)"
+msgstr "השולח הפעיל ביותר: %(sender)s (%(count)d מיילים)"
+
+#: .\agent\email_ai_agent.py:514
+#, python-format
+msgid "Most active domain: %(domain)s (%(count)d emails)"
+msgstr "הדומיין הפעיל ביותר: %(domain)s (%(count)d מיילים)"
+
+#: .\agent\email_ai_agent.py:518
+#, python-format
+msgid "Top sender accounts for %(pct).1f%% of analyzed emails"
+msgstr "השולח המוביל מהווה %(pct).1f%% מהמיילים שנותחו"
+
+#: .\agent\email_ai_agent.py:622
+msgid "for today"
+msgstr "עבור היום"
+
+#: .\agent\email_ai_agent.py:626
+msgid "for yesterday"
+msgstr "עבור אתמול"
+
+#: .\agent\email_ai_agent.py:631
+msgid "from last week"
+msgstr "משבוע שעבר"
+
+#: .\agent\email_ai_agent.py:638
+msgid "from last month"
+msgstr "מהחודש שעבר"
+
+#: .\agent\email_ai_agent.py:644
+msgid "from last year"
+msgstr "מהשנה שעברה"
+
+#: .\agent\email_ai_agent.py:663
+#, python-format
+msgid "in the 3 months starting around %(date)s"
+msgstr "בשלושת החודשים שמתחילים סביב %(date)s"
+
+#: .\agent\email_ai_agent.py:667
+#, python-format
+msgid "in the month starting around %(date)s"
+msgstr "בחודש שמתחיל סביב %(date)s"
+
+#: .\agent\email_ai_agent.py:671
+#, python-format
+msgid "in the 7 days starting around %(date)s"
+msgstr "בשבעה הימים שמתחילים סביב %(date)s"
+
+#: .\agent\email_ai_agent.py:674
+#, python-format
+msgid "on the day of %(date)s"
+msgstr "ביום %(date)s"
+
+#: .\agent\email_ai_agent.py:704
+#, python-format
+msgid "older than %(days)d days"
+msgstr "ישנים מ-%(days)d ימים"
+
+#: .\agent\email_ai_agent.py:723
+#, python-format
+msgid "No emails found %(description)s."
+msgstr "לא נמצאו מיילים %(description)s."
+
+#: .\agent\email_ai_agent.py:732
+#, python-format
+msgid "Found %(count)d emails %(description)s."
+msgstr "נמצאו %(count)d מיילים %(description)s."
+
+#: .\agent\email_ai_agent.py:827
+msgid "verification codes"
+msgstr "קודי אימות"
+
+#: .\agent\email_ai_agent.py:828
+msgid "shipping emails"
+msgstr "מיילי משלוח"
+
+#: .\agent\email_ai_agent.py:829
+msgid "account security emails"
+msgstr "מיילי אבטחת חשבון"
+
+#: .\agent\email_ai_agent.py:962 .\agent\email_ai_agent.py:1015
+#: .\agent\email_ai_agent.py:1961
+#, python-format
+msgid "No emails found for %(what)s."
+msgstr "לא נמצאו מיילים עבור %(what)s."
+
+#: .\agent\email_ai_agent.py:964 .\agent\email_ai_agent.py:1017
+#: .\agent\email_ai_agent.py:1103 .\agent\email_ai_agent.py:1107
+#: .\agent\email_ai_agent.py:1180 .\agent\email_ai_agent.py:1184
+#: .\agent\email_ai_agent.py:1333 .\agent\email_ai_agent.py:1928
+#: .\agent\email_ai_agent.py:1968 .\agent\email_ai_agent.py:2085
+#: .\agent\email_ai_agent.py:2091 .\agent\email_ai_agent.py:2147
+#: .\agent\email_ai_agent.py:2153
+#, python-format
+msgid " older than %(days)d days"
+msgstr " ישנים מ-%(days)d ימים"
+
+#: .\agent\email_ai_agent.py:967 .\agent\email_ai_agent.py:1337
+#, python-format
+msgid ""
+"Found %(count)d emails in %(what)s%(age)s. Do you want to move them to Trash?"
+msgstr "נמצאו %(count)d מיילים ב-%(what)s%(age)s. להעבירם לאשפה?"
+
+#: .\agent\email_ai_agent.py:992 .\agent\email_ai_agent.py:1376
+#, python-format
+msgid "Trashed %(count)d emails from %(what)s."
+msgstr "הועברו לאשפה %(count)d מיילים מ-%(what)s."
+
+#: .\agent\email_ai_agent.py:1020
+#, python-format
+msgid "Found %(count)d emails in %(what)s%(age)s. Do you want to archive them?"
+msgstr "נמצאו %(count)d מיילים ב-%(what)s%(age)s. לארכב אותם?"
+
+#: .\agent\email_ai_agent.py:1045
+#, python-format
+msgid "Archived %(count)d emails from %(what)s."
+msgstr "נארכבו %(count)d מיילים מ-%(what)s."
+
+#: .\agent\email_ai_agent.py:1104 .\agent\email_ai_agent.py:2086
+#, python-format
+msgid "No emails found from %(sender)s%(age)s."
+msgstr "לא נמצאו מיילים מ-%(sender)s%(age)s."
+
+#: .\agent\email_ai_agent.py:1110
+#, python-format
+msgid ""
+"Found %(count)d emails from %(sender)s%(age)s. Do you want to move them to "
+"Trash?"
+msgstr "נמצאו %(count)d מיילים מ-%(sender)s%(age)s. להעבירם לאשפה?"
+
+#: .\agent\email_ai_agent.py:1148
+#, python-format
+msgid "Trashed %(count)d emails from %(sender)s."
+msgstr "הועברו לאשפה %(count)d מיילים מ-%(sender)s."
+
+#: .\agent\email_ai_agent.py:1181
+#, python-format
+msgid "No emails found from domain: %(domain)s%(age)s."
+msgstr "לא נמצאו מיילים מהדומיין: %(domain)s%(age)s."
+
+#: .\agent\email_ai_agent.py:1187
+#, python-format
+msgid ""
+"Found %(count)d emails from domain %(domain)s%(age)s. Do you want to move "
+"them to Trash?"
+msgstr "נמצאו %(count)d מיילים מהדומיין %(domain)s%(age)s. להעבירם לאשפה?"
+
+#: .\agent\email_ai_agent.py:1225
+#, python-format
+msgid "Trashed %(count)d emails from %(domain)s."
+msgstr "הועברו לאשפה %(count)d מיילים מ-%(domain)s."
+
+#: .\agent\email_ai_agent.py:1330 .\agent\email_ai_agent.py:1926
+#, python-format
+msgid "No emails found in category: %(category)s."
+msgstr "לא נמצאו מיילים בקטגוריה: %(category)s."
+
+#: .\agent\email_ai_agent.py:1873
+msgid "Command not understood."
+msgstr "הפקודה לא הובנה."
+
+#: .\agent\email_ai_agent.py:1910
+msgid "No archived emails found."
+msgstr "לא נמצאו מיילים בארכיון."
+
+#: .\agent\email_ai_agent.py:1915
+msgid "No emails found in All Mail."
+msgstr "לא נמצאו מיילים ב\"כל הדואר\"."
+
+#: .\agent\email_ai_agent.py:1919
+msgid "You have no custom labels."
+msgstr "אין לך תוויות מותאמות."
+
+#: .\agent\email_ai_agent.py:1929 .\agent\email_ai_agent.py:1969
+#, python-format
+msgid "Found %(count)d emails%(age)s in %(what)s."
+msgstr "נמצאו %(count)d מיילים%(age)s ב-%(what)s."
+
+#: .\agent\email_ai_agent.py:1929 .\agent\email_ai_agent.py:1969
+#, python-format
+msgid "Found %(count)d emails in %(what)s."
+msgstr "נמצאו %(count)d מיילים ב-%(what)s."
+
+#: .\agent\email_ai_agent.py:1936
+#, python-format
+msgid "No emails found from domain: %(domain)s."
+msgstr "לא נמצאו מיילים מהדומיין: %(domain)s."
+
+#: .\agent\email_ai_agent.py:1943
+#, python-format
+msgid "No emails found from sender: %(sender)s."
+msgstr "לא נמצאו מיילים מהשולח: %(sender)s."
+
+#: .\agent\email_ai_agent.py:1976
+#, python-format
+msgid "No emails found with subject: '%(subject)s'."
+msgstr "לא נמצאו מיילים עם נושא: '%(subject)s'."
+
+#: .\agent\email_ai_agent.py:2091
+#, python-format
+msgid ""
+"Found %(count)d emails from %(sender)s%(age)s. Do you want to archive them?"
+msgstr "נמצאו %(count)d מיילים מ-%(sender)s%(age)s. לארכב אותם?"
+
+#: .\agent\email_ai_agent.py:2119
+#, python-format
+msgid "Archived %(count)d emails from %(sender)s."
+msgstr "נארכבו %(count)d מיילים מ-%(sender)s."
+
+#: .\agent\email_ai_agent.py:2148
+#, python-format
+msgid "No emails found from %(domain)s%(age)s."
+msgstr "לא נמצאו מיילים מ-%(domain)s%(age)s."
+
+#: .\agent\email_ai_agent.py:2153
+#, python-format
+msgid ""
+"Found %(count)d emails from %(domain)s%(age)s. Do you want to archive them?"
+msgstr "נמצאו %(count)d מיילים מ-%(domain)s%(age)s. לארכב אותם?"
+
+#: .\agent\email_ai_agent.py:2179
+#, python-format
+msgid "Archived %(count)d emails from %(domain)s."
+msgstr "נארכבו %(count)d מיילים מ-%(domain)s."
+
+#: .\agent\email_ai_agent.py:2291
+#, python-format
+msgid "No emails found from %(sender)s to restore."
+msgstr "לא נמצאו מיילים מ-%(sender)s לשחזור."
+
+#: .\agent\email_ai_agent.py:2303
+#, python-format
+msgid "No archived emails found from %(sender)s."
+msgstr "לא נמצאו מיילים בארכיון מ-%(sender)s."
+
+#: .\agent\email_ai_agent.py:2308
+#, python-format
+msgid "Found %(count)d archived emails from %(sender)s. Restore to Inbox?"
+msgstr "נמצאו %(count)d מיילים בארכיון מ-%(sender)s. לשחזר לתיבת הנכנס?"
+
+#: .\agent\email_ai_agent.py:2323
+#, python-format
+msgid "Restored %(count)d emails from %(sender)s to Inbox."
+msgstr "שוחזרו %(count)d מיילים מ-%(sender)s לתיבת הנכנס."
+
+#: .\agent\email_ai_agent.py:2577
+msgid "Nothing to undo (expired or invalid)."
+msgstr "אין מה לבטל (פג תוקף או לא תקין)."
+
+#: .\agent\email_ai_agent.py:2590
+#, python-format
+msgid "Undo complete. Restored %(count)d emails to Inbox."
+msgstr "הביטול הושלם. שוחזרו %(count)d מיילים לתיבת הנכנס."
+
+#: .\agent\email_ai_agent.py:2602
+#, python-format
+msgid "Undo complete. Untrashed %(count)d emails."
+msgstr "הביטול הושלם. הוחזרו מהאשפה %(count)d מיילים."
+
+#: .\agent\email_ai_agent.py:2607
+msgid "Cannot undo labels (missing label id)."
+msgstr "לא ניתן לבטל תוויות (חסר מזהה תווית)."
+
+#: .\agent\email_ai_agent.py:2615
+#, python-format
+msgid "Removed label from %(count)d emails."
+msgstr "הוסרה תווית מ-%(count)d מיילים."
+
+#: .\agent\email_ai_agent.py:2617
+msgid "Undo not supported for this action."
+msgstr "לא נתמך ביטול עבור פעולה זו."
+
+#: .\agent\email_ai_agent.py:2619
+#, python-format
+msgid "Undo failed: %(err)s"
+msgstr "הביטול נכשל: %(err)s"
+
+#: .\agent\templates\agent\index.html:327
+msgid "View details"
+msgstr "הצגת פרטים"
+
+#: .\agent\templates\agent\index.html:328
+#: .\agent\templates\agent\index.html:493
+msgid "Loading…"
+msgstr "טוען…"
+
+#: .\agent\templates\agent\index.html:329
+msgid "No more results"
+msgstr "אין עוד תוצאות"
+
+#: .\agent\templates\agent\index.html:330
+#: .\agent\templates\agent\index.html:492
+msgid "Load more"
+msgstr "טען עוד"
+
+#: .\agent\templates\agent\index.html:331
+msgid "Analyzing..."
+msgstr "מנתח…"
+
+#: .\agent\templates\agent\index.html:332
+msgid "Undoing..."
+msgstr "מבטל..."
+
+#: .\agent\templates\agent\index.html:333
+#, python-brace-format
+msgid "Loaded {count} more"
+msgstr "נטענו עוד {count}"
+
+#: .\agent\templates\agent\index.html:334
+msgid "Failed to load more"
+msgstr "טעינת פריטים נוספים נכשלה"
+
+#: .\agent\templates\agent\index.html:335
+msgid "Clear all favorites?"
+msgstr "לנקות את כל המועדפים?"
+
+#: .\agent\templates\agent\index.html:339
+msgid "Processing…"
+msgstr "מעבד…"
+
+#: .\agent\templates\agent\index.html:345
+msgid "Email AI Agent"
+msgstr "סוכן דוא\"ל חכם"
+
+#: .\agent\templates\agent\index.html:351
+msgid "Language"
+msgstr "שפה"
+
+#: .\agent\templates\agent\index.html:363
+msgid "Connection Error:"
+msgstr "שגיאת חיבור:"
+
+#: .\agent\templates\agent\index.html:368
+msgid "e.g., list recent emails"
+msgstr "לדוגמה: רשום מיילים אחרונים"
+
+#: .\agent\templates\agent\index.html:369
+msgid "Process"
+msgstr "בצע"
+
+#: .\agent\templates\agent\index.html:373 .\agent\views.py:201
+msgid "Compose Email"
+msgstr "כתיבת הודעה"
+
+#: .\agent\templates\agent\index.html:378
+msgid "To"
+msgstr "אל"
+
+#: .\agent\templates\agent\index.html:382
+msgid "Subject"
+msgstr "נושא"
+
+#: .\agent\templates\agent\index.html:383
+msgid "Subject (optional)"
+msgstr "נושא (לא חובה)"
+
+#: .\agent\templates\agent\index.html:386
+msgid "Message"
+msgstr "הודעה"
+
+#: .\agent\templates\agent\index.html:387
+msgid "Write your message..."
+msgstr "כתבו את ההודעה..."
+
+#: .\agent\templates\agent\index.html:390
+msgid "Send"
+msgstr "שלח"
+
+#: .\agent\templates\agent\index.html:397
+msgid "Results per page:"
+msgstr "תוצאות בכל עמוד:"
+
+#: .\agent\templates\agent\index.html:408
+msgid "Quick Commands"
+msgstr "פקודות מהירות"
+
+#: .\agent\templates\agent\index.html:413
+msgid "Save current or custom command"
+msgstr "שמור פקודה נוכחית או מותאמת"
+
+#: .\agent\templates\agent\index.html:414
+msgid "Add Favorite"
+msgstr "הוסף למועדפים"
+
+#: .\agent\templates\agent\index.html:419
+msgid "Clear all"
+msgstr "נקה הכול"
+
+#: .\agent\templates\agent\index.html:432
+msgid "Remove"
+msgstr "הסר"
+
+#: .\agent\templates\agent\index.html:438
+msgid "No favorites yet. Add one above."
+msgstr "אין מועדפים עדיין. הוסף אחד למעלה."
+
+#: .\agent\templates\agent\index.html:444
+msgid "Confirmation Required:"
+msgstr "נדרש אישור:"
+
+#: .\agent\templates\agent\index.html:447
+msgid "Preview (first 10)"
+msgstr "תצוגה מקדימה (10 ראשונים)"
+
+#: .\agent\templates\agent\index.html:458
+msgid "Estimated total affected:"
+msgstr "הערכה של סך הפריטים שיושפעו:"
+
+#: .\agent\templates\agent\index.html:466
+msgid "Confirm"
+msgstr "אישור"
+
+#: .\agent\templates\agent\index.html:467
+msgid "Cancel"
+msgstr "ביטול"
+
+#: .\agent\templates\agent\index.html:498
+msgid "Your Labels"
+msgstr "התוויות שלך"
+
+#: .\agent\templates\agent\index.html:518
+msgid "Email Statistics"
+msgstr "סטטיסטיקות דוא\"ל"
+
+#: .\agent\templates\agent\index.html:522
+msgid "Full analysis"
+msgstr "ניתוח מלא"
+
+#: .\agent\templates\agent\index.html:525
+msgid "Total Inbox Emails:"
+msgstr "סך ההודעות בתיבת הדואר הנכנס:"
+
+#: .\agent\templates\agent\index.html:526
+msgid "Sample Analyzed:"
+msgstr "מדגם שנותח:"
+
+#: .\agent\templates\agent\index.html:526
+msgid "full"
+msgstr "מלא"
+
+#: .\agent\templates\agent\index.html:526
+msgid "sample"
+msgstr "מדגם"
+
+#: .\agent\templates\agent\index.html:528
+msgid "What is \"sample analyzed\"?"
+msgstr "מה זה \"מדגם שנותח\"?"
+
+#: .\agent\templates\agent\index.html:529
+msgid ""
+"Number of recent emails examined to compute stats quickly. Choose \"Full "
+"analysis\" to analyze all emails."
+msgstr ""
+"מספר ההודעות האחרונות שנבדקו כדי לחשב סטטיסטיקות במהירות. בחר \"ניתוח מלא\" "
+"כדי לנתח את כל ההודעות."
+
+#: .\agent\templates\agent\index.html:533
+msgid "Top Senders"
+msgstr "שולחים מובילים"
+
+#: .\agent\templates\agent\index.html:541
+msgid "Top Domains"
+msgstr "דומיינים מובילים"
+
+#: .\agent\templates\agent\index.html:551
+msgid "Top Subject Terms"
+msgstr "מונחי נושא מובילים"
+
+#: .\agent\templates\agent\index.html:559
+msgid "Emails by Hour"
+msgstr "הודעות לפי שעה"
+
+#: .\agent\templates\agent\index.html:561
+msgid "What is this?"
+msgstr "מה זה?"
+
+#: .\agent\templates\agent\index.html:562
+msgid ""
+"Count of analyzed emails by the hour of day they were received (local time)."
+msgstr "כמות ההודעות שנותחו לפי השעה ביום שבה התקבלו (זמן מקומי)."
+
+#: .\agent\templates\agent\index.html:577
+msgid "Label Distribution"
+msgstr "התפלגות תוויות"
+
+#: .\agent\templates\agent\index.html:579
+msgid "What does this show?"
+msgstr "מה זה מציג?"
+
+#: .\agent\templates\agent\index.html:580
+msgid ""
+"Friendly label names (e.g., Inbox, Promotions) and how many analyzed emails "
+"had each label."
+msgstr ""
+"שמות תוויות ידידותיים (למשל, דואר נכנס, קידומים) וכמה הודעות שנותחו היו עם "
+"כל תווית."
+
+#: .\agent\templates\agent\index.html:595
+msgid "Insights"
+msgstr "תובנות"
+
+#: .\agent\templates\agent\index.html:534
+msgid "Analysis Note:"
+msgstr "הערת ניתוח:"
+
+#: .\agent\templates\agent\index.html:1227
+msgid "This will perform a comprehensive analysis of your inbox emails."
+msgstr "זה יבצע ניתוח מקיף של הודעות הדואר הנכנס שלך."
+
+#: .\agent\templates\agent\index.html:1227
+msgid "IMPORTANT: You have"
+msgstr "חשוב: יש לך"
+
+#: .\agent\templates\agent\index.html:1227
+msgid "emails in your inbox."
+msgstr "הודעות בתיבת הדואר הנכנס שלך."
+
+#: .\agent\templates\agent\index.html:1227
+msgid "To ensure reasonable processing time, the analysis will be limited to the most recent 1000 emails."
+msgstr "כדי להבטיח זמן עיבוד סביר, הניתוח יוגבל ל-1000 ההודעות האחרונות."
+
+#: .\agent\templates\agent\index.html:1227
+msgid "Expected processing time: 2-3 minutes"
+msgstr "זמן עיבוד צפוי: 2-3 דקות"
+
+#: .\agent\templates\agent\index.html:1227
+msgid "This gives you comprehensive insights while keeping wait times manageable."
+msgstr "זה נותן לך תובנות מקיפות תוך שמירה על זמני המתנה סבירים."
+
+#: .\agent\templates\agent\index.html:1227
+msgid "Expected processing time: 1-2 minutes"
+msgstr "זמן עיבוד צפוי: 1-2 דקות"
+
+#: .\agent\templates\agent\index.html:1227
+msgid "This will analyze all"
+msgstr "זה ינתח את כל"
+
+#: .\agent\templates\agent\index.html:1227
+msgid "emails in your inbox."
+msgstr "הודעות בתיבת הדואר הנכנס שלך."
+
+#: .\agent\templates\agent\index.html:1227
+msgid "Do you want to proceed with the full analysis?"
+msgstr "האם אתה רוצה להמשיך עם הניתוח המלא?"
+
+#: .\agent\templates\agent\index.html:604
+msgid "Enter a command to get started."
+msgstr "הזן פקודה כדי להתחיל."
+
+#: .\agent\templates\agent\index.html:610
+msgid "Example Commands"
+msgstr "פקודות לדוגמה"
+
+#: .\agent\templates\agent\index.html:619
+msgid "Show All Commands"
+msgstr "הצג את כל הפקודות"
+
+#: .\agent\templates\agent\index.html:619
+msgid "Hide All Commands"
+msgstr "הסתר את כל הפקודות"
+
+#: .\agent\templates\agent\index.html:622 .\agent\views.py:238
+msgid "list recent emails"
+msgstr "רשום מיילים אחרונים"
+
+#: .\agent\templates\agent\index.html:622
+msgid "Shows the 10 most recent emails."
+msgstr "מציג את 10 ההודעות האחרונות."
+
+#: .\agent\templates\agent\index.html:623 .\agent\views.py:242
+#: .\agent\views.py:281
+msgid "list archived emails"
+msgstr "רשום מיילים בארכיון"
+
+#: .\agent\templates\agent\index.html:623
+msgid "Emails not in Inbox."
+msgstr "הודעות שאינן בתיבת הדואר הנכנס."
+
+#: .\agent\templates\agent\index.html:624 .\agent\views.py:243
+#: .\agent\views.py:282
+msgid "list all mail"
+msgstr "רשום את כל הדואר"
+
+#: .\agent\templates\agent\index.html:624
+msgid "Everything in All Mail (excludes Spam/Trash)."
+msgstr "הכול ב'כל הדואר' (ללא ספאם/אשפה)."
+
+#: .\agent\templates\agent\index.html:625
+msgid "list emails from [sender/domain]"
+msgstr "רשום מיילים מ-[שולח/דומיין]"
+
+#: .\agent\templates\agent\index.html:625
+msgid "e.g., 'list emails from [domain]'"
+msgstr "לדוגמה: 'רשום מיילים מ-[דומיין]'"
+
+#: .\agent\templates\agent\index.html:626
+msgid "list emails from [timeframe]"
+msgstr "רשום מיילים מ-[מסגרת זמן]"
+
+#: .\agent\templates\agent\index.html:626
+msgid "e.g., 'last week', 'yesterday', '2 days ago'"
+msgstr "למשל: 'שבוע שעבר', 'אתמול', 'לפני 2 ימים'"
+
+#: .\agent\templates\agent\index.html:627 .\agent\views.py:276
+msgid "list emails before [duration]"
+msgstr "רשום מיילים לפני [משך]"
+
+#: .\agent\templates\agent\index.html:627
+msgid "e.g., '6 months', '2 weeks'"
+msgstr "למשל: '6 חודשים', 'שבועיים'"
+
+#: .\agent\templates\agent\index.html:628 .\agent\views.py:277
+msgid "list emails from [duration] ago"
+msgstr "רשום מיילים מלפני [משך]"
+
+#: .\agent\templates\agent\index.html:628
+msgid "e.g., '4 months ago'"
+msgstr "למשל: 'לפני 4 חודשים'"
+
+#: .\agent\templates\agent\index.html:629 .\agent\views.py:273
+msgid "list emails older than [duration]"
+msgstr "רשום מיילים ישנים מ-[משך]"
+
+#: .\agent\templates\agent\index.html:629
+msgid "e.g., '6 months', '1 year'"
+msgstr "למשל: '6 חודשים', 'שנה אחת'"
+
+#: .\agent\templates\agent\index.html:630 .\agent\views.py:278
+msgid "list emails before 6 months"
+msgstr "רשום מיילים לפני 6 חודשים"
+
+#: .\agent\templates\agent\index.html:631 .\agent\views.py:279
+msgid "list emails before 2 weeks"
+msgstr "רשום מיילים לפני שבועיים"
+
+#: .\agent\templates\agent\index.html:632 .\agent\views.py:280
+msgid "list emails from 4 months ago"
+msgstr "רשום מיילים מלפני 4 חודשים"
+
+#: .\agent\templates\agent\index.html:633 .\agent\views.py:244
+#: .\agent\views.py:305
+msgid "search emails with subject \"[keyword]\""
+msgstr "חפש מיילים עם נושא \"[מילת מפתח]\""
+
+#: .\agent\templates\agent\index.html:633
+msgid "Finds emails with a specific subject."
+msgstr "מאתר הודעות עם נושא מסוים."
+
+#: .\agent\templates\agent\index.html:634 .\agent\views.py:32
+#: .\agent\views.py:245
+msgid "show email stats"
+msgstr "הצג סטטיסטיקת דוא\"ל"
+
+#: .\agent\templates\agent\index.html:634
+msgid "Displays a report of top senders and domains."
+msgstr "מציג דוח של שולחים ודומיינים מובילים."
+
+#: .\agent\templates\agent\index.html:635
+msgid "delete emails from [sender/domain]"
+msgstr "מחק מיילים מ-[שולח/דומיין]"
+
+#: .\agent\templates\agent\index.html:635
+msgid "Moves emails to Trash."
+msgstr "מעביר את ההודעות לאשפה."
+
+#: .\agent\templates\agent\index.html:636
+msgid "delete all promotions older than [duration]"
+msgstr "מחק את כל קידומי המכירות ישנים מ-[משך]"
+
+#: .\agent\templates\agent\index.html:636
+msgid "Cleans up the Promotions tab."
+msgstr "מנקה את לשונית 'קידומים'."
+
+#: .\agent\templates\agent\index.html:637 .\agent\views.py:287
+msgid "archive emails from [sender] older than 6 months"
+msgstr "ארכב מיילים מ-[שולח] ישנים מ-6 חודשים"
+
+#: .\agent\templates\agent\index.html:637
+msgid "Archives messages from a sender with an age filter."
+msgstr "מארכב הודעות משולח עם סינון לפי גיל."
+
+#: .\agent\templates\agent\index.html:638
+msgid "archive all emails older than [duration]"
+msgstr "ארכב את כל המיילים ישנים מ-[משך]"
+
+#: .\agent\templates\agent\index.html:638
+msgid "Bulk archives old emails."
+msgstr "ארכוב גורף של הודעות ישנות."
+
+#: .\agent\templates\agent\index.html:639 .\agent\views.py:289
+msgid "list verification codes"
+msgstr "רשום קודי אימות"
+
+#: .\agent\templates\agent\index.html:639
+msgid "Finds login and 2FA codes."
+msgstr "מאתר קודי כניסה ו-2FA."
+
+#: .\agent\templates\agent\index.html:640 .\agent\views.py:292
+msgid "list verification codes older than [duration]"
+msgstr "רשום קודי אימות ישנים מ-[משך]"
+
+#: .\agent\templates\agent\index.html:640
+msgid "Lists codes by age window."
+msgstr "רשימה לפי חלון גיל."
+
+#: .\agent\templates\agent\index.html:641
+msgid "delete verification codes older than [duration]"
+msgstr "מחק קודי אימות ישנים מ-[משך]"
+
+#: .\agent\templates\agent\index.html:641
+msgid "Cleans codes past a safe window."
+msgstr "מנקה קודים שעברו את חלון הזמן הבטוח."
+
+#: .\agent\templates\agent\index.html:642
+msgid "archive verification codes older than [duration]"
+msgstr "ארכב קודי אימות ישנים מ-[משך]"
+
+#: .\agent\templates\agent\index.html:642
+msgid "Archives codes after a period."
+msgstr "מארכב קודים לאחר פרק זמן."
+
+#: .\agent\templates\agent\index.html:643 .\agent\views.py:288
+msgid "list shipping emails"
+msgstr "רשום מיילי משלוח"
+
+#: .\agent\templates\agent\index.html:643
+#: .\agent\templates\agent\index.html:644
+msgid "Carrier updates and delivery notices."
+msgstr "עדכוני חברת משלוח והודעות מסירה."
+
+#: .\agent\templates\agent\index.html:644 .\agent\views.py:295
+msgid "list shipping emails older than [duration]"
+msgstr "רשום מיילי משלוח ישנים מ-[משך]"
+
+#: .\agent\templates\agent\index.html:645
+msgid "archive shipping emails older than [duration]"
+msgstr "ארכב מיילי משלוח ישנים מ-[משך]"
+
+#: .\agent\templates\agent\index.html:645
+msgid "Archives old shipping updates."
+msgstr "מארכב עדכוני משלוח ישנים."
+
+#: .\agent\templates\agent\index.html:646
+msgid "delete shipping emails older than [duration]"
+msgstr "מחק מיילי משלוח ישנים מ-[משך]"
+
+#: .\agent\templates\agent\index.html:646
+msgid "Deletes stale shipping updates."
+msgstr "מוחק עדכוני משלוח מיושנים."
+
+#: .\agent\templates\agent\index.html:647 .\agent\views.py:300
+msgid "list account security emails"
+msgstr "רשום מיילי אבטחת חשבון"
+
+#: .\agent\templates\agent\index.html:647
+msgid "Security alerts and sign-in notices."
+msgstr "התראות אבטחה והודעות כניסה."
+
+#: .\agent\templates\agent\index.html:648 .\agent\views.py:301
+msgid "list account security emails older than [duration]"
+msgstr "רשום מיילי אבטחת חשבון ישנים מ-[משך]"
+
+#: .\agent\templates\agent\index.html:648
+msgid "Older security notices."
+msgstr "הודעות אבטחה ישנות."
+
+#: .\agent\templates\agent\index.html:649
+msgid "archive account security emails older than [duration]"
+msgstr "ארכב מיילי אבטחת חשבון ישנים מ-[משך]"
+
+#: .\agent\templates\agent\index.html:649
+msgid "Archives older security alerts."
+msgstr "מארכב התראות אבטחה ישנות."
+
+#: .\agent\templates\agent\index.html:650
+msgid "delete account security emails older than [duration]"
+msgstr "מחק מיילי אבטחת חשבון ישנים מ-[משך]"
+
+#: .\agent\templates\agent\index.html:650
+msgid "Deletes stale security alerts."
+msgstr "מוחק התראות אבטחה מיושנות."
+
+#: .\agent\templates\agent\index.html:651
+msgid "label emails from [sender] as \"[label]\""
+msgstr "תייג מיילים מ-[שולח] כתווית \"[תווית]\""
+
+#: .\agent\templates\agent\index.html:651
+msgid "Organizes emails with a label."
+msgstr "מארגן הודעות באמצעות תווית."
+
+#: .\agent\templates\agent\index.html:652 .\agent\views.py:250
+msgid "list labels"
+msgstr "רשום תוויות"
+
+#: .\agent\templates\agent\index.html:652
+msgid "Shows all your custom Gmail labels."
+msgstr "מציג את כל התוויות המותאמות שלך ב-Gmail."
+
+#: .\agent\templates\agent\index.html:653 .\agent\views.py:251
+msgid "show label \"[label]\""
+msgstr "הצג תווית \"[תווית]\""
+
+#: .\agent\templates\agent\index.html:653
+msgid "Displays all emails with a specific label."
+msgstr "מציג את כל ההודעות עם תווית מסוימת."
+
+#: .\agent\templates\agent\index.html:654 .\agent\views.py:252
+msgid "restore emails from [sender]"
+msgstr "שחזר מיילים מ-[שולח]"
+
+#: .\agent\templates\agent\index.html:654
+msgid "Moves archived emails back to the inbox."
+msgstr "מעביר הודעות מארכיון בחזרה לתיבת הנכנס."
+
+#: .\agent\templates\agent\index.html:655 .\agent\views.py:33
+#: .\agent\views.py:253 .\agent\views.py:306
+msgid "send email"
+msgstr "שלח מייל"
+
+#: .\agent\templates\agent\index.html:655
+msgid "Composes and sends an email."
+msgstr "מחבר ושולח הודעת דוא\"ל."
+
+#: .\agent\templates\agent\index.html:660
+msgid "Undo Recent Actions"
+msgstr "בטל פעולות אחרונות"
+
+#: .\agent\templates\agent\index.html:668
+msgid "Undo"
+msgstr "בטל"
+
+#: .\agent\templates\agent\index.html:675
+msgid "No recent undoable actions."
+msgstr "אין פעולות אחרונות שניתן לבטל."
+
+#: .\agent\templates\agent\index.html:680
+msgid "About this app"
+msgstr "על האפליקציה"
+
+#: .\agent\templates\agent\index.html:682
+msgid ""
+"Manage your Gmail with natural-language commands: list, delete, archive, "
+"label, restore, and view stats."
+msgstr ""
+"נהלו את ה-Gmail שלכם באמצעות פקודות בשפה טבעית: רשימה, מחיקה, ארכוב, תיוג, "
+"שחזור והצגת סטטיסטיקות."
+
+#: .\agent\templates\agent\index.html:683
+msgid ""
+"Works in English and Hebrew. No data is stored on this server; actions run "
+"via your Google account."
+msgstr ""
+"פועל באנגלית ובעברית. לא נשמרים נתונים בשרת זה; הפעולות מתבצעות דרך חשבון "
+"Google שלכם."
+
+#: .\agent\views.py:30 .\agent\views.py:247
+msgid "delete all promotions older than 30 days"
+msgstr "מחק את כל קידומי המכירות ישנים מ-30 ימים"
+
+#: .\agent\views.py:31
+msgid "list emails from google.com"
+msgstr "רשום מיילים מ-google.com"
+
+#: .\agent\views.py:34
+msgid "label emails from amazon.com as Shopping"
+msgstr "תייג מיילים מ-amazon.com כ-\"Shopping\""
+
+#: .\agent\views.py:121
+msgid "Favorite too long (max 200 chars)."
+msgstr "מועדף ארוך מדי (עד 200 תווים)."
+
+#: .\agent\views.py:129
+msgid "Added to favorites."
+msgstr "נוסף למועדפים."
+
+#: .\agent\views.py:136
+msgid "Removed from favorites."
+msgstr "הוסר מהמועדפים."
+
+#: .\agent\views.py:139
+msgid "Cleared all favorites."
+msgstr "נוקו כל המועדפים."
+
+#: .\agent\views.py:172
+msgid "Recipient is required."
+msgstr "יש להזין כתובת נמען."
+
+#: .\agent\views.py:176
+msgid "Email sent."
+msgstr "הודעה נשלחה."
+
+#: .\agent\views.py:181
+#, python-format
+msgid "Failed to send email: %(err)s"
+msgstr "שליחת ההודעה נכשלה: %(err)s"
+
+#: .\agent\views.py:239
+msgid "list emails from [domain]"
+msgstr "רשום מיילים מ-[דומיין]"
+
+#: .\agent\views.py:240 .\agent\views.py:267
+msgid "list emails from last week"
+msgstr "רשום מיילים משבוע שעבר"
+
+#: .\agent\views.py:241
+msgid "list emails older than 6 months"
+msgstr "רשום מיילים ישנים מ-6 חודשים"
+
+#: .\agent\views.py:246
+msgid "delete emails from [domain]"
+msgstr "מחק מיילים מ-[דומיין]"
+
+#: .\agent\views.py:248
+msgid "archive all emails older than 1 year"
+msgstr "ארכב את כל המיילים ישנים משנה"
+
+#: .\agent\views.py:249 .\agent\views.py:304
+msgid "label emails from [domain] as \"[label]\""
+msgstr "תייג מיילים מ-[דומיין] כתווית \"[תווית]\""
+
+#: .\agent\views.py:265
+msgid "list emails from today"
+msgstr "רשום מיילים מהיום"
+
+#: .\agent\views.py:266
+msgid "list emails from yesterday"
+msgstr "רשום מיילים מאתמול"
+
+#: .\agent\views.py:268
+msgid "list emails from last month"
+msgstr "רשום מיילים מהחודש שעבר"
+
+#: .\agent\views.py:269
+msgid "list emails from last year"
+msgstr "רשום מיילים מהשנה שעברה"
+
+#: .\agent\views.py:270
+msgid "list emails before a week"
+msgstr "רשום מיילים לפני שבוע"
+
+#: .\agent\views.py:271
+msgid "list emails before a month"
+msgstr "רשום מיילים לפני חודש"
+
+#: .\agent\views.py:272
+msgid "list emails before a year"
+msgstr "רשום מיילים לפני שנה"
+
+#: .\agent\views.py:274
+msgid "list emails older than 1 year"
+msgstr "רשום מיילים ישנים משנה"
+
+#: .\agent\views.py:275
+msgid "list emails older than 30 days"
+msgstr "רשום מיילים ישנים מ-30 ימים"
+
+#: .\agent\views.py:283
+msgid "list emails from [domain] older than [duration]"
+msgstr "רשום מיילים מ-[דומיין] ישנים מ-[משך]"
+
+#: .\agent\views.py:284
+msgid "list emails from [sender] older than [duration]"
+msgstr "רשום מיילים מ-[שולח] ישנים מ-[משך]"
+
+#: .\agent\views.py:285
+msgid "delete emails from [domain] older than 30 days"
+msgstr "מחק מיילים מ-[דומיין] ישנים מ-30 ימים"
+
+#: .\agent\views.py:286
+msgid "archive emails from [sender]"
+msgstr "ארכב מיילים מ-[שולח]"
+
+#: .\agent\views.py:290
+msgid "archive verification codes"
+msgstr "ארכב קודי אימות"
+
+#: .\agent\views.py:291
+msgid "delete verification codes"
+msgstr "מחק קודי אימות"
+
+#: .\agent\views.py:293
+msgid "delete verification codes older than 14 days"
+msgstr "מחק קודי אימות ישנים מ-14 ימים"
+
+#: .\agent\views.py:294
+msgid "archive verification codes older than 30 days"
+msgstr "ארכב קודי אימות ישנים מ-30 ימים"
+
+#: .\agent\views.py:296
+msgid "archive shipping emails"
+msgstr "ארכב מיילי משלוח"
+
+#: .\agent\views.py:297
+msgid "delete shipping emails"
+msgstr "מחק מיילי משלוח"
+
+#: .\agent\views.py:298
+msgid "archive shipping emails older than 90 days"
+msgstr "ארכב מיילי משלוח ישנים מ-90 ימים"
+
+#: .\agent\views.py:299
+msgid "delete shipping emails older than 180 days"
+msgstr "מחק מיילי משלוח ישנים מ-180 ימים"
+
+#: .\agent\views.py:302
+msgid "archive account security emails older than 90 days"
+msgstr "ארכב מיילי אבטחת חשבון ישנים מ-90 ימים"
+
+#: .\agent\views.py:303
+msgid "delete account security emails older than 180 days"
+msgstr "מחק מיילי אבטחת חשבון ישנים מ-180 ימים"
+
+#: .\web_project\settings.py:120
+msgid "English"
+msgstr "אנגלית"
+
+#: .\web_project\settings.py:121
+msgid "Hebrew"
+msgstr "עברית"
+
+#~ msgid "send email to [address]..."
+#~ msgstr "שלח דוא\"ל אל [כתובת]..."
+
+#~ msgid ""
+#~ "send email to user@example.com with subject \"Hi\" and message \"Hello "
+#~ "there!\""
+#~ msgstr ""
+#~ "שלח דוא\"ל אל user@example.com עם נושא \"Hi\" והודעה \"Hello there!\""
+
+#~ msgid ""
+#~ "To empty trash: Go to Gmail → Trash folder → 'Empty Trash now' button"
+#~ msgstr ""
+#~ "כדי לרוקן את האשפה: עבור ל-Gmail → תיקיית אשפה → הכפתור 'רוקן אשפה כעת'"
+
+msgid "Save custom command"
+msgstr "שמור פקודה מותאמת אישית"
