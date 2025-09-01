@@ -351,6 +351,21 @@
         [data-theme="dark"] .stat-card .stat-list li { color: #eee !important; }
         [data-theme="dark"] .stat-card .bar-list li { color: #eee !important; }
         [data-theme="dark"] .stat-card .bar-label { color: #eee !important; }
+        
+        /* PC and mobile stats list styling */
+        .stats-grid .stat-list li {
+            background: #f0f0f0;
+            border-radius: 4px;
+            padding: 4px 8px;
+            margin-bottom: 3px;
+            font-size: 0.9em;
+            word-break: break-word;
+        }
+        
+        [data-theme="dark"] .stats-grid .stat-list li {
+            background: #333;
+            color: #fff;
+        }
         .all-commands {
             margin-top: 20px;
         }
@@ -584,6 +599,45 @@
             .bar-item > div[style*="text-align:right"] {
                 width: 32px !important; /* Reduce count column width on mobile */
                 font-size: 0.8em; /* Smaller font for counts on mobile */
+            }
+            
+            /* Mobile insights improvements */
+            .stat-card h4 + ul {
+                padding-left: 0; /* Remove default list padding on mobile */
+            }
+            
+            .stat-card h4 + ul li {
+                background: #f8f9fa; /* Light background for better readability */
+                border-radius: 6px; /* Rounded corners */
+                padding: 8px 12px; /* Comfortable padding */
+                margin-bottom: 6px; /* Space between insights */
+                font-size: 0.9em; /* Slightly smaller font for mobile */
+                line-height: 1.4; /* Better line spacing */
+                word-wrap: break-word; /* Break long words */
+                overflow-wrap: break-word; /* Additional word breaking */
+                max-width: 100%; /* Prevent overflow */
+                box-sizing: border-box; /* Include padding in width calculation */
+            }
+            
+            [data-theme="dark"] .stat-card h4 + ul li {
+                background: #2a2a2a; /* Dark background for dark theme */
+                color: #e6e6e6; /* Light text for dark theme */
+            }
+            
+            /* Mobile stats - shorter boxes and light mode styling */
+            .stats-grid .stat-list li {
+                background: #f0f0f0 !important;
+                border-radius: 4px !important;
+                padding: 4px 8px !important;
+                margin-bottom: 3px !important;
+                font-size: 0.85em !important;
+                max-width: 90% !important;
+                word-break: break-word !important;
+            }
+            
+            [data-theme="dark"] .stats-grid .stat-list li {
+                background: #333 !important;
+                color: #fff !important;
             }
         }
     </style>
