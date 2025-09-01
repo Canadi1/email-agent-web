@@ -559,6 +559,32 @@
             html[lang="he"] .quick-commands-buttons #clear-fav-form .cancel-btn {
                 transform: translateX(-1px);
             }
+            
+            /* Mobile label distribution bar improvements */
+            .bar-track {
+                min-width: 60px; /* Ensure bars have a minimum width on mobile */
+                height: 16px; /* Slightly taller bars on mobile */
+                border-radius: 8px; /* Adjusted border radius for taller bars */
+            }
+            
+            .bar-fill {
+                min-width: 8px; /* Ensure even very small percentages show as a small bar, not a circle */
+            }
+            
+            /* Mobile bar layout adjustments to prevent overflow */
+            .bar-item {
+                gap: 6px; /* Reduce gap between elements on mobile */
+            }
+            
+            .bar-label-wide {
+                width: 140px; /* Reduce label width on mobile to make room for bars */
+                font-size: 0.85em; /* Slightly smaller font to fit better */
+            }
+            
+            .bar-item > div[style*="text-align:right"] {
+                width: 32px !important; /* Reduce count column width on mobile */
+                font-size: 0.8em; /* Smaller font for counts on mobile */
+            }
         }
     </style>
 </head>
