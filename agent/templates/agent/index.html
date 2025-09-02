@@ -2182,21 +2182,29 @@
             });
             toInput.addEventListener('input', function() {
                 const q = (this.value || '').trim();
-                clearTimeout(contactsDebounce);
-                contactsDebounce = setTimeout(() => {
-                    if (!q) { closeContacts(); return; }
-                    if (cachedContacts && cachedContacts.length) {
+                if (!q) { closeContacts(); return; }
+                
+                // Always use cached contacts for instant response
+                if (cachedContacts && cachedContacts.length) {
+                    const lc = q.toLowerCase();
+                    const filtered = cachedContacts.filter(c => {
+                        const em = (c.email||'').toLowerCase();
+                        const nm = (c.name||'').toLowerCase();
+                        return em.includes(lc) || (nm && nm.includes(lc));
+                    }).slice(0, 20);
+                    renderContacts(filtered);
+                } else {
+                    // If no cache yet, prefetch and then filter
+                    prefetchContacts().then(() => {
                         const lc = q.toLowerCase();
-                        const filtered = cachedContacts.filter(c => {
+                        const filtered = (cachedContacts || []).filter(c => {
                             const em = (c.email||'').toLowerCase();
                             const nm = (c.name||'').toLowerCase();
                             return em.includes(lc) || (nm && nm.includes(lc));
                         }).slice(0, 20);
                         renderContacts(filtered);
-                    } else {
-                        fetchContacts(q).then(renderContacts);
-                    }
-                }, 120);
+                    });
+                }
             });
             toInput.addEventListener('keydown', function(e) {
                 if (!contactsBox) return;
