@@ -306,7 +306,7 @@
         @media (max-width: 768px) {
             #favorites-list {
                 display: grid;
-                grid-template-columns: repeat(2, 1fr); /* 2 equal columns on mobile */
+                grid-template-columns: 1fr; /* 1 column on mobile */
                 gap: 8px;
             }
             #favorites-list li { margin: 0; }
@@ -351,6 +351,36 @@
             color: #666;
         }
         [data-theme="dark"] .example-commands ul { color: #ccc; }
+        /* Mobile English: tighter spacing between example command lines */
+        @media (max-width: 768px) {
+            html[dir="ltr"] .example-commands ul li { margin: 4px 0; }
+            /* Ensure the specific long label example stays on one line with local scroll */
+            html[dir="ltr"] .example-commands ul li.long-label-example code {
+                white-space: nowrap;
+                display: inline-block;
+                letter-spacing: -0.2px;
+                font-size: 0.9em; /* final nudge smaller only for this long item */
+            }
+            /* Promotions long example: keep in one line with tighter spacing */
+            html[dir="ltr"] .example-commands ul li.long-promo-example { 
+                list-style-type: disc; 
+                list-style-position: outside;
+                padding-left: 0;
+            }
+            html[dir="ltr"] .example-commands ul li.long-promo-example code {
+                white-space: nowrap; 
+                display: inline-block;
+                letter-spacing: -0.2px;
+                font-size: 0.85em;
+            }
+        }
+        /* Mobile English-only: show shorter variants for specific long examples */
+        .ex-en-mobile { display: none; }
+        .ex-en-desktop { display: inline; }
+        @media (max-width: 768px) {
+            html[dir="ltr"] .ex-en-desktop { display: none; }
+            html[dir="ltr"] .ex-en-mobile { display: inline; }
+        }
         
         /* Dark-mode overrides for inline-styled elements */
         [data-theme="dark"] details > summary { color: #ccc !important; }
@@ -970,7 +1000,7 @@
                     <h3>{% trans 'Example Commands' %}</h3>
                     <ul>
                         {% for cmd in example_commands %}
-                        <li><code>{{ cmd }}</code></li>
+                        <li class="{% if 'label emails from' in cmd %}long-label-example {% endif %}{% if 'delete promotions older than' in cmd or 'delete all promotions older than' in cmd %}long-promo-example{% endif %}"><code>{{ cmd }}</code></li>
                         {% endfor %}
                     </ul>
                 </div>
@@ -990,10 +1020,10 @@
                         <li><b>{% trans 'list emails before 6 months' %}</b></li>
                         <li><b>{% trans 'list emails before 2 weeks' %}</b></li>
                         <li><b>{% trans 'list emails from 4 months ago' %}</b></li>
-                        <li><b>{% trans 'search emails with subject "[keyword]"' %}</b> - {% trans 'Finds emails with a specific subject.' %}</li>
+                        <li><b>{% trans 'search emails with subject [keyword]' %}</b> - {% trans 'Finds emails with a specific subject.' %}</li>
                         <li><b>{% trans 'show email stats' %}</b> - {% trans 'Displays a report of top senders and domains.' %}</li>
                         <li><b>{% trans 'delete emails from [sender/domain]' %}</b> - {% trans 'Moves emails to Trash.' %}</li>
-                        <li><b>{% trans 'delete all promotions older than [duration]' %}</b> - {% trans 'Cleans up the Promotions tab.' %}</li>
+                        <li><b>{% trans 'delete promotions older than [duration]' %}</b> - {% trans 'Cleans up the Promotions tab.' %}</li>
                         <li><b>{% trans 'archive emails from [sender] older than 6 months' %}</b> - {% trans 'Archives messages from a sender with an age filter.' %}</li>
                         <li><b>{% trans 'archive all emails older than [duration]' %}</b> - {% trans 'Bulk archives old emails.' %}</li>
                         <li><b>{% trans 'list verification codes' %}</b> - {% trans 'Finds login and 2FA codes.' %}</li>
@@ -1008,7 +1038,7 @@
                         <li><b>{% trans 'list account security emails older than [duration]' %}</b> - {% trans 'Older security notices.' %}</li>
                         <li><b>{% trans 'archive account security emails older than [duration]' %}</b> - {% trans 'Archives older security alerts.' %}</li>
                         <li><b>{% trans 'delete account security emails older than [duration]' %}</b> - {% trans 'Deletes stale security alerts.' %}</li>
-                        <li><b>{% trans 'label emails from [sender] as "[label]"' %}</b> - {% trans 'Organizes emails with a label.' %}</li>
+                        <li><b>{% trans 'label emails from [sender] as [label]' %}</b> - {% trans 'Organizes emails with a label.' %}</li>
                         <li><b>{% trans 'list labels' %}</b> - {% trans 'Shows all your custom Gmail labels.' %}</li>
                         <li><b>{% trans 'show label "[label]"' %}</b> - {% trans 'Displays all emails with a specific label.' %}</li>
                         <li><b>{% trans 'restore emails from [sender]' %}</b> - {% trans 'Moves archived emails back to the inbox.' %}</li>
@@ -1053,6 +1083,44 @@
 
     <script>
     console.log('=== SCRIPT SECTION LOADING ===');
+    // Mobile English-only: slightly reduce font size for Example Commands (keep original text/quotes)
+    function updateExampleCommandsMobileEn() {
+        try {
+            var isLTR = document.documentElement.getAttribute('dir') === 'ltr';
+            var isSmall = window.innerWidth <= 900;
+            if (!isLTR || !isSmall) return;
+            var list = document.querySelector('.example-commands ul');
+            if (!list) return;
+            // Slightly increase from previous step, keep one-line fit
+            list.style.fontSize = '13px';
+            list.style.lineHeight = '1.2';
+            list.querySelectorAll('li code').forEach(function(codeEl){
+                codeEl.style.fontSize = '0.94em';
+            });
+        } catch(e) { }
+    }
+    document.addEventListener('DOMContentLoaded', updateExampleCommandsMobileEn);
+    window.addEventListener('resize', function(){
+        clearTimeout(window.__exCmdsTimer);
+        window.__exCmdsTimer = setTimeout(updateExampleCommandsMobileEn, 120);
+    });
+    // Ensure English mobile variants show on small screens even if CSS is cached/mismatched
+    function updateExampleEnglishVariants() {
+        try {
+            var isLTR = document.documentElement.getAttribute('dir') === 'ltr';
+            var isSmall = window.innerWidth <= 900; // slightly higher threshold for phones
+            var showMobile = isLTR && isSmall;
+            var desktopSpans = document.querySelectorAll('.ex-en-desktop');
+            var mobileSpans = document.querySelectorAll('.ex-en-mobile');
+            desktopSpans.forEach(function(el){ el.style.display = showMobile ? 'none' : 'inline'; });
+            mobileSpans.forEach(function(el){ el.style.display = showMobile ? 'inline' : 'none'; });
+        } catch(e) {}
+    }
+    window.addEventListener('resize', function(){
+        clearTimeout(window.__exEnSwapTimer);
+        window.__exEnSwapTimer = setTimeout(updateExampleEnglishVariants, 100);
+    });
+    document.addEventListener('DOMContentLoaded', updateExampleEnglishVariants);
     
     function toggleCommands() {
         var list = document.getElementById("all-commands-list");
@@ -1413,7 +1481,7 @@
                 'delete all emails older than 2 years',
                 'archive emails from [sender]',
                 'archive all emails older than 1 year',
-                'label emails from [sender] as "[label]"',
+                '• label emails from [sender] as "[label]"',
                 'list labels',
                 'show label "[label]"',
                 'restore emails from [sender]',
