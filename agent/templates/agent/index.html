@@ -2144,14 +2144,25 @@
             return fetch(resource, { ...options, signal: controller.signal })
                 .finally(() => clearTimeout(id));
         }
+        function getCookie(name) {
+            const value = `; ${document.cookie}`;
+            const parts = value.split(`; ${name}=`);
+            if (parts.length === 2) return parts.pop().split(';').shift();
+            return '';
+        }
         function fetchContacts(q) {
             const fd = new FormData();
             fd.append('get_contacts', '1');
             fd.append('q', q || '');
             fd.append('limit', '50');
-            // CSRF token
-            const csrf = (composeForm && composeForm.querySelector('input[name="csrfmiddlewaretoken"]')) ? composeForm.querySelector('input[name="csrfmiddlewaretoken"]').value : '';
-            return fetchWithTimeout('', { method: 'POST', headers: {'X-CSRFToken': csrf}, body: fd, timeout: 3000 })
+            // CSRF token from cookie fallback to hidden input
+            let csrf = getCookie('csrftoken');
+            if (!csrf && composeForm) {
+                const input = composeForm.querySelector('input[name="csrfmiddlewaretoken"]');
+                csrf = input ? input.value : '';
+            }
+            const headers = csrf && csrf.length > 20 ? {'X-CSRFToken': csrf, 'X-Requested-With': 'XMLHttpRequest'} : {'X-Requested-With': 'XMLHttpRequest'};
+            return fetchWithTimeout('', { method: 'POST', headers, body: fd, credentials: 'same-origin', timeout: 3000 })
                 .then(r => r.json())
                 .then(d => Array.isArray(d.contacts) ? d.contacts : [])
                 .catch(() => []);
@@ -2180,8 +2191,13 @@
             const fd = new FormData();
             fd.append('hide_contact', '1');
             fd.append('email', email || '');
-            const csrf = (composeForm && composeForm.querySelector('input[name="csrfmiddlewaretoken"]')) ? composeForm.querySelector('input[name="csrfmiddlewaretoken"]').value : '';
-            return fetch('', { method: 'POST', headers: {'X-CSRFToken': csrf}, body: fd })
+            let csrf = getCookie('csrftoken');
+            if (!csrf && composeForm) {
+                const input = composeForm.querySelector('input[name="csrfmiddlewaretoken"]');
+                csrf = input ? input.value : '';
+            }
+            const headers = csrf && csrf.length > 20 ? {'X-CSRFToken': csrf, 'X-Requested-With': 'XMLHttpRequest'} : {'X-Requested-With': 'XMLHttpRequest'};
+            return fetch('', { method: 'POST', headers, body: fd, credentials: 'same-origin' })
                 .then(r => r.json())
                 .catch(() => ({}));
         }

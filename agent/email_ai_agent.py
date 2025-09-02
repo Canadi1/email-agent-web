@@ -164,7 +164,7 @@ class GmailAIAgent:
     def list_emails_by_domain(self, domain, max_results=None, page_token=None, older_than_days=None, date_range=None):
         """List emails from a specific domain with pagination"""
         try:
-            if max_results is None:
+            if max_results is None: 
                 max_results = self.default_max_results
             query = f"from:*@{domain}"
             if older_than_days:
@@ -527,12 +527,33 @@ class GmailAIAgent:
                             pass
                         
                         # Subject terms
+                        # Extract subject terms with stricter noise filtering
                         for raw in re.split(r'[^A-Za-z0-9]+', subject.lower()):
-                            if not raw or raw.isdigit():
+                            if not raw:
                                 continue
-                            if raw in stopwords:
+                            # Skip pure numbers
+                            if raw.isdigit():
                                 continue
+                            # Skip very short tokens
                             if len(raw) <= 2:
+                                continue
+                            # Skip common reply/forward markers or noise
+                            extra_stopwords = {
+                                're', 'fw', 'fwd', 'no', 'noreply', 'do', 'not', 'auto', 'reply',
+                                'ref', 'id', 'cid', 'msg', 'mail', 'email', 'update', 'notification',
+                                'info', 'news', 'new', 'hi', 'hey'
+                            }
+                            if raw in stopwords or raw in extra_stopwords:
+                                continue
+                            # Skip hex-like or tracking-code-like strings
+                            if re.fullmatch(r'[a-f0-9]{6,}', raw):
+                                continue
+                            # Skip tokens that are mostly digits
+                            num_digits = sum(1 for ch in raw if ch.isdigit())
+                            if num_digits / len(raw) >= 0.5:
+                                continue
+                            # Skip long mixed alphanumeric that likely represent codes
+                            if len(raw) >= 12 and any(ch.isalpha() for ch in raw) and any(ch.isdigit() for ch in raw):
                                 continue
                             term_counts[raw] = term_counts.get(raw, 0) + 1
                         
