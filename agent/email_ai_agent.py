@@ -1790,6 +1790,10 @@ class GmailAIAgent:
             # All mail plain
             if "all mail" in command_lower or "all emails" in command_lower or "everything" in command_lower:
                 return {"action": "list", "target_type": "all_mail", "target": "all", "confirmation_required": False}
+        # Initialize optional date filters to avoid UnboundLocalError when not set
+        older_than_match = None
+        from_ago_match = None
+        simple_date_match = None
         if best_match_action == "list":
             older_than_match = re.search(r'(older than|before)\s+(a|\d+)\s+(day|week|month|year)s?', command_lower)
             from_ago_match = re.search(r'from\s+(a|\d+)\s+(day|week|month|year)s?\s+ago', command_lower)
@@ -1836,6 +1840,7 @@ class GmailAIAgent:
             return {"action": "list", "target_type": "recent", "target": "recent", "confirmation_required": False}
 
         # Send email
+        send_match = None
         if best_match_action == "send":
             send_match = re.search(r'to ([\w\.\-]+@[\w\.\-]+)(?: with subject ["\']([^"\']+)["\'])?(?: and message ["\']([^"\']+)["\'])?', command_lower)
         if send_match:
