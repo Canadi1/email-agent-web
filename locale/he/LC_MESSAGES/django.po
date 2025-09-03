@@ -1150,3 +1150,54 @@ msgstr "עברית"
 
 msgid "Save custom command"
 msgstr "שמור פקודה מותאמת אישית"
+
+msgid "Processing..."
+msgstr "מעבד..."
+
+msgid "Please wait while we process your request"
+msgstr "אנא המתן בזמן שאנו מעבדים את הבקשה שלך"
+
+msgid "Analyzing Your Emails"
+msgstr "מנתח את המיילים שלך"
+
+msgid "Fetching email data..."
+msgstr "מביא נתוני מיילים..."
+
+msgid "Initializing analysis..."
+msgstr "מאתחל ניתוח..."
+
+msgid "Fetching emails..."
+msgstr "מביא מיילים..."
+
+msgid "Analyzing data..."
+msgstr "מנתח נתונים..."
+
+msgid "Generating insights..."
+msgstr "יוצר תובנות..."
+
+msgid "Analyzing email content..."
+msgstr "מנתח תוכן מיילים..."
+
+msgid "Fetching your emails..."
+msgstr "מביא את המיילים שלך..."
+
+msgid "Searching through emails..."
+msgstr "מחפש במיילים..."
+
+msgid "Processing deletion..."
+msgstr "מעבד מחיקה..."
+
+msgid "Archiving emails..."
+msgstr "מאחסן מיילים..."
+
+msgid "Applying labels..."
+msgstr "מחיל תוויות..."
+
+msgid "Sending email..."
+msgstr "שולח מייל..."
+
+msgid "Restoring emails..."
+msgstr "משחזר מיילים..."
+
+msgid "Processing your request..."
+msgstr "מעבד את הבקשה שלך..."

@@ -1,11 +1,13 @@
 from django.shortcuts import render
-from django.http import JsonResponse
+from django.http import JsonResponse, StreamingHttpResponse
 from django.utils.translation import gettext as _
 from django.utils import translation
 from .email_ai_agent import GmailAIAgent
 import os
 import json
 import re
+import time
+import threading
 
 # Instantiate the agent once.
 # In a real app, you might use a singleton pattern or Django's app registry
@@ -14,6 +16,213 @@ gemini_api_key = os.getenv('GEMINI_API_KEY')
 if not gemini_api_key:
     gemini_api_key = "AIzaSyCLldSk-Pv0X6-nPOOjjYMEbB0AsuatmJc"
 agent_instance = GmailAIAgent(gemini_api_key=gemini_api_key)
+
+def process_with_detailed_progress(agent, command, command_id, start_progress, end_progress):
+    """
+    Process command with detailed progress updates during execution.
+    """
+    import threading
+    import time
+    
+    # Determine if this is a stats command or full analysis
+    is_stats_command = 'stats' in command.lower()
+    is_full_analysis = 'full analysis' in command.lower() or 'stats' in command.lower()
+    
+    if is_full_analysis:
+        # For full analysis, use real progress tracking
+        return process_with_real_progress(agent, command, command_id, start_progress, end_progress)
+    else:
+        # For other commands, use simulated progress
+        progress_thread = threading.Thread(target=simulate_progress, args=(command_id, start_progress, end_progress, is_stats_command))
+        progress_thread.daemon = True
+        progress_thread.start()
+        
+        # Execute the actual command
+        result = agent.process_natural_language_command(command)
+        
+        # Stop the progress simulation
+        if command_id in progress_data:
+            progress_data[command_id]['stop_simulation'] = True
+        
+        return result
+
+def process_with_real_progress(agent, command, command_id, start_progress, end_progress):
+    """
+    Process full analysis command with real progress tracking from email processing.
+    """
+    import threading
+    import time
+    
+    # Set up real progress tracking
+    progress_data[command_id]['real_progress'] = True
+    progress_data[command_id]['current_processed'] = 0
+    progress_data[command_id]['total_emails'] = 0
+    
+    # Set command_id in agent for progress updates
+    agent.current_command_id = command_id
+    
+    # Start a progress monitoring thread
+    progress_thread = threading.Thread(target=monitor_real_progress, args=(command_id, start_progress, end_progress))
+    progress_thread.daemon = True
+    progress_thread.start()
+    
+    # Execute the actual command
+    result = agent.process_natural_language_command(command)
+    
+    # Stop the progress monitoring
+    if command_id in progress_data:
+        progress_data[command_id]['stop_simulation'] = True
+    
+    # Clear command_id from agent
+    agent.current_command_id = None
+    
+    return result
+
+def monitor_real_progress(command_id, start_progress, end_progress):
+    """
+    Monitor real progress for full analysis commands.
+    """
+    import time
+    
+    while True:
+        if command_id not in progress_data:
+            break
+            
+        if progress_data[command_id].get('stop_simulation'):
+            break
+            
+        # Get current progress data
+        current_processed = progress_data[command_id].get('current_processed', 0)
+        total_emails = progress_data[command_id].get('total_emails', 0)
+        
+        if total_emails > 0:
+            # Calculate progress percentage based on real email processing
+            # Use the full progress range (10% to 99%) for email processing
+            email_progress = current_processed / total_emails  # Use full range for email processing
+            final_progress = start_progress + (end_progress - start_progress) * email_progress
+            
+            # Update progress with real email count
+            message = f"Processing emails... ({current_processed}/{total_emails})"
+            update_progress(command_id, int(final_progress), message)
+        
+        # Slightly less frequent to reduce overhead while staying smooth
+        time.sleep(0.3)
+
+def simulate_progress(command_id, start_progress, end_progress, is_stats_command=False):
+    """
+    Simulate smooth progress updates between start and end percentages.
+    """
+    current_progress = start_progress
+    target_progress = end_progress
+    
+    while current_progress < target_progress:
+        if command_id in progress_data and progress_data[command_id].get('stop_simulation'):
+            break
+            
+        # Increment progress smoothly - slower for stats commands
+        if is_stats_command:
+            increment = (target_progress - start_progress) / 60  # 60 steps for stats (slower)
+            sleep_time = 0.2  # Longer delay for stats
+        else:
+            increment = (target_progress - start_progress) / 20  # 20 steps for regular commands
+            sleep_time = 0.1  # Normal delay for regular commands
+            
+        current_progress += increment
+        
+        if current_progress > target_progress:
+            current_progress = target_progress
+            
+        # Update progress with appropriate message
+        if current_progress < start_progress + (target_progress - start_progress) * 0.3:
+            message = "Processing emails..."
+        elif current_progress < start_progress + (target_progress - start_progress) * 0.7:
+            message = "Analyzing data..."
+        else:
+            message = "Finalizing..."
+            
+        update_progress(command_id, int(current_progress), message)
+        time.sleep(sleep_time)  # Variable delay based on command type
+
+def process_command_with_progress(agent, command, command_id):
+    """
+    Process a command with real-time progress updates.
+    """
+    start_time = time.time()
+    
+    try:
+        # Start progress immediately
+        update_progress(command_id, 5, "Starting command...")
+        
+        update_progress(command_id, 10, "Parsing command...")
+        
+        # Parse the command to understand what we're doing
+        parsed = agent.parse_command_manually(command)
+        action = parsed.get('action', '')
+        
+        update_progress(command_id, 15, f"Command parsed: {action}")
+        
+        # Update progress based on command type with more granular updates
+        if action == 'list':
+            update_progress(command_id, 20, "Fetching emails...")
+            result = process_with_detailed_progress(agent, command, command_id, 20, 99)
+            update_progress(command_id, 99, "Processing results...")
+        elif action == 'search':
+            update_progress(command_id, 25, "Searching emails...")
+            result = process_with_detailed_progress(agent, command, command_id, 25, 99)
+            update_progress(command_id, 99, "Processing results...")
+        elif action == 'delete':
+            update_progress(command_id, 30, "Identifying emails to delete...")
+            result = process_with_detailed_progress(agent, command, command_id, 30, 99)
+            update_progress(command_id, 99, "Processing deletion...")
+        elif action == 'archive':
+            update_progress(command_id, 30, "Identifying emails to archive...")
+            result = process_with_detailed_progress(agent, command, command_id, 30, 99)
+            update_progress(command_id, 99, "Processing archive...")
+        elif action == 'label':
+            update_progress(command_id, 30, "Identifying emails to label...")
+            result = process_with_detailed_progress(agent, command, command_id, 30, 99)
+            update_progress(command_id, 99, "Applying labels...")
+        elif action == 'send':
+            update_progress(command_id, 40, "Preparing email...")
+            result = process_with_detailed_progress(agent, command, command_id, 40, 99)
+            update_progress(command_id, 99, "Sending email...")
+        elif action == 'restore':
+            update_progress(command_id, 30, "Identifying emails to restore...")
+            result = process_with_detailed_progress(agent, command, command_id, 30, 99)
+            update_progress(command_id, 99, "Processing restoration...")
+        elif 'full analysis' in command.lower() or 'stats' in command.lower():
+            # Check if this is a stats command that might do full analysis
+            update_progress(command_id, 10, "Starting analysis...")
+            result = process_with_detailed_progress(agent, command, command_id, 10, 99)
+            update_progress(command_id, 99, "Finalizing analysis...")
+        else:
+            # Generic command processing
+            update_progress(command_id, 20, "Processing command...")
+            result = process_with_detailed_progress(agent, command, command_id, 20, 99)
+            update_progress(command_id, 99, "Finalizing...")
+        
+        # Calculate total execution time
+        end_time = time.time()
+        total_time = end_time - start_time
+        
+        # Print timing info to terminal
+        print(f"⏱️  Command '{command}' completed in {total_time:.2f} seconds")
+        
+        # Complete progress with timing info
+        update_progress(command_id, 100, f"Complete! ({total_time:.1f}s)", complete=True)
+        return result
+        
+    except Exception as e:
+        # Calculate time even for errors
+        end_time = time.time()
+        total_time = end_time - start_time
+        
+        # Print timing info to terminal
+        print(f"❌ Command '{command}' failed after {total_time:.2f} seconds: {str(e)}")
+        
+        # Error progress
+        update_progress(command_id, 100, f"Error: {str(e)}", complete=True)
+        return {"status": "error", "message": str(e)}
 
 def index(request):
     """
@@ -261,6 +470,12 @@ def index(request):
                 except json.JSONDecodeError:
                     result = {"status": "error", "message": "Invalid confirmation data."}
             elif command:
+                # Get command ID from form or generate new one
+                command_id = request.POST.get('command_id', '')
+                if not command_id:
+                    import uuid
+                    command_id = str(uuid.uuid4())
+                
                 # Inject per-page into list commands by temporarily setting default
                 prev_default = getattr(agent_instance, 'default_max_results', 50)
                 agent_instance.default_max_results = per_page
@@ -273,7 +488,8 @@ def index(request):
                         context['show_compose'] = True
                         result = {"status": "info", "message": _("Compose Email")}
                     else:
-                        result = agent_instance.process_natural_language_command(command)
+                        # Process command with progress updates
+                        result = process_command_with_progress(agent_instance, command, command_id)
                 finally:
                     agent_instance.default_max_results = prev_default
                 # Track history in session for autocomplete
@@ -523,3 +739,65 @@ def _translate_hebrew_command_to_english(command: str) -> str:
     # Normalize multiple spaces that can result from replacements
     c = re.sub(r"\s{2,}", " ", c).strip()
     return c
+
+# Global progress tracking for SSE
+progress_data = {}
+
+def progress_stream(request, command_id):
+    """
+    Server-Sent Events endpoint for real-time progress updates.
+    """
+    # SSE endpoint called for progress updates
+    
+    def event_stream():
+        # Starting event stream for progress updates
+        while True:
+            if command_id in progress_data:
+                data = progress_data[command_id]
+                # Debug logging removed for cleaner terminal output
+                if data.get('complete'):
+                    # Send final update and clean up
+                    yield f"data: {json.dumps(data)}\n\n"
+                    del progress_data[command_id]
+                    # Progress tracking completed and cleaned up
+                    break
+                else:
+                    yield f"data: {json.dumps(data)}\n\n"
+            time.sleep(0.1)  # Check every 100ms
+    
+    response = StreamingHttpResponse(event_stream(), content_type='text/event-stream')
+    response['Cache-Control'] = 'no-cache'
+    response['Access-Control-Allow-Origin'] = '*'
+    response['Access-Control-Allow-Headers'] = 'Cache-Control'
+    return response
+
+def update_progress(command_id, progress, message, complete=False):
+    """
+    Update progress for a specific command.
+    """
+    
+    # Preserve existing data if it exists
+    if command_id in progress_data:
+        progress_data[command_id].update({
+            'progress': progress,
+            'message': message,
+            'complete': complete,
+            'timestamp': time.time()
+        })
+    else:
+        progress_data[command_id] = {
+            'progress': progress,
+            'message': message,
+            'complete': complete,
+            'timestamp': time.time()
+        }
+
+def update_email_progress(command_id, current_processed, total_emails):
+    """
+    Update real email processing progress for full analysis commands.
+    """
+    if command_id in progress_data and progress_data[command_id].get('real_progress'):
+        progress_data[command_id]['current_processed'] = current_processed
+        progress_data[command_id]['total_emails'] = total_emails
+        
+        # Debug logging removed for cleaner terminal output

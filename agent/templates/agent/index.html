@@ -179,6 +179,142 @@
         .about-card a:visited {
             color: var(--primary-color);
         }
+
+        /* Loading Screen Styles */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+            backdrop-filter: blur(4px);
+        }
+
+        .loading-container {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 30px;
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        .stats-loading {
+            max-width: 500px;
+        }
+
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid var(--border-color);
+            border-top: 4px solid var(--primary-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .loading-container h3 {
+            margin: 0 0 10px 0;
+            color: var(--text-color);
+            font-size: 1.3em;
+        }
+
+        .loading-container p {
+            margin: 0 0 20px 0;
+            color: var(--text-secondary);
+            font-size: 1em;
+        }
+
+        .progress-container {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .progress-bar {
+            flex: 1;
+            height: 8px;
+            background: var(--border-color);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary-color), #4a90e2);
+            border-radius: 4px;
+            transition: width 0.3s ease;
+            width: 0%;
+        }
+
+        #progressText, #statsProgressText {
+            font-weight: 600;
+            color: var(--text-color);
+            min-width: 40px;
+        }
+
+        .stats-details {
+            margin-top: 20px;
+            text-align: left;
+        }
+
+        .stats-step {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 8px 0;
+            opacity: 0.5;
+            transition: opacity 0.3s ease;
+        }
+
+        .stats-step.active {
+            opacity: 1;
+            color: var(--primary-color);
+        }
+
+        .stats-step.completed {
+            opacity: 0.8;
+            color: #28a745;
+        }
+
+        .step-icon {
+            font-size: 1.2em;
+            width: 24px;
+            text-align: center;
+        }
+
+        .step-text {
+            font-size: 0.95em;
+            color: var(--text-secondary);
+        }
+
+        .stats-step.active .step-text,
+        .stats-step.completed .step-text {
+            color: inherit;
+        }
+
+        /* Dark theme adjustments */
+        [data-theme="dark"] .loading-overlay {
+            background: rgba(0, 0, 0, 0.9);
+        }
+
+        [data-theme="dark"] .loading-container {
+            background: #1a1a1a;
+            border-color: #333;
+        }
         /* Make compose inputs slightly narrower to avoid edge overflow */
         #compose-form input,
         #compose-form textarea {
@@ -753,6 +889,7 @@
                     {% csrf_token %}
                     <input type="text" id="command-input" name="command" dir="auto" placeholder="{% trans 'e.g., list recent emails' %}" autofocus autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
                     <button type="submit" id="command-submit">{% trans 'Process' %}</button>
+                    <button type="button" onclick="testLoadingScreen()" style="margin-left: 10px; background: #28a745; color: white; padding: 8px 12px; border: none; border-radius: 4px;">Test Loading</button>
                 </form>
                 {% if show_compose %}
                 <div class="stat-card" style="margin-bottom:16px;">
@@ -2398,8 +2535,323 @@
             });
             window.addEventListener('resize', positionContacts);
         }
+
+
+
+        // Enhanced form submission with loading screens
+        document.getElementById('command-form').addEventListener('submit', function(e) {
+            console.log('Form submitted!'); // Debug log
+            
+            const commandInput = document.getElementById('command-input');
+            if (!commandInput) {
+                console.log('Command input not found');
+                return true;
+            }
+            
+            const command = commandInput.value.toLowerCase().trim();
+            console.log('Command:', command); // Debug log
+            
+            // Skip loading screen for empty commands (they just refresh instantly)
+            if (!command) {
+                console.log('Empty command, submitting immediately without loading screen');
+                document.getElementById('command-form').submit();
+                return;
+            }
+            
+            // Generate unique command ID for progress tracking
+            const commandId = 'cmd_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+            
+            // Show loading screen and submit form immediately
+            if (command.includes('show email stats') || command.includes('show stats')) {
+                console.log('Showing stats loading screen'); // Debug log
+                showStatsLoadingScreen();
+                
+                // Connect to real-time progress updates for stats
+                connectToProgressStream(commandId, 'stats');
+                
+                // Fallback: Start a simple progress animation for stats in case SSE fails
+                let fallbackStatsProgress = 0;
+                const fallbackStatsInterval = setInterval(() => {
+                    fallbackStatsProgress += Math.random() * 0.5 + 0.3; // 0.3-0.8% increments (slower for stats)
+                    if (fallbackStatsProgress > 95) fallbackStatsProgress = 95;
+                    updateStatsProgress(fallbackStatsProgress, '{% trans "Processing..." %}');
+                }, 500);
+                
+                // Store interval for cleanup
+                window.fallbackStatsProgressInterval = fallbackStatsInterval;
+                
+            } else {
+                console.log('Showing general loading screen'); // Debug log
+                
+                // General loading screen for other commands
+                const commandMessages = {
+                    'list': '{% trans "Fetching your emails..." %}',
+                    'search': '{% trans "Searching through emails..." %}',
+                    'delete': '{% trans "Processing deletion..." %}',
+                    'archive': '{% trans "Archiving emails..." %}',
+                    'label': '{% trans "Applying labels..." %}',
+                    'send': '{% trans "Sending email..." %}',
+                    'restore': '{% trans "Restoring emails..." %}'
+                };
+                
+                let message = '{% trans "Processing your request..." %}';
+                for (const [key, value] of Object.entries(commandMessages)) {
+                    if (command.includes(key)) {
+                        message = value;
+                        break;
+                    }
+                }
+                
+                console.log('Loading message:', message); // Debug log
+                showLoadingScreen('{% trans "Processing..." %}', message);
+                
+                // Connect to real-time progress updates for general commands
+                connectToProgressStream(commandId, 'general');
+                
+                // Fallback: Start a simple progress animation in case SSE fails
+                let fallbackProgress = 0;
+                const fallbackInterval = setInterval(() => {
+                    fallbackProgress += Math.random() * 8 + 4; // 4-12% increments
+                    if (fallbackProgress > 95) fallbackProgress = 95;
+                    updateProgress(fallbackProgress);
+                }, 300);
+                
+                // Store interval for cleanup
+                window.fallbackProgressInterval = fallbackInterval;
+            }
+            
+            // Add command ID to form for backend processing
+            const commandIdInput = document.createElement('input');
+            commandIdInput.type = 'hidden';
+            commandIdInput.name = 'command_id';
+            commandIdInput.value = commandId;
+            document.getElementById('command-form').appendChild(commandIdInput);
+            
+            // Submit form immediately - loading screen will show during actual command execution
+            // No preventDefault() - let the form submit naturally
+        });
     });
+
+    // Loading Screen Functions (moved outside DOMContentLoaded to be globally accessible)
+    window.showLoadingScreen = function(title, message) {
+        document.getElementById('loadingTitle').textContent = title;
+        document.getElementById('loadingMessage').textContent = message;
+        document.getElementById('loadingScreen').style.display = 'flex';
+        updateProgress(0);
+        
+        // Add a close button for testing
+        const closeBtn = document.createElement('button');
+        closeBtn.textContent = 'Close';
+        closeBtn.style.cssText = 'position: absolute; top: 10px; right: 10px; background: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer;';
+        closeBtn.onclick = function() {
+            hideLoadingScreen();
+            closeBtn.remove();
+        };
+        document.getElementById('loadingScreen').appendChild(closeBtn);
+    };
+
+    window.hideLoadingScreen = function() {
+        document.getElementById('loadingScreen').style.display = 'none';
+    };
+
+    window.updateProgress = function(percent, message) {
+        const progressFill = document.getElementById('progressFill');
+        const progressText = document.getElementById('progressText');
+        const loadingMessage = document.getElementById('loadingMessage');
+        
+        console.log('Updating progress:', percent, 'Elements found:', {
+            progressFill: !!progressFill,
+            progressText: !!progressText,
+            loadingMessage: !!loadingMessage
+        });
+        
+        if (progressFill) {
+            progressFill.style.width = percent + '%';
+        }
+        if (progressText) {
+            progressText.textContent = Math.round(percent) + '%';
+        }
+        if (message && loadingMessage) {
+            loadingMessage.textContent = message;
+        }
+    };
+
+    window.showStatsLoadingScreen = function() {
+        document.getElementById('statsLoadingScreen').style.display = 'flex';
+        updateStatsProgress(0, '{% trans "Initializing analysis..." %}');
+        resetStatsSteps();
+    };
+
+    window.hideStatsLoadingScreen = function() {
+        document.getElementById('statsLoadingScreen').style.display = 'none';
+    };
+
+    window.updateStatsProgress = function(percent, message) {
+        const progressFill = document.getElementById('statsProgressFill');
+        const progressText = document.getElementById('statsProgressText');
+        const loadingMessage = document.getElementById('statsLoadingMessage');
+        
+        progressFill.style.width = percent + '%';
+        progressText.textContent = Math.round(percent) + '%';
+        
+        if (message) {
+            loadingMessage.textContent = message;
+        }
+    };
+
+    window.resetStatsSteps = function() {
+        document.querySelectorAll('.stats-step').forEach(step => {
+            step.classList.remove('active', 'completed');
+        });
+    };
+
+    window.setStatsStep = function(stepNumber, status) {
+        const step = document.getElementById('statsStep' + stepNumber);
+        if (step) {
+            step.classList.remove('active', 'completed');
+            if (status === 'active') {
+                step.classList.add('active');
+            } else if (status === 'completed') {
+                step.classList.add('completed');
+            }
+        }
+    };
+
+    // Test function for loading screen demo
+    window.testLoadingScreen = function() {
+        showLoadingScreen('Test Loading', 'This is a demo of the loading screen...');
+        
+        // Demo progress animation
+        let progress = 0;
+        const interval = setInterval(() => {
+            progress += Math.random() * 15;
+            if (progress > 100) progress = 100;
+            
+            updateProgress(progress);
+            
+            if (progress >= 100) {
+                clearInterval(interval);
+                setTimeout(() => {
+                    hideLoadingScreen();
+                }, 1000);
+            }
+        }, 200);
+    };
+
+    // Real-time progress stream connection
+    window.connectToProgressStream = function(commandId, type) {
+        console.log('Connecting to progress stream for command:', commandId);
+        console.log('SSE URL:', `/agent/progress/${commandId}/`);
+        
+        const eventSource = new EventSource(`/agent/progress/${commandId}/`);
+        
+        eventSource.onopen = function(event) {
+            console.log('SSE connection opened:', event);
+        };
+        
+        eventSource.onmessage = function(event) {
+            console.log('SSE message received:', event.data);
+            try {
+                const data = JSON.parse(event.data);
+                console.log('Parsed progress data:', data);
+                
+                if (type === 'stats') {
+                    // Clear fallback progress when real progress is received
+                    if (window.fallbackStatsProgressInterval) {
+                        clearInterval(window.fallbackStatsProgressInterval);
+                        window.fallbackStatsProgressInterval = null;
+                    }
+                    
+                    updateStatsProgress(data.progress, data.message);
+                    
+                    // Update steps based on progress
+                    if (data.progress < 30) {
+                        setStatsStep(1, 'active');
+                    } else if (data.progress < 70) {
+                        setStatsStep(1, 'completed');
+                        setStatsStep(2, 'active');
+                    } else {
+                        setStatsStep(2, 'completed');
+                        setStatsStep(3, 'active');
+                    }
+                    
+                    if (data.complete) {
+                        setStatsStep(3, 'completed');
+                        eventSource.close();
+                    }
+                } else {
+                    // Clear fallback progress when real progress is received
+                    if (window.fallbackProgressInterval) {
+                        clearInterval(window.fallbackProgressInterval);
+                        window.fallbackProgressInterval = null;
+                    }
+                    
+                    updateProgress(data.progress);
+                    
+                    if (data.complete) {
+                        eventSource.close();
+                    }
+                }
+            } catch (e) {
+                console.error('Error parsing progress data:', e);
+                console.error('Raw data:', event.data);
+            }
+        };
+        
+        eventSource.onerror = function(event) {
+            console.error('Progress stream error:', event);
+            console.error('EventSource readyState:', eventSource.readyState);
+            eventSource.close();
+        };
+        
+        // Store reference for cleanup if needed
+        window.currentProgressStream = eventSource;
+    };
     </script>
+
+    <!-- General loading screen -->
+    <div id="loadingScreen" class="loading-overlay" style="display: none;">
+        <div class="loading-container">
+            <div class="loading-spinner"></div>
+            <h3 id="loadingTitle">{% trans 'Processing...' %}</h3>
+            <p id="loadingMessage">{% trans 'Please wait while we process your request' %}</p>
+            <div class="progress-container">
+                <div class="progress-bar">
+                    <div id="progressFill" class="progress-fill"></div>
+                </div>
+                <span id="progressText">0%</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Email Stats loading screen -->
+    <div id="statsLoadingScreen" class="loading-overlay" style="display: none;">
+        <div class="loading-container stats-loading">
+            <div class="loading-spinner"></div>
+            <h3>{% trans 'Analyzing Your Emails' %}</h3>
+            <p id="statsLoadingMessage">{% trans 'Fetching email data...' %}</p>
+            <div class="progress-container">
+                <div class="progress-bar">
+                    <div id="statsProgressFill" class="progress-fill"></div>
+                </div>
+                <span id="statsProgressText">0%</span>
+            </div>
+            <div class="stats-details">
+                <div class="stats-step" id="statsStep1">
+                    <span class="step-icon">📧</span>
+                    <span class="step-text">{% trans 'Fetching emails...' %}</span>
+                </div>
+                <div class="stats-step" id="statsStep2">
+                    <span class="step-icon">📊</span>
+                    <span class="step-text">{% trans 'Analyzing data...' %}</span>
+                </div>
+                <div class="stats-step" id="statsStep3">
+                    <span class="step-icon">📈</span>
+                    <span class="step-text">{% trans 'Generating insights...' %}</span>
+                </div>
+            </div>
+        </div>
+    </div>
 </body>
 </html>
 
