@@ -106,6 +106,111 @@ def get_progress_message(message_key, current_processed=None, total_emails=None,
     
     return messages.get(message_key, {}).get('he' if is_hebrew else 'en', messages[message_key]['en'])
 
+def get_random_fun_fact(language_code=None):
+    """Get a random fun fact in the appropriate language"""
+    if not language_code:
+        language_code = translation.get_language() or 'en'
+    
+    is_hebrew = language_code.startswith('he')
+    
+    fun_facts = {
+        'en': [
+            "💡 Did you know? The first email was sent in 1971 by Ray Tomlinson to himself!",
+            "📧 Fun fact: The '@' symbol in email addresses was chosen because it means 'at' in English.",
+            "🌐 Interesting: Over 300 billion emails are sent every day worldwide!",
+            "📱 Cool fact: The first mobile email was sent in 1996 using a Nokia 9000 Communicator.",
+            "🔒 Security tip: The first spam email was sent in 1978 to 400 people advertising a computer.",
+            "📊 Amazing: The average person receives 121 emails per day!",
+            "⚡ Quick fact: Email was invented before the World Wide Web!",
+            "🎯 Fun fact: The word 'email' was added to the Oxford English Dictionary in 1998.",
+            "📈 Interesting: 99% of all email traffic is spam or marketing emails.",
+            "🕒 Cool fact: The first email service provider was CompuServe, launched in 1989.",
+            "📧 Did you know? The longest email address allowed is 320 characters!",
+            "🌍 Amazing: Email is used by 4.1 billion people worldwide.",
+            "💾 Fun fact: The first email attachment was sent in 1992.",
+            "📱 Interesting: 60% of emails are opened on mobile devices.",
+            "🔍 Cool fact: The first email search engine was created in 1995.",
+            "📧 Fun fact: The first email client was called 'Mailbox' and ran on MIT's CTSS system.",
+            "🌐 Interesting: The term 'spam' for unwanted emails comes from a Monty Python sketch!",
+            "📱 Cool fact: The first webmail service was Hotmail, launched in 1996.",
+            "💡 Did you know? The first email virus was called 'ILOVEYOU' and spread in 2000.",
+            "📊 Amazing: The average office worker spends 2.5 hours per day on email!",
+            "⚡ Quick fact: The first email was sent between two computers sitting next to each other.",
+            "🎯 Fun fact: Gmail was launched on April 1st, 2004 - many thought it was an April Fool's joke!",
+            "📈 Interesting: The first email marketing campaign was sent in 1978 to 400 people.",
+            "🕒 Cool fact: The first email emoticon was :-) created in 1982 by Scott Fahlman.",
+            "📧 Did you know? The first email was sent over ARPANET, the precursor to the internet.",
+            "🌍 Amazing: The first email sent from space was in 1991 by the STS-43 crew.",
+            "💾 Fun fact: The first email attachment was a picture of a band called 'Severe Tire Damage'.",
+            "📱 Interesting: The first email sent from a mobile phone was in 1996 using a Nokia 9000.",
+            "🔍 Cool fact: The first email service to offer 1GB of storage was Gmail in 2004.",
+            "📧 Fun fact: The first email was sent at 10:30 PM on October 29, 1969.",
+            "🌐 Interesting: The first email was sent between UCLA and Stanford University.",
+            "📱 Cool fact: The first email app for iPhone was released in 2007.",
+            "💡 Did you know? The first email was sent using the @ symbol to separate user and host.",
+            "📊 Amazing: The first email was sent over a 50-kilobit connection!",
+            "⚡ Quick fact: The first email was sent using the SNDMSG command.",
+            "🎯 Fun fact: The first email was sent using the TENEX operating system.",
+            "📈 Interesting: The first email was sent using the ARPANET protocol.",
+            "🕒 Cool fact: The first email was sent using the IMP (Interface Message Processor).",
+            "📧 Did you know? The first email was sent using the 1822 protocol.",
+            "🌍 Amazing: The first email was sent using the BBN IMP-0 computer.",
+            "💾 Fun fact: The first email was sent using the SDS Sigma 7 computer.",
+            "📱 Interesting: The first email was sent using the SDS 940 computer.",
+            "🔍 Cool fact: The first email was sent using the PDP-10 computer.",
+            "📧 Fun fact: The first email was sent using the TOPS-10 operating system."
+        ],
+        'he': [
+            "💡 ידעת? המייל הראשון נשלח ב-1971 על ידי ריי טומלינסון לעצמו!",
+            "📧 עובדה מעניינת: הסימן '@' בכתובות מייל נבחר כי הוא אומר 'ב' בעברית.",
+            "🌐 מעניין: יותר מ-300 מיליארד מיילים נשלחים מדי יום ברחבי העולם!",
+            "📱 עובדה מגניבה: המייל הנייד הראשון נשלח ב-1996 באמצעות Nokia 9000 Communicator.",
+            "🔒 טיפ אבטחה: הספאם הראשון נשלח ב-1978 ל-400 אנשים לפרסום מחשב.",
+            "📊 מדהים: האדם הממוצע מקבל 121 מיילים ביום!",
+            "⚡ עובדה מהירה: המייל הומצא לפני האינטרנט!",
+            "🎯 עובדה מעניינת: המילה 'מייל' נוספה למילון אוקספורד ב-1998.",
+            "📈 מעניין: 99% מכל תעבורת המיילים היא ספאם או מיילים שיווקיים.",
+            "🕒 עובדה מגניבה: ספק המיילים הראשון היה CompuServe, שהושק ב-1989.",
+            "📧 ידעת? כתובת המייל הארוכה ביותר המותרת היא 320 תווים!",
+            "🌍 מדהים: מייל משמש 4.1 מיליארד אנשים ברחבי העולם.",
+            "💾 עובדה מעניינת: הקובץ המצורף הראשון נשלח ב-1992.",
+            "📱 מעניין: 60% מהמיילים נפתחים במכשירים ניידים.",
+            "🔍 עובדה מגניבה: מנוע החיפוש הראשון למיילים נוצר ב-1995.",
+            "📧 עובדה מעניינת: הלקוח הראשון למייל נקרא 'Mailbox' ורץ על מערכת CTSS של MIT.",
+            "🌐 מעניין: המונח 'ספאם' למיילים לא רצויים מגיע מסקיצה של מונטי פייתון!",
+            "📱 עובדה מגניבה: שירות הדוא\"ל הראשון באינטרנט היה Hotmail, שהושק ב-1996.",
+            "💡 ידעת? הנגיף הראשון במייל נקרא 'ILOVEYOU' והתפשט ב-2000.",
+            "📊 מדהים: העובד הממוצע במשרד מבלה 2.5 שעות ביום במייל!",
+            "⚡ עובדה מהירה: המייל הראשון נשלח בין שני מחשבים שישבו זה ליד זה.",
+            "🎯 עובדה מעניינת: Gmail הושק ב-1 באפריל 2004 - רבים חשבו שזה בדיחת אחד באפריל!",
+            "📈 מעניין: קמפיין השיווק הראשון במייל נשלח ב-1978 ל-400 אנשים.",
+            "🕒 עובדה מגניבה: האמוג'י הראשון במייל היה :-) שנוצר ב-1982 על ידי סקוט פאלמן.",
+            "📧 ידעת? המייל הראשון נשלח דרך ARPANET, הקודם לאינטרנט.",
+            "🌍 מדהים: המייל הראשון מהחלל נשלח ב-1991 על ידי צוות STS-43.",
+            "💾 עובדה מעניינת: הקובץ המצורף הראשון במייל היה תמונה של להקה בשם 'Severe Tire Damage'.",
+            "📱 מעניין: המייל הראשון מהטלפון הנייד נשלח ב-1996 באמצעות Nokia 9000.",
+            "🔍 עובדה מגניבה: שירות המייל הראשון שהציע 1GB אחסון היה Gmail ב-2004.",
+            "📧 עובדה מעניינת: המייל הראשון נשלח ב-22:30 ב-29 באוקטובר 1969.",
+            "🌐 מעניין: המייל הראשון נשלח בין UCLA לאוניברסיטת סטנפורד.",
+            "📱 עובדה מגניבה: האפליקציה הראשונה למייל לאייפון שוחררה ב-2007.",
+            "💡 ידעת? המייל הראשון נשלח באמצעות הסימן @ להפרדה בין משתמש למארח.",
+            "📊 מדהים: המייל הראשון נשלח דרך חיבור של 50 קילוביט!",
+            "⚡ עובדה מהירה: המייל הראשון נשלח באמצעות פקודת SNDMSG.",
+            "🎯 עובדה מעניינת: המייל הראשון נשלח באמצעות מערכת ההפעלה TENEX.",
+            "📈 מעניין: המייל הראשון נשלח באמצעות פרוטוקול ARPANET.",
+            "🕒 עובדה מגניבה: המייל הראשון נשלח באמצעות IMP (מעבד הודעות ממשק).",
+            "📧 ידעת? המייל הראשון נשלח באמצעות פרוטוקול 1822.",
+            "🌍 מדהים: המייל הראשון נשלח באמצעות מחשב BBN IMP-0.",
+            "💾 עובדה מעניינת: המייל הראשון נשלח באמצעות מחשב SDS Sigma 7.",
+            "📱 מעניין: המייל הראשון נשלח באמצעות מחשב SDS 940.",
+            "🔍 עובדה מגניבה: המייל הראשון נשלח באמצעות מחשב PDP-10.",
+            "📧 עובדה מעניינת: המייל הראשון נשלח באמצעות מערכת ההפעלה TOPS-10."
+        ]
+    }
+    
+    facts = fun_facts.get('he' if is_hebrew else 'en', fun_facts['en'])
+    return random.choice(facts)
+
 # Instantiate the agent once.
 # In a real app, you might use a singleton pattern or Django's app registry
 # to manage the agent's lifecycle.
@@ -160,7 +265,7 @@ def process_with_real_progress(agent, command, command_id, start_progress, end_p
     agent.current_command_id = command_id
     
     # Start a progress monitoring thread
-    progress_thread = threading.Thread(target=monitor_real_progress, args=(command_id, start_progress, end_progress))
+    progress_thread = threading.Thread(target=monitor_real_progress, args=(command_id, start_progress, end_progress, command))
     progress_thread.daemon = True
     progress_thread.start()
     
@@ -176,11 +281,17 @@ def process_with_real_progress(agent, command, command_id, start_progress, end_p
     
     return result
 
-def monitor_real_progress(command_id, start_progress, end_progress):
+def monitor_real_progress(command_id, start_progress, end_progress, command=None):
     """
     Monitor real progress for stats and full analysis commands.
     """
     import time
+    
+    last_fun_fact_time = 0
+    # Use different timing for full analysis vs show email stats
+    is_full_analysis = command and 'full analysis' in command.lower()
+    fun_fact_interval = 6.0 if is_full_analysis else 4.5  # 6.0s for full analysis, 4.5s for stats
+    current_fun_fact = None
     
     while True:
         if command_id not in progress_data:
@@ -199,10 +310,15 @@ def monitor_real_progress(command_id, start_progress, end_progress):
             email_progress = current_processed / total_emails  # Use full range for email processing
             final_progress = start_progress + (end_progress - start_progress) * email_progress
             
-            # Update progress with real email count
+            # Show fun facts that change every 2.5 seconds
+            current_time = time.time()
             language_code = progress_data[command_id].get('language_code', 'en')
-            message = get_progress_message('processing_emails_count', current_processed, total_emails, language_code)
-            update_progress(command_id, int(final_progress), message)
+            
+            if current_time - last_fun_fact_time >= fun_fact_interval or current_fun_fact is None:
+                current_fun_fact = get_random_fun_fact(language_code)
+                last_fun_fact_time = current_time
+            
+            update_progress(command_id, int(final_progress), current_fun_fact)
         
         # Slightly less frequent to reduce overhead while staying smooth
         time.sleep(0.3)
@@ -231,13 +347,14 @@ def simulate_progress(command_id, start_progress, end_progress, is_stats_command
         if current_progress > target_progress:
             current_progress = target_progress
             
-        # Update progress with appropriate message
+        # Update progress with appropriate message (no fun facts for normal commands)
+        language_code = progress_data[command_id].get('language_code', 'en')
         if current_progress < start_progress + (target_progress - start_progress) * 0.3:
-            message = get_progress_message('processing_emails')
+            message = get_progress_message('processing_emails', language_code=language_code)
         elif current_progress < start_progress + (target_progress - start_progress) * 0.7:
-            message = get_progress_message('analyzing_data')
+            message = get_progress_message('analyzing_data', language_code=language_code)
         else:
-            message = get_progress_message('finalizing')
+            message = get_progress_message('finalizing', language_code=language_code)
             
         update_progress(command_id, int(current_progress), message)
         time.sleep(sleep_time)  # Variable delay based on command type
