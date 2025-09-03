@@ -480,7 +480,26 @@ class GmailAIAgent:
                     kwargs = {"userId": 'me', "q": "in:inbox", "maxResults": 500, "fields": 'nextPageToken,messages/id'}
                     if next_token:
                         kwargs["pageToken"] = next_token
-                    page = self.service.users().messages().list(**kwargs).execute()
+                    
+                    # Retry on transient SSL errors without noisy logging
+                    page = None
+                    max_retries = 3
+                    for attempt in range(max_retries):
+                        try:
+                            page = self.service.users().messages().list(**kwargs).execute()
+                            break
+                        except Exception as e:
+                            err_text = str(e)
+                            if ("SSL" in err_text or "WRONG_VERSION_NUMBER" in err_text) and attempt < max_retries - 1:
+                                time.sleep(1)
+                                continue
+                            # On final failure, abort listing gracefully
+                            page = None
+                            break
+                    
+                    if page is None:
+                        break
+                        
                     msgs = page.get('messages', [])
                     if msgs:
                         all_messages.extend(msgs)
@@ -539,8 +558,9 @@ class GmailAIAgent:
                 
                 for i, msg in enumerate(batch_messages):
                     try:
-                        # Progress update every 5 emails for good balance of smoothness vs speed
-                        if (i + 1) % 5 == 0:
+                        # Progress update frequency: every 5 emails for regular stats, every 15 for full analysis
+                        update_frequency = 15 if full else 5
+                        if (i + 1) % update_frequency == 0:
                             # Update real progress for full analysis commands (no console spam)
                             if hasattr(self, 'current_command_id') and self.current_command_id:
                                 from .views import update_email_progress
@@ -1776,6 +1796,9 @@ class GmailAIAgent:
         elif "stats" in command_lower or "statistics" in command_lower:
             best_match_action = "stats"
             highest_score = 100  # High confidence for specific phrases
+        elif "full analysis" in command_lower:
+            best_match_action = "stats"
+            highest_score = 100  # High confidence for specific phrases
         elif ("list" in command_lower and "recent" in command_lower) or command_lower.strip() == "list recent emails":
             best_match_action = "list"
             highest_score = 100  # High confidence for specific phrases
@@ -2232,7 +2255,11 @@ class GmailAIAgent:
                     return self.send_email(to, subject, message)
 
             elif action == "stats":
-                return self.show_email_stats()
+                # Check if this is a full analysis command
+                if "full analysis" in command.lower():
+                    return self.show_email_stats(full=True)
+                else:
+                    return self.show_email_stats()
             
             elif action == "archive":
                 if target_type == "bulk_age":

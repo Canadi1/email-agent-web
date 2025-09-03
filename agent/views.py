@@ -8,6 +8,8 @@ import json
 import re
 import time
 import threading
+import random
+import string
 
 # Instantiate the agent once.
 # In a real app, you might use a singleton pattern or Django's app registry
@@ -24,12 +26,12 @@ def process_with_detailed_progress(agent, command, command_id, start_progress, e
     import threading
     import time
     
-    # Determine if this is a stats command or full analysis
+    # Determine command types
     is_stats_command = 'stats' in command.lower()
-    is_full_analysis = 'full analysis' in command.lower() or 'stats' in command.lower()
+    is_full_analysis = 'full analysis' in command.lower()
     
-    if is_full_analysis:
-        # For full analysis, use real progress tracking
+    if is_stats_command or is_full_analysis:
+        # Both stats and full analysis use real progress tracking (separate instances)
         return process_with_real_progress(agent, command, command_id, start_progress, end_progress)
     else:
         # For other commands, use simulated progress
@@ -48,7 +50,7 @@ def process_with_detailed_progress(agent, command, command_id, start_progress, e
 
 def process_with_real_progress(agent, command, command_id, start_progress, end_progress):
     """
-    Process full analysis command with real progress tracking from email processing.
+    Process stats and full analysis commands with real progress tracking from email processing.
     """
     import threading
     import time
@@ -80,7 +82,7 @@ def process_with_real_progress(agent, command, command_id, start_progress, end_p
 
 def monitor_real_progress(command_id, start_progress, end_progress):
     """
-    Monitor real progress for full analysis commands.
+    Monitor real progress for stats and full analysis commands.
     """
     import time
     
@@ -190,8 +192,8 @@ def process_command_with_progress(agent, command, command_id):
             update_progress(command_id, 30, "Identifying emails to restore...")
             result = process_with_detailed_progress(agent, command, command_id, 30, 99)
             update_progress(command_id, 99, "Processing restoration...")
-        elif 'full analysis' in command.lower() or 'stats' in command.lower():
-            # Check if this is a stats command that might do full analysis
+        elif action == 'stats' or 'full analysis' in command.lower():
+            # Both stats and full analysis use real progress (X/Y) - separate instances
             update_progress(command_id, 10, "Starting analysis...")
             result = process_with_detailed_progress(agent, command, command_id, 10, 99)
             update_progress(command_id, 99, "Finalizing analysis...")
@@ -412,7 +414,19 @@ def index(request):
         last_command = ''
 
         if request.POST.get('stats_full') == '1':
-            result = agent_instance.show_email_stats(full=True)
+            # Use the new progress system for full analysis
+            command_id = request.POST.get('command_id')
+            if not command_id:
+                command_id = f"cmd_{int(time.time() * 1000)}_{''.join(random.choices(string.ascii_lowercase + string.digits, k=10))}"
+            progress_data[command_id] = {
+                'progress': 0,
+                'message': 'Starting full analysis...',
+                'complete': False,
+                'real_progress': True,
+                'current_processed': 0,
+                'total_emails': 0
+            }
+            result = process_command_with_progress(agent_instance, "full analysis", command_id)
         else:
             undo_action_id = request.POST.get('undo_action_id')
             confirmation_data_str = request.POST.get('confirmation_data', '')

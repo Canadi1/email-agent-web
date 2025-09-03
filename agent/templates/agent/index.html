@@ -1414,11 +1414,14 @@
         confirmBtn.onclick = function() {
             document.body.removeChild(popup);
             
-            // Show loading screen
-            const overlay = document.getElementById('loading-overlay');
-            if (overlay) {
-                overlay.style.display = 'flex';
-            }
+            // Generate command ID for progress tracking
+            const commandId = 'cmd_' + Date.now() + '_' + Math.random().toString(36).substr(2, 10);
+            
+            // Show loading screen immediately with steps
+            showLoadingScreen('{% trans "Full Analysis" %}', '{% trans "Starting full analysis..." %}', true);
+            
+            // Connect to progress stream for real-time updates
+            connectToProgressStream(commandId, 'general');
             
             // Create and submit the form
             const form = document.createElement('form');
@@ -1439,6 +1442,13 @@
             statsFullInput.name = 'stats_full';
             statsFullInput.value = '1';
             form.appendChild(statsFullInput);
+            
+            // Add command ID for progress tracking
+            const commandIdInput = document.createElement('input');
+            commandIdInput.type = 'hidden';
+            commandIdInput.name = 'command_id';
+            commandIdInput.value = commandId;
+            form.appendChild(commandIdInput);
             
             document.body.appendChild(form);
             form.submit();
@@ -2633,11 +2643,23 @@
     });
 
     // Loading Screen Functions (moved outside DOMContentLoaded to be globally accessible)
-    window.showLoadingScreen = function(title, message) {
+    window.showLoadingScreen = function(title, message, showSteps = false) {
         document.getElementById('loadingTitle').textContent = title;
         document.getElementById('loadingMessage').textContent = message;
         document.getElementById('loadingScreen').style.display = 'flex';
         updateProgress(0);
+        
+        // Show/hide steps based on parameter
+        const stepsEl = document.getElementById('generalSteps');
+        if (stepsEl) {
+            stepsEl.style.display = showSteps ? 'block' : 'none';
+            if (showSteps) {
+                // Reset all steps to inactive
+                setGeneralStep(1, 'inactive');
+                setGeneralStep(2, 'inactive');
+                setGeneralStep(3, 'inactive');
+            }
+        }
         
         // Add a close button for testing
         const closeBtn = document.createElement('button');
@@ -2652,6 +2674,14 @@
 
     window.hideLoadingScreen = function() {
         document.getElementById('loadingScreen').style.display = 'none';
+    };
+
+    // General step management function
+    window.setGeneralStep = function(stepNumber, status) {
+        const stepEl = document.getElementById(`generalStep${stepNumber}`);
+        if (stepEl) {
+            stepEl.className = `stats-step ${status}`;
+        }
     };
 
     window.updateProgress = function(percent, message) {
@@ -2786,9 +2816,31 @@
                         window.fallbackProgressInterval = null;
                     }
                     
+                    // Update general loading message and progress
+                    if (data && typeof data.message === 'string') {
+                        const msgEl = document.getElementById('loadingMessage');
+                        if (msgEl) msgEl.textContent = data.message;
+                    }
                     updateProgress(data.progress);
                     
+                    // Update steps based on progress for full analysis
+                    const stepsEl = document.getElementById('generalSteps');
+                    if (stepsEl && stepsEl.style.display !== 'none') {
+                        if (data.progress < 30) {
+                            setGeneralStep(1, 'active');
+                        } else if (data.progress < 70) {
+                            setGeneralStep(1, 'completed');
+                            setGeneralStep(2, 'active');
+                        } else {
+                            setGeneralStep(2, 'completed');
+                            setGeneralStep(3, 'active');
+                        }
+                    }
+                    
                     if (data.complete) {
+                        if (stepsEl && stepsEl.style.display !== 'none') {
+                            setGeneralStep(3, 'completed');
+                        }
                         eventSource.close();
                     }
                 }
@@ -2820,6 +2872,20 @@
                     <div id="progressFill" class="progress-fill"></div>
                 </div>
                 <span id="progressText">0%</span>
+            </div>
+            <div class="stats-details" id="generalSteps" style="display: none;">
+                <div class="stats-step" id="generalStep1">
+                    <span class="step-icon">📧</span>
+                    <span class="step-text">{% trans 'Collecting emails...' %}</span>
+                </div>
+                <div class="stats-step" id="generalStep2">
+                    <span class="step-icon">🔍</span>
+                    <span class="step-text">{% trans 'Analyzing content...' %}</span>
+                </div>
+                <div class="stats-step" id="generalStep3">
+                    <span class="step-icon">📊</span>
+                    <span class="step-text">{% trans 'Generating insights...' %}</span>
+                </div>
             </div>
         </div>
     </div>
