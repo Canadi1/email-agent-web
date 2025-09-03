@@ -652,10 +652,6 @@ msgid "This will analyze all"
 msgstr "זה ינתח את כל"
 
 #: .\agent\templates\agent\index.html:1227
-msgid "emails in your inbox."
-msgstr "הודעות בתיבת הדואר הנכנס שלך."
-
-#: .\agent\templates\agent\index.html:1227
 msgid "Do you want to proceed with the full analysis?"
 msgstr "האם אתה רוצה להמשיך עם הניתוח המלא?"
 
@@ -1174,6 +1170,9 @@ msgstr "מנתח נתונים..."
 
 msgid "Generating insights..."
 msgstr "יוצר תובנות..."
+
+msgid "Analysis limited to most recent 1000 emails (out of %(total)d total) to ensure reasonable processing time"
+msgstr "הניתוח מוגבל ל-1000 המיילים האחרונים (מתוך %(total)d סה\"כ) כדי להבטיח זמן עיבוד סביר"
 
 msgid "Analyzing email content..."
 msgstr "מנתח תוכן מיילים..."

@@ -276,7 +276,7 @@
             align-items: center;
             gap: 12px;
             padding: 8px 0;
-            opacity: 0.5;
+            opacity: 0.7;
             transition: opacity 0.3s ease;
         }
 
@@ -1418,7 +1418,10 @@
             const commandId = 'cmd_' + Date.now() + '_' + Math.random().toString(36).substr(2, 10);
             
             // Show loading screen immediately with steps
-            showLoadingScreen('{% trans "Full Analysis" %}', '{% trans "Starting full analysis..." %}', true);
+            const isHebrew = document.documentElement.lang === 'he';
+            const title = isHebrew ? 'ניתוח מלא' : 'Full Analysis';
+            const message = isHebrew ? 'מתחיל ניתוח מלא...' : 'Starting full analysis...';
+            showLoadingScreen(title, message, true);
             
             // Connect to progress stream for real-time updates
             connectToProgressStream(commandId, 'general');
@@ -2572,7 +2575,9 @@
             const commandId = 'cmd_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
             
             // Show loading screen and submit form immediately
-            if (command.includes('show email stats') || command.includes('show stats')) {
+            if (command.includes('show email stats') || command.includes('show stats') || 
+                command.includes('הצג סטטיסטיק') || command.includes('הראה סטטיסטיק') || 
+                command.includes('סטטיסטיק')) {
                 console.log('Showing stats loading screen'); // Debug log
                 showStatsLoadingScreen();
                 
@@ -2584,7 +2589,7 @@
                 const fallbackStatsInterval = setInterval(() => {
                     fallbackStatsProgress += Math.random() * 0.5 + 0.3; // 0.3-0.8% increments (slower for stats)
                     if (fallbackStatsProgress > 95) fallbackStatsProgress = 95;
-                    updateStatsProgress(fallbackStatsProgress, '{% trans "Processing..." %}');
+                    updateStatsProgress(fallbackStatsProgress, '{% trans "Processing emails..." %}');
                 }, 500);
                 
                 // Store interval for cleanup
@@ -2658,6 +2663,8 @@
                 setGeneralStep(1, 'inactive');
                 setGeneralStep(2, 'inactive');
                 setGeneralStep(3, 'inactive');
+                // Update step names to Hebrew if needed
+                updateGeneralStepNames();
             }
         }
         
@@ -2710,6 +2717,13 @@
         document.getElementById('statsLoadingScreen').style.display = 'flex';
         updateStatsProgress(0, '{% trans "Initializing analysis..." %}');
         resetStatsSteps();
+        // Make sure stats steps are visible
+        const statsDetails = document.querySelector('#statsLoadingScreen .stats-details');
+        if (statsDetails) {
+            statsDetails.style.display = 'block';
+        }
+        // Update step names based on current language
+        updateStatsStepNames();
     };
 
     window.hideStatsLoadingScreen = function() {
@@ -2730,19 +2744,82 @@
     };
 
     window.resetStatsSteps = function() {
-        document.querySelectorAll('.stats-step').forEach(step => {
-            step.classList.remove('active', 'completed');
-        });
+        // Reset stats steps specifically
+        for (let i = 1; i <= 3; i++) {
+            const step = document.getElementById('statsStep' + i);
+            if (step) {
+                step.classList.remove('active', 'completed');
+            }
+        }
     };
 
     window.setStatsStep = function(stepNumber, status) {
+        console.log('setStatsStep called:', stepNumber, status); // Debug log
         const step = document.getElementById('statsStep' + stepNumber);
         if (step) {
+            console.log('Found stats step element:', step); // Debug log
             step.classList.remove('active', 'completed');
             if (status === 'active') {
                 step.classList.add('active');
             } else if (status === 'completed') {
                 step.classList.add('completed');
+            }
+        } else {
+            console.log('Stats step element not found:', 'statsStep' + stepNumber); // Debug log
+        }
+    };
+
+    window.updateStatsStepNames = function() {
+        const isHebrew = document.documentElement.lang === 'he';
+        const stepNames = {
+            'en': ['Fetching emails...', 'Analyzing data...', 'Generating insights...'],
+            'he': ['מביא מיילים...', 'מנתח נתונים...', 'יוצר תובנות...']
+        };
+        
+        const titles = {
+            'en': 'Analyzing Your Emails',
+            'he': 'מנתח את המיילים שלך'
+        };
+        
+        const language = isHebrew ? 'he' : 'en';
+        const names = stepNames[language];
+        
+        // Update title
+        const titleElement = document.querySelector('#statsLoadingScreen h3');
+        if (titleElement) {
+            titleElement.textContent = titles[language];
+        }
+        
+        // Update step names
+        for (let i = 1; i <= 3; i++) {
+            const step = document.getElementById('statsStep' + i);
+            if (step) {
+                const stepText = step.querySelector('.step-text');
+                if (stepText) {
+                    stepText.textContent = names[i - 1];
+                }
+            }
+        }
+    };
+
+    window.updateGeneralStepNames = function() {
+        const isHebrew = document.documentElement.lang === 'he';
+        const stepNames = {
+            'en': ['Collecting emails...', 'Analyzing content...', 'Generating insights...'],
+            'he': ['אוסף מיילים...', 'מנתח תוכן...', 'יוצר תובנות...']
+        };
+        
+        const language = isHebrew ? 'he' : 'en';
+        const names = stepNames[language];
+        
+        // Update step names
+        for (let i = 1; i <= 3; i++) {
+            const step = document.getElementById('generalStep' + i);
+            if (step) {
+                const stepText = step.querySelector('.step-text');
+                if (stepText) {
+                    stepText.textContent = names[i - 1];
+                }
             }
         }
     };
@@ -2786,6 +2863,7 @@
                 console.log('Parsed progress data:', data);
                 
                 if (type === 'stats') {
+                    console.log('Stats progress received:', data); // Debug log
                     // Clear fallback progress when real progress is received
                     if (window.fallbackStatsProgressInterval) {
                         clearInterval(window.fallbackStatsProgressInterval);
@@ -2795,6 +2873,7 @@
                     updateStatsProgress(data.progress, data.message);
                     
                     // Update steps based on progress
+                    console.log('Updating stats steps based on progress:', data.progress); // Debug log
                     if (data.progress < 30) {
                         setStatsStep(1, 'active');
                     } else if (data.progress < 70) {

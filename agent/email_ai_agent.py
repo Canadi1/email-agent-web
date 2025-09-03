@@ -828,7 +828,7 @@ class GmailAIAgent:
                 "analysis_truncated": True if full and total_estimate and completed < total_estimate else False,
                 "analysis_total_estimate": total_estimate if full else None,
                 "analysis_limited": analysis_limited,
-                "analysis_limit_note": f"Analysis limited to most recent 1000 emails (out of {total_inbox} total) to ensure reasonable processing time" if analysis_limited else None,
+                "analysis_limit_note": _("Analysis limited to most recent 1000 emails (out of %(total)d total) to ensure reasonable processing time") % {"total": total_inbox} if analysis_limited else None,
                 "top_senders": top_senders,
                 "top_domains": top_domains,
                 "top_subject_terms": top_terms,

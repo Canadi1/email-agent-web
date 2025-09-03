@@ -11,6 +11,101 @@ import threading
 import random
 import string
 
+def get_progress_message(message_key, current_processed=None, total_emails=None, language_code=None):
+    """
+    Get language-appropriate progress messages.
+    """
+    if not language_code:
+        # Use the same language detection as the rest of the code
+        language_code = translation.get_language() or 'en'
+    
+    is_hebrew = language_code.startswith('he')
+    
+    messages = {
+        'processing_emails_count': {
+            'en': f"Processing emails... ({current_processed}/{total_emails})",
+            'he': f"מעבד מיילים... ({current_processed}/{total_emails})"
+        },
+        'processing_emails': {
+            'en': "Processing emails...",
+            'he': "מעבד מיילים..."
+        },
+        'analyzing_data': {
+            'en': "Analyzing data...",
+            'he': "מנתח נתונים..."
+        },
+        'finalizing': {
+            'en': "Finalizing...",
+            'he': "מסיים..."
+        },
+        'processing_command': {
+            'en': "Processing command...",
+            'he': "מעבד פקודה..."
+        },
+        'starting_analysis': {
+            'en': "Starting analysis...",
+            'he': "מתחיל ניתוח..."
+        },
+        'finalizing_analysis': {
+            'en': "Finalizing analysis...",
+            'he': "מסיים ניתוח..."
+        },
+        'fetching_emails': {
+            'en': "Fetching emails...",
+            'he': "מביא מיילים..."
+        },
+        'processing_results': {
+            'en': "Processing results...",
+            'he': "מעבד תוצאות..."
+        },
+        'identifying_emails_delete': {
+            'en': "Identifying emails to delete...",
+            'he': "מזהה מיילים למחיקה..."
+        },
+        'processing_deletion': {
+            'en': "Processing deletion...",
+            'he': "מעבד מחיקה..."
+        },
+        'identifying_emails_archive': {
+            'en': "Identifying emails to archive...",
+            'he': "מזהה מיילים לארכיון..."
+        },
+        'processing_archive': {
+            'en': "Processing archive...",
+            'he': "מעבד ארכיון..."
+        },
+        'identifying_emails_label': {
+            'en': "Identifying emails to label...",
+            'he': "מזהה מיילים לתיוג..."
+        },
+        'applying_labels': {
+            'en': "Applying labels...",
+            'he': "מחיל תוויות..."
+        },
+        'sending_email': {
+            'en': "Sending email...",
+            'he': "שולח מייל..."
+        },
+        'identifying_emails_restore': {
+            'en': "Identifying emails to restore...",
+            'he': "מזהה מיילים לשחזור..."
+        },
+        'processing_restoration': {
+            'en': "Processing restoration...",
+            'he': "מעבד שחזור..."
+        },
+        'searching_emails': {
+            'en': "Searching emails...",
+            'he': "מחפש מיילים..."
+        },
+        'preparing_email': {
+            'en': "Preparing email...",
+            'he': "מכין מייל..."
+        }
+    }
+    
+    return messages.get(message_key, {}).get('he' if is_hebrew else 'en', messages[message_key]['en'])
+
 # Instantiate the agent once.
 # In a real app, you might use a singleton pattern or Django's app registry
 # to manage the agent's lifecycle.
@@ -19,7 +114,7 @@ if not gemini_api_key:
     gemini_api_key = "AIzaSyCLldSk-Pv0X6-nPOOjjYMEbB0AsuatmJc"
 agent_instance = GmailAIAgent(gemini_api_key=gemini_api_key)
 
-def process_with_detailed_progress(agent, command, command_id, start_progress, end_progress):
+def process_with_detailed_progress(agent, command, command_id, start_progress, end_progress, language_code=None):
     """
     Process command with detailed progress updates during execution.
     """
@@ -32,7 +127,7 @@ def process_with_detailed_progress(agent, command, command_id, start_progress, e
     
     if is_stats_command or is_full_analysis:
         # Both stats and full analysis use real progress tracking (separate instances)
-        return process_with_real_progress(agent, command, command_id, start_progress, end_progress)
+        return process_with_real_progress(agent, command, command_id, start_progress, end_progress, language_code)
     else:
         # For other commands, use simulated progress
         progress_thread = threading.Thread(target=simulate_progress, args=(command_id, start_progress, end_progress, is_stats_command))
@@ -48,7 +143,7 @@ def process_with_detailed_progress(agent, command, command_id, start_progress, e
         
         return result
 
-def process_with_real_progress(agent, command, command_id, start_progress, end_progress):
+def process_with_real_progress(agent, command, command_id, start_progress, end_progress, language_code=None):
     """
     Process stats and full analysis commands with real progress tracking from email processing.
     """
@@ -59,6 +154,7 @@ def process_with_real_progress(agent, command, command_id, start_progress, end_p
     progress_data[command_id]['real_progress'] = True
     progress_data[command_id]['current_processed'] = 0
     progress_data[command_id]['total_emails'] = 0
+    progress_data[command_id]['language_code'] = language_code or translation.get_language() or 'en'
     
     # Set command_id in agent for progress updates
     agent.current_command_id = command_id
@@ -104,7 +200,8 @@ def monitor_real_progress(command_id, start_progress, end_progress):
             final_progress = start_progress + (end_progress - start_progress) * email_progress
             
             # Update progress with real email count
-            message = f"Processing emails... ({current_processed}/{total_emails})"
+            language_code = progress_data[command_id].get('language_code', 'en')
+            message = get_progress_message('processing_emails_count', current_processed, total_emails, language_code)
             update_progress(command_id, int(final_progress), message)
         
         # Slightly less frequent to reduce overhead while staying smooth
@@ -136,16 +233,16 @@ def simulate_progress(command_id, start_progress, end_progress, is_stats_command
             
         # Update progress with appropriate message
         if current_progress < start_progress + (target_progress - start_progress) * 0.3:
-            message = "Processing emails..."
+            message = get_progress_message('processing_emails')
         elif current_progress < start_progress + (target_progress - start_progress) * 0.7:
-            message = "Analyzing data..."
+            message = get_progress_message('analyzing_data')
         else:
-            message = "Finalizing..."
+            message = get_progress_message('finalizing')
             
         update_progress(command_id, int(current_progress), message)
         time.sleep(sleep_time)  # Variable delay based on command type
 
-def process_command_with_progress(agent, command, command_id):
+def process_command_with_progress(agent, command, command_id, language_code=None):
     """
     Process a command with real-time progress updates.
     """
@@ -165,43 +262,43 @@ def process_command_with_progress(agent, command, command_id):
         
         # Update progress based on command type with more granular updates
         if action == 'list':
-            update_progress(command_id, 20, "Fetching emails...")
-            result = process_with_detailed_progress(agent, command, command_id, 20, 99)
-            update_progress(command_id, 99, "Processing results...")
+            update_progress(command_id, 20, get_progress_message('fetching_emails', language_code=language_code))
+            result = process_with_detailed_progress(agent, command, command_id, 20, 99, language_code)
+            update_progress(command_id, 99, get_progress_message('processing_results', language_code=language_code))
         elif action == 'search':
-            update_progress(command_id, 25, "Searching emails...")
-            result = process_with_detailed_progress(agent, command, command_id, 25, 99)
-            update_progress(command_id, 99, "Processing results...")
+            update_progress(command_id, 25, get_progress_message('searching_emails', language_code=language_code))
+            result = process_with_detailed_progress(agent, command, command_id, 25, 99, language_code)
+            update_progress(command_id, 99, get_progress_message('processing_results', language_code=language_code))
         elif action == 'delete':
-            update_progress(command_id, 30, "Identifying emails to delete...")
-            result = process_with_detailed_progress(agent, command, command_id, 30, 99)
-            update_progress(command_id, 99, "Processing deletion...")
+            update_progress(command_id, 30, get_progress_message('identifying_emails_delete', language_code=language_code))
+            result = process_with_detailed_progress(agent, command, command_id, 30, 99, language_code)
+            update_progress(command_id, 99, get_progress_message('processing_deletion', language_code=language_code))
         elif action == 'archive':
-            update_progress(command_id, 30, "Identifying emails to archive...")
-            result = process_with_detailed_progress(agent, command, command_id, 30, 99)
-            update_progress(command_id, 99, "Processing archive...")
+            update_progress(command_id, 30, get_progress_message('identifying_emails_archive', language_code=language_code))
+            result = process_with_detailed_progress(agent, command, command_id, 30, 99, language_code)
+            update_progress(command_id, 99, get_progress_message('processing_archive', language_code=language_code))
         elif action == 'label':
-            update_progress(command_id, 30, "Identifying emails to label...")
-            result = process_with_detailed_progress(agent, command, command_id, 30, 99)
-            update_progress(command_id, 99, "Applying labels...")
+            update_progress(command_id, 30, get_progress_message('identifying_emails_label', language_code=language_code))
+            result = process_with_detailed_progress(agent, command, command_id, 30, 99, language_code)
+            update_progress(command_id, 99, get_progress_message('applying_labels', language_code=language_code))
         elif action == 'send':
-            update_progress(command_id, 40, "Preparing email...")
-            result = process_with_detailed_progress(agent, command, command_id, 40, 99)
-            update_progress(command_id, 99, "Sending email...")
+            update_progress(command_id, 40, get_progress_message('preparing_email', language_code=language_code))
+            result = process_with_detailed_progress(agent, command, command_id, 40, 99, language_code)
+            update_progress(command_id, 99, get_progress_message('sending_email', language_code=language_code))
         elif action == 'restore':
-            update_progress(command_id, 30, "Identifying emails to restore...")
-            result = process_with_detailed_progress(agent, command, command_id, 30, 99)
-            update_progress(command_id, 99, "Processing restoration...")
+            update_progress(command_id, 30, get_progress_message('identifying_emails_restore', language_code=language_code))
+            result = process_with_detailed_progress(agent, command, command_id, 30, 99, language_code)
+            update_progress(command_id, 99, get_progress_message('processing_restoration', language_code=language_code))
         elif action == 'stats' or 'full analysis' in command.lower():
             # Both stats and full analysis use real progress (X/Y) - separate instances
-            update_progress(command_id, 10, "Starting analysis...")
-            result = process_with_detailed_progress(agent, command, command_id, 10, 99)
-            update_progress(command_id, 99, "Finalizing analysis...")
+            update_progress(command_id, 10, get_progress_message('starting_analysis', language_code=language_code))
+            result = process_with_detailed_progress(agent, command, command_id, 10, 99, language_code)
+            update_progress(command_id, 99, get_progress_message('finalizing_analysis', language_code=language_code))
         else:
             # Generic command processing
-            update_progress(command_id, 20, "Processing command...")
-            result = process_with_detailed_progress(agent, command, command_id, 20, 99)
-            update_progress(command_id, 99, "Finalizing...")
+            update_progress(command_id, 20, get_progress_message('processing_command', language_code=language_code))
+            result = process_with_detailed_progress(agent, command, command_id, 20, 99, language_code)
+            update_progress(command_id, 99, get_progress_message('finalizing', language_code=language_code))
         
         # Calculate total execution time
         end_time = time.time()
@@ -426,15 +523,25 @@ def index(request):
                 'current_processed': 0,
                 'total_emails': 0
             }
-            result = process_command_with_progress(agent_instance, "full analysis", command_id)
+            # Get language code for progress messages
+            language_code = getattr(request, 'LANGUAGE_CODE', None) or translation.get_language() or 'en'
+            result = process_command_with_progress(agent_instance, "full analysis", command_id, language_code)
         else:
             undo_action_id = request.POST.get('undo_action_id')
             confirmation_data_str = request.POST.get('confirmation_data', '')
             command = request.POST.get('command', '').strip()
             last_command = command
+            print(f"Received command: '{command}'")  # Debug log
+            print(f"Language code: {getattr(request, 'LANGUAGE_CODE', None)}")  # Debug log
+            print(f"Translation language: {translation.get_language()}")  # Debug log
             # If Hebrew locale, map common Hebrew phrases to English before parsing
             if (getattr(request, 'LANGUAGE_CODE', None) or translation.get_language() or '').startswith('he') and command:
+                print("Hebrew locale detected, translating command...")  # Debug log
+                original_command = command
                 command = _translate_hebrew_command_to_english(command)
+                print(f"Hebrew command translation: '{original_command}' -> '{command}'")  # Debug log
+            else:
+                print("Not Hebrew locale or no command")  # Debug log
             # Results-per-page selection (persist in session)
             per_page_raw = request.POST.get('per_page')
             if per_page_raw:
@@ -503,7 +610,8 @@ def index(request):
                         result = {"status": "info", "message": _("Compose Email")}
                     else:
                         # Process command with progress updates
-                        result = process_command_with_progress(agent_instance, command, command_id)
+                        language_code = getattr(request, 'LANGUAGE_CODE', None) or translation.get_language() or 'en'
+                        result = process_command_with_progress(agent_instance, command, command_id, language_code)
                 finally:
                     agent_instance.default_max_results = prev_default
                 # Track history in session for autocomplete
@@ -634,14 +742,19 @@ def _translate_hebrew_command_to_english(command: str) -> str:
         return command
     c = command.strip()
     orig = c  # keep original for context-sensitive decisions
+    print(f"Translating Hebrew command: '{orig}'")  # Debug log
     # Normalize punctuation styles
     # Longer phrases first
     replacements = [
         # Actions (line-start variants)
         (r"^[\s]*העבר\s+לארכיון", "archive "),
-        (r"^[\s]*הצג\s+סטטיסטיק(?:ה|ות|ת)(?:\s+דוא""?ל)?", "show email stats"),
-        (r"^[\s]*הראה\s+סטטיסטיק(?:ה|ות|ת)(?:\s+דוא""?ל)?", "show email stats"),
-        (r"^[\s]*סטטיסטיק(?:ה|ות|ת)(?:\s+דוא""?ל)?$", "show email stats"),
+        (r"^[\s]*הצג\s+סטטיסטיק(?:ה|ות|ת)(?:\s+דוא[\"']?ל)?", "show email stats"),
+        (r"^[\s]*הראה\s+סטטיסטיק(?:ה|ות|ת)(?:\s+דוא[\"']?ל)?", "show email stats"),
+        (r"^[\s]*סטטיסטיק(?:ה|ות|ת)(?:\s+דוא[\"']?ל)?$", "show email stats"),
+        # More flexible patterns for Hebrew stats commands
+        (r"^[\s]*הצג\s+סטטיסטיק", "show email stats"),
+        (r"^[\s]*הראה\s+סטטיסטיק", "show email stats"),
+        (r"^[\s]*סטטיסטיק", "show email stats"),
         (r"^[\s]*(שלח|כתוב|חבר)\s+(דוא\"?ל|דואל|מייל)\s*$", "send email"),
         (r"^[\s]*שלח\s+(דוא""ל|מייל)\s+ל", "send email to "),
         (r"^[\s]*הצ[א]?ג\s+תווית\s+\"([^\"]+)\"", r'show label "\1"'),
@@ -710,7 +823,10 @@ def _translate_hebrew_command_to_english(command: str) -> str:
     ]
     for pattern, repl in replacements:
         try:
-            c = re.sub(pattern, repl, c, flags=re.IGNORECASE)
+            if re.search(pattern, c, flags=re.IGNORECASE):
+                print(f"Pattern matched: '{pattern}' -> '{repl}'")  # Debug log
+                c = re.sub(pattern, repl, c, flags=re.IGNORECASE)
+                print(f"After replacement: '{c}'")  # Debug log
         except re.error:
             continue
     # Convert 'מלפני/לפני' forms to 'from N unit ago' when written as a compound with 'מ'
@@ -752,6 +868,7 @@ def _translate_hebrew_command_to_english(command: str) -> str:
                lambda m: f"{m.group(1)} 1 {m.group(2)}", c)
     # Normalize multiple spaces that can result from replacements
     c = re.sub(r"\s{2,}", " ", c).strip()
+    print(f"Final translated command: '{c}'")  # Debug log
     return c
 
 # Global progress tracking for SSE
