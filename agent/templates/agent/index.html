@@ -13,6 +13,9 @@
             --error-color: #d9534f;
             --success-color: #5cb85c;
             --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            --card-bg: #ffffff;
+            --border-color: #e0e0e0;
+            --text-secondary: #666;
         }
         [data-theme="dark"] {
             --primary-color: #8ab4f8;
@@ -20,6 +23,9 @@
             --text-color: #e6e6e6;
             --error-color: #cf6679;
             --success-color: #81c995;
+            --card-bg: #1a1a1a;
+            --border-color: #333;
+            --text-secondary: #ccc;
         }
         body {
             font-family: var(--font-family);
@@ -187,12 +193,12 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0, 0, 0, 0.8);
+            background: rgba(0, 0, 0, 0.6);
             display: flex;
             justify-content: center;
             align-items: center;
             z-index: 10000;
-            backdrop-filter: blur(4px);
+            backdrop-filter: blur(2px);
         }
 
         .loading-container {
@@ -306,9 +312,29 @@
             color: inherit;
         }
 
+        /* Light theme adjustments */
+        [data-theme="light"] .loading-overlay {
+            background: rgba(248, 248, 248, 0.98);
+        }
+
+        [data-theme="light"] .loading-container {
+            background: #ffffff !important;
+            border: 1px solid #d0d0d0 !important;
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+        }
+
+        [data-theme="light"] .loading-spinner {
+            border: 4px solid #e0e0e0 !important;
+            border-top: 4px solid var(--primary-color) !important;
+        }
+
+        [data-theme="light"] .progress-bar {
+            background: #e0e0e0 !important;
+        }
+
         /* Dark theme adjustments */
         [data-theme="dark"] .loading-overlay {
-            background: rgba(0, 0, 0, 0.9);
+            background: rgba(0, 0, 0, 0.4);
         }
 
         [data-theme="dark"] .loading-container {

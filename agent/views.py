@@ -211,6 +211,8 @@ def get_random_fun_fact(language_code=None):
     facts = fun_facts.get('he' if is_hebrew else 'en', fun_facts['en'])
     return random.choice(facts)
 
+
+
 # Instantiate the agent once.
 # In a real app, you might use a singleton pattern or Django's app registry
 # to manage the agent's lifecycle.
@@ -293,6 +295,8 @@ def monitor_real_progress(command_id, start_progress, end_progress, command=None
     fun_fact_interval = 6.0 if is_full_analysis else 4.5  # 6.0s for full analysis, 4.5s for stats
     current_fun_fact = None
     
+
+    
     while True:
         if command_id not in progress_data:
             break
@@ -314,6 +318,7 @@ def monitor_real_progress(command_id, start_progress, end_progress, command=None
             current_time = time.time()
             language_code = progress_data[command_id].get('language_code', 'en')
             
+            # Show fun facts
             if current_time - last_fun_fact_time >= fun_fact_interval or current_fun_fact is None:
                 current_fun_fact = get_random_fun_fact(language_code)
                 last_fun_fact_time = current_time
