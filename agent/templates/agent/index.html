@@ -575,6 +575,21 @@
         
         /* PC-only: Move Quick Commands title and pills higher */
         @media (min-width: 769px) {
+            /* Lower the "Your Labels" title specifically - PC only - more aggressive */
+            .results .stat-card h3 {
+                margin-top: -20px !important;
+            }
+            /* Force the Hebrew title positioning with maximum specificity */
+            html[lang="he"] .results .stat-card h3,
+            html[dir="rtl"] .results .stat-card h3,
+            .results .stat-card h3:not([style*="margin-top: 0"]) {
+                margin-top: -20px !important;
+            }
+            /* Nuclear option - target any h3 in results stat-card */
+            .results .stat-card > h3 {
+                margin-top: -20px !important;
+            }
+            /* Other stat-card h3 elements (not in results) */
             .stat-card h3 {
                 margin-top: -36px !important;
             }
@@ -694,7 +709,19 @@
             list-style-type: none;
         }
         .all-commands-list li {
-            margin-bottom: 5px;
+            margin-bottom: 8px;
+            padding: 8px 12px;
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            transition: box-shadow 0.2s ease;
+        }
+        .all-commands-list li:hover {
+            box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+        }
+        .all-commands-list li b {
+            color: var(--primary-color);
         }
         .autocomplete-suggestions {
             border: 1px solid #ddd;
@@ -835,6 +862,13 @@
             #command-input {
                 width: 100%;
                 box-sizing: border-box;
+            }
+            
+            /* Mobile: smaller padding for command cards */
+            .all-commands-list li {
+                padding: 6px 10px;
+                margin-bottom: 6px;
+                font-size: 0.9em;
             }
             
             #command-submit {
@@ -1360,6 +1394,31 @@
 
     <script>
     console.log('=== SCRIPT SECTION LOADING ===');
+    
+            // Fix Hebrew "Your Labels" title positioning
+        function forceLabelsTitlePosition() {
+            const labelsTitles = document.querySelectorAll('.results .stat-card h3');
+            labelsTitles.forEach((title) => {
+                if (title.textContent.includes('Labels') || title.textContent.includes('תוויות')) {
+                    // Position the title slightly higher
+                    title.style.setProperty('position', 'relative', 'important');
+                    title.style.setProperty('top', '-2px', 'important');
+                    title.style.setProperty('margin-top', '-2px', 'important');
+                    title.style.setProperty('padding-top', '-2px', 'important');
+                }
+            });
+        }
+    
+    // Run immediately and on intervals
+    setTimeout(forceLabelsTitlePosition, 100);
+    setTimeout(forceLabelsTitlePosition, 500);
+    setTimeout(forceLabelsTitlePosition, 1000);
+    
+    // Also fix it whenever results are updated
+    const observer = new MutationObserver(() => {
+        setTimeout(forceLabelsTitlePosition, 50);
+    });
+    observer.observe(document.querySelector('.results'), { childList: true, subtree: true });
     // Mobile English-only: slightly reduce font size for Example Commands (keep original text/quotes)
     function updateExampleCommandsMobileEn() {
         try {
@@ -2955,6 +3014,7 @@
             'en': 'Analyzing Your Emails',
             'he': 'מנתח את המיילים שלך'
         };
+        
         
         const language = isHebrew ? 'he' : 'en';
         const names = stepNames[language];
