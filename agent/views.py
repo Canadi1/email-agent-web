@@ -231,10 +231,26 @@ def process_with_detailed_progress(agent, command, command_id, start_progress, e
     # Determine command types
     is_stats_command = 'stats' in command.lower()
     is_full_analysis = 'full analysis' in command.lower()
+    is_email_listing = any(keyword in command.lower() for keyword in [
+        'list recent emails', 'list archived emails', 'list all mail', 'list emails from',
+        'list verification codes', 'list shipping emails', 'list security emails', 'list account security emails',
+        'list emails from today', 'list emails from yesterday', 'list emails from last week', 'list emails from last month', 'list emails from last year',
+        'list emails from 1 day ago', 'list emails from 2 days ago', 'list emails from 1 week ago', 'list emails from 2 weeks ago',
+        'list emails from 1 month ago', 'list emails from 2 months ago', 'list emails from 1 year ago',
+        'list emails older than 1 day', 'list emails older than 1 week', 'list emails older than 1 month', 'list emails older than 1 year',
+        'list emails older than 2 years', 'list emails older than 3 years', 'list emails older than 4 years', 'list emails older than 5 years',
+        'list emails before', 'list emails before today', 'list emails before yesterday', 'list emails before last week',
+        'list emails before last month', 'list emails before last year',
+        'רשום מיילים אחרונים', 'רשום מיילים מארכיון', 'רשום כל המיילים', 'רשום מיילים מ',
+        'רשום קודי אימות', 'רשום מיילי משלוח', 'רשום מיילי אבטחה'
+    ]) or ('list emails older than' in command.lower() and any(unit in command.lower() for unit in ['day', 'week', 'month', 'year', 'days', 'weeks', 'months', 'years'])) or ('list emails before' in command.lower())
     
     if is_stats_command or is_full_analysis:
         # Both stats and full analysis use real progress tracking (separate instances)
         return process_with_real_progress(agent, command, command_id, start_progress, end_progress, language_code)
+    elif is_email_listing:
+        # Email listing commands use specialized progress tracking
+        return process_with_email_listing_progress(agent, command, command_id, start_progress, end_progress, language_code)
     else:
         # For other commands, use simulated progress
         progress_thread = threading.Thread(target=simulate_progress, args=(command_id, start_progress, end_progress, is_stats_command, language_code))
@@ -249,6 +265,36 @@ def process_with_detailed_progress(agent, command, command_id, start_progress, e
             progress_data[command_id]['stop_simulation'] = True
         
         return result
+
+def process_with_email_listing_progress(agent, command, command_id, start_progress, end_progress, language_code=None):
+    """
+    Process email listing commands with real X/Y progress tracking.
+    """
+    import threading
+    import time
+    
+    # Set up real progress tracking for email listing
+    progress_data[command_id]['real_progress'] = True
+    progress_data[command_id]['current_processed'] = 0
+    progress_data[command_id]['total_emails'] = 0
+    progress_data[command_id]['language_code'] = language_code or translation.get_language() or 'en'
+    
+    # Set command_id in agent for progress updates
+    agent.command_id = command_id
+    
+    # Start a progress monitoring thread for email listing
+    progress_thread = threading.Thread(target=monitor_real_progress, args=(command_id, start_progress, end_progress, command))
+    progress_thread.daemon = True
+    progress_thread.start()
+    
+    # Execute the actual command
+    result = agent.process_natural_language_command(command)
+    
+    # Stop progress monitoring
+    if command_id in progress_data:
+        progress_data[command_id]['stop_simulation'] = True
+    
+    return result
 
 def process_with_real_progress(agent, command, command_id, start_progress, end_progress, language_code=None):
     """
@@ -314,6 +360,24 @@ def monitor_real_progress(command_id, start_progress, end_progress, command=None
             email_progress = current_processed / total_emails  # Use full range for email processing
             final_progress = start_progress + (end_progress - start_progress) * email_progress
             
+            # Show X/Y progress in terminal for email listing commands
+            is_email_listing = command and (any(keyword in command.lower() for keyword in [
+                'list recent emails', 'list archived emails', 'list all mail', 'list emails from',
+                'list verification codes', 'list shipping emails', 'list security emails', 'list account security emails',
+                'list emails from today', 'list emails from yesterday', 'list emails from last week', 'list emails from last month', 'list emails from last year',
+                'list emails from 1 day ago', 'list emails from 2 days ago', 'list emails from 1 week ago', 'list emails from 2 weeks ago',
+                'list emails from 1 month ago', 'list emails from 2 months ago', 'list emails from 1 year ago',
+                'list emails older than 1 day', 'list emails older than 1 week', 'list emails older than 1 month', 'list emails older than 1 year',
+                'list emails older than 2 years', 'list emails older than 3 years', 'list emails older than 4 years', 'list emails older than 5 years',
+                'list emails before', 'list emails before today', 'list emails before yesterday', 'list emails before last week',
+                'list emails before last month', 'list emails before last year',
+                'רשום מיילים אחרונים', 'רשום מיילים מארכיון', 'רשום כל המיילים', 'רשום מיילים מ',
+                'רשום קודי אימות', 'רשום מיילי משלוח', 'רשום מיילי אבטחה'
+            ]) or ('list emails older than' in command.lower() and any(unit in command.lower() for unit in ['day', 'week', 'month', 'year', 'days', 'weeks', 'months', 'years'])) or ('list emails before' in command.lower()))
+            
+            if is_email_listing:
+                print(f"Processing {current_processed}/{total_emails} emails...")
+            
             # Show fun facts that change every 2.5 seconds
             current_time = time.time()
             language_code = progress_data[command_id].get('language_code', 'en')
@@ -327,6 +391,7 @@ def monitor_real_progress(command_id, start_progress, end_progress, command=None
         
         # Slightly less frequent to reduce overhead while staying smooth
         time.sleep(0.3)
+
 
 def simulate_progress(command_id, start_progress, end_progress, is_stats_command=False, language_code=None):
     """
@@ -385,9 +450,9 @@ def process_command_with_progress(agent, command, command_id, language_code=None
         
         # Update progress based on command type with more granular updates
         if action == 'list':
-            update_progress(command_id, 20, get_progress_message('fetching_emails', language_code=language_code))
-            result = process_with_detailed_progress(agent, command, command_id, 20, 99, language_code)
-            update_progress(command_id, 99, get_progress_message('processing_results', language_code=language_code))
+            update_progress(command_id, 5, get_progress_message('fetching_emails', language_code=language_code))
+            result = process_with_detailed_progress(agent, command, command_id, 5, 95, language_code)
+            update_progress(command_id, 95, get_progress_message('processing_results', language_code=language_code))
         elif action == 'search':
             update_progress(command_id, 25, get_progress_message('searching_emails', language_code=language_code))
             result = process_with_detailed_progress(agent, command, command_id, 25, 99, language_code)

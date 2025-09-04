@@ -2354,7 +2354,7 @@
                 suggestionSpan.style.left = (paddingLeft + textWidth + 2) + 'px';
                 suggestionSpan.style.right = 'auto';
             }
-            suggestionSpan.style.top = (paddingTop + 1) + 'px'; // Move down slightly for better alignment
+            suggestionSpan.style.top = paddingTop + 'px'; // Perfect alignment
             suggestionSpan.style.zIndex = '1000';
             suggestionSpan.style.color = '#888';
             
@@ -2829,6 +2829,27 @@
                 // Store interval for cleanup
                 window.fallbackStatsProgressInterval = fallbackStatsInterval;
                 
+            } else if (command.includes('list recent emails') || command.includes('list archived emails') || 
+                       command.includes('list all mail') || command.includes('list emails from') ||
+                       command.includes('רשום מיילים אחרונים') || command.includes('רשום מיילים מארכיון') || 
+                       command.includes('רשום כל המיילים') || command.includes('רשום מיילים מ')) {
+                console.log('Showing email listing loading screen'); // Debug log
+                showEmailListingLoadingScreen();
+                
+                // Connect to real-time progress updates for email listing
+                connectToProgressStream(commandId, 'stats');
+                
+                // Fallback: Start a simple progress animation for email listing in case SSE fails
+                let fallbackEmailProgress = 0;
+                const fallbackEmailInterval = setInterval(() => {
+                    fallbackEmailProgress += Math.random() * 0.8 + 0.5; // 0.5-1.3% increments (faster for email listing)
+                    if (fallbackEmailProgress > 95) fallbackEmailProgress = 95;
+                    updateStatsProgress(fallbackEmailProgress, '{% trans "Searching emails..." %}');
+                }, 400);
+                
+                // Store interval for cleanup
+                window.fallbackEmailProgressInterval = fallbackEmailInterval;
+                
             } else {
                 console.log('Showing general loading screen'); // Debug log
                 
@@ -2960,6 +2981,19 @@
         updateStatsStepNames();
     };
 
+    window.showEmailListingLoadingScreen = function() {
+        document.getElementById('statsLoadingScreen').style.display = 'flex';
+        updateStatsProgress(0, '{% trans "Starting email search..." %}');
+        resetStatsSteps();
+        // Hide stats steps for email listing
+        const statsDetails = document.querySelector('#statsLoadingScreen .stats-details');
+        if (statsDetails) {
+            statsDetails.style.display = 'none';
+        }
+        // Update title for email listing
+        updateEmailListingTitle();
+    };
+
     window.hideStatsLoadingScreen = function() {
         document.getElementById('statsLoadingScreen').style.display = 'none';
     };
@@ -3037,6 +3071,22 @@
         }
     };
 
+    window.updateEmailListingTitle = function() {
+        const isHebrew = document.documentElement.lang === 'he';
+        const titles = {
+            'en': 'Loading Your Emails',
+            'he': 'טוען את המיילים שלך'
+        };
+        
+        const language = isHebrew ? 'he' : 'en';
+        
+        // Update title
+        const titleElement = document.querySelector('#statsLoadingScreen h3');
+        if (titleElement) {
+            titleElement.textContent = titles[language];
+        }
+    };
+
     window.updateGeneralStepNames = function() {
         const isHebrew = document.documentElement.lang === 'he';
         const stepNames = {
@@ -3083,19 +3133,27 @@
                         clearInterval(window.fallbackStatsProgressInterval);
                         window.fallbackStatsProgressInterval = null;
                     }
+                    if (window.fallbackEmailProgressInterval) {
+                        clearInterval(window.fallbackEmailProgressInterval);
+                        window.fallbackEmailProgressInterval = null;
+                    }
                     
                     updateStatsProgress(data.progress, data.message);
                     
-                    // Update steps based on progress
-                    console.log('Updating stats steps based on progress:', data.progress); // Debug log
-                    if (data.progress < 30) {
-                        setStatsStep(1, 'active');
-                    } else if (data.progress < 70) {
-                        setStatsStep(1, 'completed');
-                        setStatsStep(2, 'active');
-                    } else {
-                        setStatsStep(2, 'completed');
-                        setStatsStep(3, 'active');
+                    // Only update steps if they are visible (for stats commands)
+                    const statsDetails = document.querySelector('#statsLoadingScreen .stats-details');
+                    if (statsDetails && statsDetails.style.display !== 'none') {
+                        // Update steps based on progress
+                        console.log('Updating stats steps based on progress:', data.progress); // Debug log
+                        if (data.progress < 30) {
+                            setStatsStep(1, 'active');
+                        } else if (data.progress < 70) {
+                            setStatsStep(1, 'completed');
+                            setStatsStep(2, 'active');
+                        } else {
+                            setStatsStep(2, 'completed');
+                            setStatsStep(3, 'active');
+                        }
                     }
                     
                     if (data.complete) {
