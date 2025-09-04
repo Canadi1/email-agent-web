@@ -237,7 +237,7 @@ def process_with_detailed_progress(agent, command, command_id, start_progress, e
         return process_with_real_progress(agent, command, command_id, start_progress, end_progress, language_code)
     else:
         # For other commands, use simulated progress
-        progress_thread = threading.Thread(target=simulate_progress, args=(command_id, start_progress, end_progress, is_stats_command))
+        progress_thread = threading.Thread(target=simulate_progress, args=(command_id, start_progress, end_progress, is_stats_command, language_code))
         progress_thread.daemon = True
         progress_thread.start()
         
@@ -328,7 +328,7 @@ def monitor_real_progress(command_id, start_progress, end_progress, command=None
         # Slightly less frequent to reduce overhead while staying smooth
         time.sleep(0.3)
 
-def simulate_progress(command_id, start_progress, end_progress, is_stats_command=False):
+def simulate_progress(command_id, start_progress, end_progress, is_stats_command=False, language_code=None):
     """
     Simulate smooth progress updates between start and end percentages.
     """
@@ -353,7 +353,8 @@ def simulate_progress(command_id, start_progress, end_progress, is_stats_command
             current_progress = target_progress
             
         # Update progress with appropriate message (no fun facts for normal commands)
-        language_code = progress_data[command_id].get('language_code', 'en')
+        if not language_code:
+            language_code = progress_data[command_id].get('language_code', 'en')
         if current_progress < start_progress + (target_progress - start_progress) * 0.3:
             message = get_progress_message('processing_emails', language_code=language_code)
         elif current_progress < start_progress + (target_progress - start_progress) * 0.7:

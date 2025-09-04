@@ -341,6 +341,102 @@
             background: #1a1a1a;
             border-color: #333;
         }
+
+        /* Mobile responsive styles for loading screens - Updated 2025-09-04 */
+        @media screen and (max-width: 768px) {
+            .loading-overlay .loading-container {
+                margin-left: 10px !important;
+                margin-right: 10px !important;
+                width: calc(100% - 20px) !important;
+                max-width: none !important;
+            }
+            
+            .loading-overlay {
+                justify-content: flex-start !important;
+                padding: 0 !important;
+            }
+            
+            .loading-container h3 {
+                font-size: 1.2em;
+                margin-bottom: 15px;
+            }
+            
+            .loading-container p {
+                font-size: 0.95em;
+                margin-bottom: 20px;
+            }
+            
+            .loading-steps {
+                gap: 12px;
+                margin-bottom: 20px;
+            }
+            
+            .loading-step {
+                padding: 10px 14px;
+                font-size: 0.9em;
+            }
+            
+            .loading-step .step-icon {
+                width: 18px;
+                height: 18px;
+                font-size: 0.8em;
+            }
+            
+            .loading-step .step-text {
+                font-size: 0.85em;
+            }
+            
+            .fun-fact {
+                font-size: 0.9em;
+                padding: 12px;
+                margin: 15px 0;
+            }
+            
+            .loading-spinner {
+                width: 35px;
+                height: 35px;
+                margin: 15px auto;
+            }
+        }
+
+        @media screen and (max-width: 480px) {
+            .loading-overlay .loading-container {
+                margin-left: 5px !important;
+                margin-right: 5px !important;
+                width: calc(100% - 10px) !important;
+            }
+            
+            .loading-overlay {
+                justify-content: flex-start !important;
+                padding: 0 !important;
+            }
+            
+            .loading-container h3 {
+                font-size: 1.1em;
+                margin-bottom: 12px;
+            }
+            
+            .loading-container p {
+                font-size: 0.9em;
+                margin-bottom: 15px;
+            }
+            
+            .loading-steps {
+                gap: 10px;
+                margin-bottom: 15px;
+            }
+            
+            .loading-step {
+                padding: 8px 12px;
+                font-size: 0.85em;
+            }
+            
+            .fun-fact {
+                font-size: 0.85em;
+                padding: 10px;
+                margin: 12px 0;
+            }
+        }
         /* Make compose inputs slightly narrower to avoid edge overflow */
         #compose-form input,
         #compose-form textarea {
@@ -513,6 +609,11 @@
             color: #666;
         }
         [data-theme="dark"] .example-commands ul { color: #ccc; }
+        
+        /* Hebrew PC: larger font for example commands */
+        html[lang="he"] .example-commands ul li code {
+            font-size: 1.2em;
+        }
         /* Mobile English: tighter spacing between example command lines */
         @media (max-width: 768px) {
             html[dir="ltr"] .example-commands ul li { margin: 4px 0; }
@@ -604,6 +705,11 @@
             position: absolute;
             width: calc(100% - 42px); /* Adjust based on form padding/border */
             z-index: 1000;
+        }
+        
+        /* RTL support for autocomplete suggestions */
+        [dir="rtl"] .autocomplete-suggestions {
+            text-align: right;
         }
         [data-theme="dark"] .autocomplete-suggestions { background-color: #1e1e1e; border-color: #444; }
         [data-theme="dark"] .autocomplete-suggestions div:hover { background-color: #2a2a2a; }
@@ -785,6 +891,15 @@
             
             html[lang="he"] .quick-commands-buttons #clear-fav-form .cancel-btn {
                 transform: translateX(-1px);
+            }
+            
+            /* Hebrew mobile: tighter spacing between example command lines */
+            html[dir="rtl"] .example-commands ul li { margin: 4px 0; }
+            /* Ensure the specific long Hebrew command stays on one line */
+            html[dir="rtl"] .example-commands ul li.long-hebrew-example code {
+                white-space: nowrap;
+                display: inline-block;
+                letter-spacing: -0.4px; /* Tighter spacing to make it fit */
             }
             
             /* Mobile label distribution bar improvements */
@@ -1162,7 +1277,7 @@
                     <h3>{% trans 'Example Commands' %}</h3>
                     <ul>
                         {% for cmd in example_commands %}
-                        <li class="{% if 'label emails from' in cmd %}long-label-example {% endif %}{% if 'delete promotions older than' in cmd or 'delete all promotions older than' in cmd %}long-promo-example{% endif %}"><code>{{ cmd }}</code></li>
+                        <li class="{% if 'label emails from' in cmd %}long-label-example {% endif %}{% if 'delete promotions older than' in cmd or 'delete all promotions older than' in cmd %}long-promo-example{% endif %}{% if 'מחק את כל קידומי המכירות ישנים מ-30 ימים' in cmd %}long-hebrew-example{% endif %}"><code>{{ cmd }}</code></li>
                         {% endfor %}
                     </ul>
                 </div>
@@ -1442,14 +1557,11 @@
             // Generate command ID for progress tracking
             const commandId = 'cmd_' + Date.now() + '_' + Math.random().toString(36).substr(2, 10);
             
-            // Show loading screen immediately with steps
-            const isHebrew = document.documentElement.lang === 'he';
-            const title = isHebrew ? 'ניתוח מלא' : 'Full Analysis';
-            const message = isHebrew ? 'מתחיל ניתוח מלא...' : 'Starting full analysis...';
-            showLoadingScreen(title, message, true);
+            // Show stats loading screen for full analysis (with fun facts)
+            showStatsLoadingScreen();
             
             // Connect to progress stream for real-time updates
-            connectToProgressStream(commandId, 'general');
+            connectToProgressStream(commandId, 'stats');
             
             // Create and submit the form
             const form = document.createElement('form');
@@ -1891,28 +2003,52 @@
         let activeByKeyboard = false; // only accept Enter when set via arrows
 
         function positionSuggestions() {
-            if (!suggestionsContainer || !commandInput) return;
+            console.log('positionSuggestions called');
+            if (!suggestionsContainer || !commandInput) {
+                console.log('Missing elements - suggestionsContainer:', !!suggestionsContainer, 'commandInput:', !!commandInput);
+                return;
+            }
             try {
-                const left = commandInput.offsetLeft;
-                const top = commandInput.offsetTop + commandInput.offsetHeight + 4;
-                suggestionsContainer.style.left = left + 'px';
-                suggestionsContainer.style.top = top + 'px';
-                suggestionsContainer.style.width = commandInput.offsetWidth + 'px';
-            } catch(e) {}
+                // Get the input field's position
+                const inputRect = commandInput.getBoundingClientRect();
+                console.log('Input rect:', inputRect);
+                
+                // Always use the left edge of the input field, regardless of RTL/LTR
+                // The CSS will handle the RTL alignment
+                const left = inputRect.left;
+                const top = inputRect.bottom + 4;
+                const width = inputRect.width;
+                
+                console.log('Calculated position - left:', left, 'top:', top, 'width:', width);
+                
+                // Set position using fixed positioning
+                suggestionsContainer.style.setProperty('position', 'fixed', 'important');
+                suggestionsContainer.style.setProperty('left', left + 'px', 'important');
+                suggestionsContainer.style.setProperty('top', top + 'px', 'important');
+                suggestionsContainer.style.setProperty('width', width + 'px', 'important');
+                suggestionsContainer.style.setProperty('z-index', '1000', 'important');
+                
+                console.log('Position set successfully');
+            } catch(e) {
+                console.error('Error positioning suggestions:', e);
+            }
         }
 
         function renderSuggestions(input) {
+            console.log('renderSuggestions called with input:', input);
             closeAllLists();
             activeIndex = -1;
             suggestionItems = [];
             activeByKeyboard = false;
             if (!input) return;
+            console.log('Creating autocomplete suggestions container...');
             suggestionsContainer = document.createElement('div');
             suggestionsContainer.className = 'autocomplete-suggestions';
             suggestionsContainer.setAttribute('role','listbox');
             const wrapper = commandInput.parentNode;
             wrapper.style.position = 'relative';
             wrapper.appendChild(suggestionsContainer);
+            console.log('Calling positionSuggestions...');
             positionSuggestions();
 
             const maxShow = 12;
@@ -2144,10 +2280,24 @@
             const paddingRight = parseInt(inputStyle.paddingRight);
             const availableWidth = inputWidth - paddingLeft - paddingRight - textWidth - 10; // Reduced buffer to 10px
             
+            // Check if we're in Hebrew mode (RTL)
+            const isHebrew = document.documentElement.dir === 'rtl' || document.documentElement.lang === 'he';
+            
             suggestionSpan.style.position = 'absolute';
-            suggestionSpan.style.left = (paddingLeft + textWidth + 2) + 'px';
-            suggestionSpan.style.top = paddingTop + 'px';
+            if (isHebrew) {
+                // For Hebrew (RTL), position it to the RIGHT of the text
+                // Position it based on text width to make it follow your typing
+                suggestionSpan.style.right = (paddingRight + textWidth + 2) + 'px';
+                suggestionSpan.style.left = 'auto';
+                suggestionSpan.style.fontSize = '0.75em'; // Smaller font for Hebrew suggestions
+            } else {
+                // For English (LTR), position it to the LEFT of the text
+                suggestionSpan.style.left = (paddingLeft + textWidth + 2) + 'px';
+                suggestionSpan.style.right = 'auto';
+            }
+            suggestionSpan.style.top = (paddingTop + 1) + 'px'; // Move down slightly for better alignment
             suggestionSpan.style.zIndex = '1000';
+            suggestionSpan.style.color = '#888';
             
             // Always show the suggestion, but adjust positioning if needed
             const suggestionText = suggestionSpan.textContent;
@@ -2900,15 +3050,13 @@
                     }
                     
                     // Update general loading message and progress
-                    if (data && typeof data.message === 'string') {
-                        const msgEl = document.getElementById('loadingMessage');
-                        if (msgEl) msgEl.textContent = data.message;
-                    }
-                    updateProgress(data.progress);
-                    
-                    // Update steps based on progress for full analysis
                     const stepsEl = document.getElementById('generalSteps');
                     if (stepsEl && stepsEl.style.display !== 'none') {
+                        // When steps are shown, don't update the main loading message
+                        // Instead, update the appropriate step based on progress
+                        // Ensure step names are in the correct language
+                        updateGeneralStepNames();
+                        
                         if (data.progress < 30) {
                             setGeneralStep(1, 'active');
                         } else if (data.progress < 70) {
@@ -2918,7 +3066,14 @@
                             setGeneralStep(2, 'completed');
                             setGeneralStep(3, 'active');
                         }
+                    } else {
+                        // When steps are not shown, update the main loading message
+                        if (data && typeof data.message === 'string') {
+                            const msgEl = document.getElementById('loadingMessage');
+                            if (msgEl) msgEl.textContent = data.message;
+                        }
                     }
+                    updateProgress(data.progress);
                     
                     if (data.complete) {
                         if (stepsEl && stepsEl.style.display !== 'none') {
