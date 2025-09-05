@@ -1335,8 +1335,9 @@
                         <li><b>{% trans 'show email stats' %}</b> - {% trans 'Displays a report of top senders and domains.' %}</li>
                         <li><b>{% trans 'delete emails from [sender/domain]' %}</b> - {% trans 'Moves emails to Trash.' %}</li>
                         <li><b>{% trans 'delete promotions older than [duration]' %}</b> - {% trans 'Cleans up the Promotions tab.' %}</li>
-                        <li><b>{% trans 'archive emails from [sender] older than 6 months' %}</b> - {% trans 'Archives messages from a sender with an age filter.' %}</li>
-                        <li><b>{% trans 'archive all emails older than [duration]' %}</b> - {% trans 'Bulk archives old emails.' %}</li>
+                        <li><b>{% trans 'archive emails older than [duration]' %}</b> - {% trans 'Bulk archives old emails.' %}</li>
+                        <li><b>{% trans 'archive emails from [sender] older than [duration]' %}</b> - {% trans 'Archives messages from a sender with an age filter.' %}</li>
+                        <li><b>{% trans 'archive emails from [sender] from [time period]' %}</b> - {% trans 'Archives messages from a sender from specific time (today, yesterday, last week, etc.).' %}</li>
                         <li><b>{% trans 'list verification codes' %}</b> - {% trans 'Finds login and 2FA codes.' %}</li>
                         <li><b>{% trans 'list verification codes older than [duration]' %}</b> - {% trans 'Lists codes by age window.' %}</li>
                         <li><b>{% trans 'delete verification codes older than [duration]' %}</b> - {% trans 'Cleans codes past a safe window.' %}</li>
@@ -1825,8 +1826,9 @@
                 'delete all promotions',
                 'delete emails from [sender] older than 30 days',
                 'delete all emails older than 2 years',
-                'archive emails from [sender]',
-                'archive all emails older than 1 year',
+                'archive emails older than [duration]',
+                'archive emails from [sender] older than [duration]',
+                'archive emails from [sender] from [time period]',
                 '• label emails from [sender] as "[label]"',
                 'list labels',
                 'show label "[label]"',
