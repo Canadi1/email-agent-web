@@ -2958,7 +2958,7 @@ class GmailAIAgent:
                     # Build search query with sender and time period
                     query_parts = [f"from:{sender_email}"]
                     
-                    # Add time period filter
+                    # Add time period filter - use a wide range for all time periods to catch timezone issues
                     if not time_period:
                         return {"error": "Time period is None or empty"}
                     
@@ -2966,50 +2966,25 @@ class GmailAIAgent:
                     from datetime import datetime, timedelta
                     today = datetime.now()
                     
+                    # Use a wide date range for all time periods to catch timezone issues
+                    # We'll filter by internal date later for precision
                     if time_period == "today":
-                        # Get emails from today (last 24 hours)
-                        yesterday = today - timedelta(days=1)
-                        start_date = yesterday.strftime("%Y/%m/%d")
+                        start_date = (today - timedelta(days=2)).strftime("%Y/%m/%d")
                         end_date = (today + timedelta(days=1)).strftime("%Y/%m/%d")
-                        query_parts.append(f"after:{start_date}")
-                        query_parts.append(f"before:{end_date}")
                     elif time_period == "yesterday":
-                        # Get emails from yesterday (24-48 hours ago)
-                        day_before_yesterday = today - timedelta(days=2)
-                        yesterday = today - timedelta(days=1)
-                        start_date = day_before_yesterday.strftime("%Y/%m/%d")
-                        end_date = yesterday.strftime("%Y/%m/%d")
-                        query_parts.append(f"after:{start_date}")
-                        query_parts.append(f"before:{end_date}")
+                        start_date = (today - timedelta(days=3)).strftime("%Y/%m/%d")
+                        end_date = (today + timedelta(days=1)).strftime("%Y/%m/%d")
                     elif time_period == "last week":
-                        # Get emails from last week (7-14 days ago)
-                        two_weeks_ago = today - timedelta(weeks=2)
-                        one_week_ago = today - timedelta(weeks=1)
-                        start_date = two_weeks_ago.strftime("%Y/%m/%d")
-                        end_date = one_week_ago.strftime("%Y/%m/%d")
-                        query_parts.append(f"after:{start_date}")
-                        query_parts.append(f"before:{end_date}")
+                        start_date = (today - timedelta(weeks=2)).strftime("%Y/%m/%d")
+                        end_date = (today + timedelta(days=1)).strftime("%Y/%m/%d")
                     elif time_period == "last month":
-                        # Get emails from last month (e.g., August 2025 if today is September 2025)
-                        first_day_this_month = today.replace(day=1)
-                        last_day_last_month = first_day_this_month - timedelta(days=1)
-                        first_day_last_month = last_day_last_month.replace(day=1)
-                        
-                        # Format dates for Gmail API (YYYY/MM/DD)
-                        start_date = first_day_last_month.strftime("%Y/%m/%d")
-                        end_date = first_day_this_month.strftime("%Y/%m/%d")
-                        query_parts.append(f"after:{start_date}")
-                        query_parts.append(f"before:{end_date}")
+                        start_date = (today - timedelta(days=60)).strftime("%Y/%m/%d")
+                        end_date = (today + timedelta(days=1)).strftime("%Y/%m/%d")
                     elif time_period == "last year":
-                        # Get emails from last year (1-2 years ago)
-                        two_years_ago = today - timedelta(days=365*2)
-                        one_year_ago = today - timedelta(days=365)
-                        start_date = two_years_ago.strftime("%Y/%m/%d")
-                        end_date = one_year_ago.strftime("%Y/%m/%d")
-                        query_parts.append(f"after:{start_date}")
-                        query_parts.append(f"before:{end_date}")
+                        start_date = (today - timedelta(days=400)).strftime("%Y/%m/%d")
+                        end_date = (today + timedelta(days=1)).strftime("%Y/%m/%d")
                     elif time_period and " ago" in time_period:
-                        # Handle "X days/weeks/months/years ago" format with specific dates
+                        # Handle "X days/weeks/months/years ago" format
                         import re
                         ago_match = re.search(r'(\d+)\s+(day|days|week|weeks|month|months|year|years)\s+ago', time_period)
                         if ago_match and ago_match.group(1) and ago_match.group(2):
@@ -3018,34 +2993,36 @@ class GmailAIAgent:
                                 unit = ago_match.group(2).lower()
                                 
                                 if unit in ['day', 'days']:
-                                    # X days ago: from (X+1) days ago to X days ago
-                                    start_date = (today - timedelta(days=qty+1)).strftime("%Y/%m/%d")
-                                    end_date = (today - timedelta(days=qty)).strftime("%Y/%m/%d")
-                                    query_parts.append(f"after:{start_date}")
-                                    query_parts.append(f"before:{end_date}")
+                                    start_date = (today - timedelta(days=qty+2)).strftime("%Y/%m/%d")
+                                    end_date = (today - timedelta(days=qty-2)).strftime("%Y/%m/%d")
                                 elif unit in ['week', 'weeks']:
-                                    # X weeks ago: from (X+1) weeks ago to X weeks ago
                                     start_date = (today - timedelta(weeks=qty+1)).strftime("%Y/%m/%d")
-                                    end_date = (today - timedelta(weeks=qty)).strftime("%Y/%m/%d")
-                                    query_parts.append(f"after:{start_date}")
-                                    query_parts.append(f"before:{end_date}")
+                                    end_date = (today - timedelta(weeks=qty-1)).strftime("%Y/%m/%d")
                                 elif unit in ['month', 'months']:
-                                    # X months ago: approximate using 30 days per month
-                                    start_date = (today - timedelta(days=30*(qty+1))).strftime("%Y/%m/%d")
-                                    end_date = (today - timedelta(days=30*qty)).strftime("%Y/%m/%d")
-                                    query_parts.append(f"after:{start_date}")
-                                    query_parts.append(f"before:{end_date}")
+                                    from dateutil.relativedelta import relativedelta
+                                    start_date = (today - relativedelta(months=qty+1)).strftime("%Y/%m/%d")
+                                    end_date = (today - relativedelta(months=qty-1)).strftime("%Y/%m/%d")
                                 elif unit in ['year', 'years']:
-                                    # X years ago: from (X+1) years ago to X years ago
-                                    start_date = (today - timedelta(days=365*(qty+1))).strftime("%Y/%m/%d")
-                                    end_date = (today - timedelta(days=365*qty)).strftime("%Y/%m/%d")
-                                    query_parts.append(f"after:{start_date}")
-                                    query_parts.append(f"before:{end_date}")
+                                    from dateutil.relativedelta import relativedelta
+                                    start_date = (today - relativedelta(years=qty+1)).strftime("%Y/%m/%d")
+                                    end_date = (today - relativedelta(years=qty-1)).strftime("%Y/%m/%d")
                             except (ValueError, AttributeError) as e:
                                 print(f"Error parsing time period '{time_period}': {e}")
                                 return {"error": f"Invalid time period format: {time_period}"}
+                        else:
+                            # Fallback for unrecognized time periods
+                            start_date = (today - timedelta(days=7)).strftime("%Y/%m/%d")
+                            end_date = (today + timedelta(days=1)).strftime("%Y/%m/%d")
+                    else:
+                        # Fallback for unrecognized time periods
+                        start_date = (today - timedelta(days=7)).strftime("%Y/%m/%d")
+                        end_date = (today + timedelta(days=1)).strftime("%Y/%m/%d")
+                    
+                    query_parts.append(f"after:{start_date}")
+                    query_parts.append(f"before:{end_date}")
                     
                     query = " ".join(query_parts)
+                    print(f"DEBUG: Final Gmail query for {sender_email}: {query}")
 
                     # Fetch all matching messages with pagination
                     all_messages = []
@@ -3059,7 +3036,78 @@ class GmailAIAgent:
                         try:
                             results = self.service.users().messages().list(**kwargs).execute()
                             messages = results.get('messages', []) or []
-                            all_messages.extend(messages)
+                            print(f"DEBUG: Found {len(messages)} messages in this batch")
+                            
+                            # Filter messages to only include those from the exact target time period
+                            filtered_messages = []
+                            target_start = None
+                            target_end = None
+                            
+                            # Calculate the exact target time period
+                            if time_period == "today":
+                                target_start = today.replace(hour=0, minute=0, second=0, microsecond=0)
+                                target_end = today.replace(hour=23, minute=59, second=59, microsecond=999999)
+                            elif time_period == "yesterday":
+                                yesterday = today - timedelta(days=1)
+                                target_start = yesterday.replace(hour=0, minute=0, second=0, microsecond=0)
+                                target_end = yesterday.replace(hour=23, minute=59, second=59, microsecond=999999)
+                            elif time_period == "last week":
+                                target_start = today - timedelta(weeks=1)
+                                target_end = today
+                            elif time_period == "last month":
+                                first_day_this_month = today.replace(day=1)
+                                last_day_last_month = first_day_this_month - timedelta(days=1)
+                                target_start = last_day_last_month.replace(day=1)
+                                target_end = first_day_this_month
+                            elif time_period == "last year":
+                                target_start = today.replace(year=today.year-1, month=1, day=1)
+                                target_end = today.replace(month=1, day=1)
+                            elif time_period and " ago" in time_period and ago_match:
+                                qty = int(ago_match.group(1))
+                                unit = ago_match.group(2).lower()
+                                if unit in ['day', 'days']:
+                                    target_day = today - timedelta(days=qty)
+                                    target_start = target_day.replace(hour=0, minute=0, second=0, microsecond=0)
+                                    target_end = target_day.replace(hour=23, minute=59, second=59, microsecond=999999)
+                                elif unit in ['week', 'weeks']:
+                                    target_start = today - timedelta(weeks=qty)
+                                    target_end = target_start + timedelta(weeks=1)
+                                elif unit in ['month', 'months']:
+                                    from dateutil.relativedelta import relativedelta
+                                    target_start = today - relativedelta(months=qty)
+                                    target_end = target_start + relativedelta(months=1)
+                                elif unit in ['year', 'years']:
+                                    from dateutil.relativedelta import relativedelta
+                                    target_start = today - relativedelta(years=qty)
+                                    target_end = target_start + relativedelta(years=1)
+                            
+                            if target_start and target_end:
+                                for msg in messages:
+                                    try:
+                                        # Get the message details to check the internal date
+                                        msg_details = self.service.users().messages().get(
+                                            userId='me', id=msg['id'], format='metadata'
+                                        ).execute()
+                                        
+                                        # Use the internal date (timestamp in milliseconds)
+                                        internal_date = int(msg_details.get('internalDate', '0'))
+                                        if internal_date:
+                                            from datetime import datetime
+                                            msg_datetime = datetime.fromtimestamp(internal_date / 1000)
+                                            if target_start <= msg_datetime < target_end:
+                                                filtered_messages.append(msg)
+                                        else:
+                                            # If no internal date, include it to be safe
+                                            filtered_messages.append(msg)
+                                    except:
+                                        # If we can't get message details, include it to be safe
+                                        filtered_messages.append(msg)
+                                
+                                print(f"DEBUG: Filtered to {len(filtered_messages)} messages from {target_start} to {target_end}")
+                                all_messages.extend(filtered_messages)
+                            else:
+                                all_messages.extend(messages)
+                            
                             page_token = results.get('nextPageToken')
                             if not page_token:
                                 break
@@ -3093,6 +3141,7 @@ class GmailAIAgent:
                     return {"error": f"Error archiving emails by sender from time: {error_msg}"}
             
             # If we get here, the message fetching was successful, now do the archiving
+            print(f"DEBUG: Total messages found for {sender_email}: {len(all_messages)}")
             if not all_messages:
                 return {"status": "success", "message": _("No emails found from %(sender)s from %(time)s.") % {"sender": sender_email, "time": time_period}, "archived_count": 0}
             
