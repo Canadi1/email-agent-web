@@ -3257,8 +3257,18 @@ class GmailAIAgent:
     
     def list_archived_emails(self, max_results=None, page_token=None):
         """List archived emails (messages not in Inbox, excluding Sent/Drafts/Spam/Trash)."""
+        from agent.views import update_email_progress  # Import at function start
+        
         max_retries = 5
         retry_delay = 1
+        results = None  # Initialize to prevent UnboundLocalError
+        batch_processing_attempted = False
+        batch_processing_successful = False
+        
+        # Prevent bouncing progress bar - only reset for new commands
+        if not hasattr(self, '_last_command_id') or self._last_command_id != getattr(self, 'command_id', None):
+            self._progress_initialized = False
+            self._last_command_id = getattr(self, 'command_id', None)
         
         for attempt in range(max_retries):
             try:
@@ -3287,7 +3297,32 @@ class GmailAIAgent:
                             retry_delay *= 2
                             break  # Break out of while loop to retry the whole function
                         else:
-                            raise e  # Re-raise if not connection error or max retries reached
+                            # For SSL/Connection errors, don't immediately return error - try to continue processing
+                            if ("SSL" in err_text or "WRONG_VERSION_NUMBER" in err_text or "DECRYPTION_FAILED_OR_BAD_RECORD_MAC" in err_text or
+                                "timeout" in err_text.lower() or "connection" in err_text.lower() or
+                                "WinError 10060" in err_text or "failed to respond" in err_text.lower()):
+                                print(f"SSL/Connection error in list_archived_emails (attempt {attempt + 1}): {err_text}")
+                                if attempt < max_retries - 1:
+                                    time.sleep(retry_delay)
+                                    retry_delay *= 2
+                                    break  # Break out of while loop to retry the whole function
+                                else:
+                                    # Last attempt failed, but try to continue with fallback
+                                    print("SSL error on final attempt, trying fallback query...")
+                                    try:
+                                        # Try a simpler fallback query
+                                        fallback_kwargs = {"userId": 'me', "q": 'in:inbox', "maxResults": max_results, "fields": 'messages/id,nextPageToken'}
+                                        if page_token:
+                                            fallback_kwargs["pageToken"] = page_token
+                                        results = self.service.users().messages().list(**fallback_kwargs).execute()
+                                        print("Fallback query succeeded")
+                                        break
+                                    except Exception as fallback_e:
+                                        print(f"Fallback query also failed: {fallback_e}")
+                                        results = {"messages": [], "nextPageToken": None}
+                                        break
+                            else:
+                                raise e  # Re-raise if not connection error
                 
                 # If we get here, the operation was successful (inner while loop broke)
                 break  # Break from outer for loop
@@ -3302,9 +3337,26 @@ class GmailAIAgent:
                         time.sleep(retry_delay)
                         retry_delay *= 2
                         continue  # Continue to next attempt in outer for loop
-                return {"error": f"Error listing archived emails: {error_msg}"}
+                    else:
+                        # Final attempt failed, try fallback
+                        print("All retries failed, trying fallback query...")
+                        try:
+                            fallback_kwargs = {"userId": 'me', "q": 'in:inbox', "maxResults": max_results, "fields": 'messages/id,nextPageToken'}
+                            if page_token:
+                                fallback_kwargs["pageToken"] = page_token
+                            results = self.service.users().messages().list(**fallback_kwargs).execute()
+                            print("Fallback query succeeded")
+                            break
+                        except Exception as fallback_e:
+                            print(f"Fallback query also failed: {fallback_e}")
+                            return {"error": f"Error listing archived emails: {error_msg}"}
+                else:
+                    return {"error": f"Error listing archived emails: {error_msg}"}
         
         # Process the results
+        if results is None:
+            return {"error": "Failed to retrieve archived emails"}
+            
         messages = results.get('messages', [])
         next_token = results.get('nextPageToken')
         if not messages:
@@ -3315,91 +3367,105 @@ class GmailAIAgent:
         if len(messages) > 10:  # Only batch if we have enough messages
             batch_size = 100  # Gmail batch API limit
             total_emails = len(messages)
+            batch_processing_attempted = True
             
             # Update progress with total emails
             if hasattr(self, 'command_id') and self.command_id:
-                from agent.views import update_email_progress
                 update_email_progress(self.command_id, 0, total_emails)
             
             for i in range(0, len(messages), batch_size):
-                    batch_messages = messages[i:i + batch_size]
-                    
-                    # Create batch request
-                    batch = self.service.new_batch_http_request()
-                    for message in batch_messages:
-                        batch.add(
-                            self.service.users().messages().get(
-                    userId='me', 
-                    id=message['id'],
-                                format='metadata', 
-                                metadataHeaders=['From','Subject'],
-                                fields='payload/headers,id,labelIds'
-                            )
+                batch_messages = messages[i:i + batch_size]
+                
+                # Create batch request
+                batch = self.service.new_batch_http_request()
+                for message in batch_messages:
+                    batch.add(
+                        self.service.users().messages().get(
+                            userId='me', 
+                            id=message['id'],
+                            format='metadata', 
+                            metadataHeaders=['From','Subject'],
+                            fields='payload/headers,id,labelIds'
                         )
+                    )
+                
+                try:
+                    # Execute batch request
+                    batch_responses = batch.execute()
                     
-                    try:
-                        # Execute batch request
-                        batch_responses = batch.execute()
-                        
-                        # Process batch responses
-                        for j, (message, response) in enumerate(zip(batch_messages, batch_responses)):
-                            try:
-                                if isinstance(response, Exception):
-                                    continue  # Skip failed requests
-                                    
-                                msg = response
-                                headers = msg.get('payload', {}).get('headers', [])
-                                subject = next((h['value'] for h in headers if h.get('name') == 'Subject'), 'No Subject')
-                                sender = next((h['value'] for h in headers if h.get('name') == 'From'), 'Unknown Sender')
-                                archived_emails.append({
-                                    'id': message['id'],
-                                    'subject': subject,
-                                    'sender': sender,
-                                    'snippet': ''
-                                })
+                    # Process batch responses
+                    for j, (message, response) in enumerate(zip(batch_messages, batch_responses)):
+                        try:
+                            if isinstance(response, Exception):
+                                continue  # Skip failed requests
                                 
-                                # Update progress
-                                if hasattr(self, 'command_id') and self.command_id:
-                                    update_email_progress(self.command_id, i + j + 1, total_emails)
-                                
-                            except Exception as e:
-                                print(f"Error processing message {message['id']}: {e}")
-                                continue
-                                
-                    except Exception as e:
-                        print(f"Batch request failed: {e}")
-                        # Fallback to individual requests for this batch
-                        for k, message in enumerate(batch_messages):
-                            try:
-                                msg = self.service.users().messages().get(
-                                    userId='me', id=message['id'], format='metadata', metadataHeaders=['From','Subject'],
-                                    fields='payload/headers,id,labelIds'
-                                ).execute()
-                                headers = msg.get('payload', {}).get('headers', [])
-                                subject = next((h['value'] for h in headers if h.get('name') == 'Subject'), 'No Subject')
-                                sender = next((h['value'] for h in headers if h.get('name') == 'From'), 'Unknown Sender')
-                                archived_emails.append({
-                                    'id': message['id'],
-                                    'subject': subject,
-                                    'sender': sender,
-                                    'snippet': ''
-                                })
-                                
-                                # Update progress
-                                if hasattr(self, 'command_id') and self.command_id:
-                                    update_email_progress(self.command_id, i + k + 1, total_emails)
-                            except HttpError:
-                                continue
-            else:
-                # For small numbers, use individual requests
-                total_emails = len(messages)
-                
-                # Update progress with total emails
-                if hasattr(self, 'command_id') and self.command_id:
-                    from agent.views import update_email_progress
-                    update_email_progress(self.command_id, 0, total_emails)
-                
-                for i, message in enumerate(messages):
+                            msg = response
+                            headers = msg.get('payload', {}).get('headers', [])
+                            subject = next((h['value'] for h in headers if h.get('name') == 'Subject'), 'No Subject')
+                            sender = next((h['value'] for h in headers if h.get('name') == 'From'), 'Unknown Sender')
+                            archived_emails.append({
+                                'id': message['id'],
+                                'subject': subject,
+                                'sender': sender,
+                                'snippet': ''
+                            })
+                            
+                            # Update progress
+                            if hasattr(self, 'command_id') and self.command_id:
+                                update_email_progress(self.command_id, i + j + 1, total_emails)
+                            
+                        except Exception as e:
+                            print(f"Error processing message {message['id']}: {e}")
+                            continue
+                            
+                except Exception as e:
+                    print(f"Batch request failed: {e}")
+                    # Fallback to individual requests for this batch
+                    for k, message in enumerate(batch_messages):
+                        try:
+                            msg = self.service.users().messages().get(
+                                userId='me', id=message['id'], format='metadata', metadataHeaders=['From','Subject'],
+                                fields='payload/headers,id,labelIds'
+                            ).execute()
+                            headers = msg.get('payload', {}).get('headers', [])
+                            subject = next((h['value'] for h in headers if h.get('name') == 'Subject'), 'No Subject')
+                            sender = next((h['value'] for h in headers if h.get('name') == 'From'), 'Unknown Sender')
+                            archived_emails.append({
+                                'id': message['id'],
+                                'subject': subject,
+                                'sender': sender,
+                                'snippet': ''
+                            })
+                            
+                            # Update progress
+                            if hasattr(self, 'command_id') and self.command_id:
+                                update_email_progress(self.command_id, i + k + 1, total_emails)
+                        except Exception as e:
+                            print(f"Error processing individual message {message['id']}: {e}")
+                            continue
+            
+            # Mark batch processing as successful if we processed any emails
+            if archived_emails:
+                batch_processing_successful = True
+        
+        # If batch processing failed but we have some emails, return them
+        if batch_processing_attempted and not batch_processing_successful and archived_emails:
+            return {"emails": archived_emails, "next_page_token": next_token}
+        
+        # Always return emails if we have any, regardless of processing method
+        if archived_emails:
+            return {"emails": archived_emails, "next_page_token": next_token}
+        
+        if not batch_processing_attempted or not batch_processing_successful:
+            # For small numbers, use individual requests
+            total_emails = len(messages)
+            
+            # Update progress with total emails
+            if hasattr(self, 'command_id') and self.command_id:
+                update_email_progress(self.command_id, 0, total_emails)
+            
+            for i, message in enumerate(messages):
+                try:
                     msg = self.service.users().messages().get(
                         userId='me', id=message['id'], format='metadata', metadataHeaders=['From','Subject'],
                         fields='payload/headers,id,labelIds').execute()
@@ -3416,7 +3482,15 @@ class GmailAIAgent:
                     # Update progress
                     if hasattr(self, 'command_id') and self.command_id:
                         update_email_progress(self.command_id, i + 1, total_emails)
+                except Exception as e:
+                    print(f"Error processing individual message {message['id']}: {e}")
+                    continue
+        
+        # Always return emails if we have any, regardless of processing method
+        if archived_emails:
             return {"emails": archived_emails, "next_page_token": next_token}
+        
+        return {"emails": [], "next_page_token": next_token}
 
     def list_all_emails(self, max_results=None, page_token=None):
         """List all emails in All Mail (excludes Spam/Trash/Chats)."""
