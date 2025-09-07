@@ -451,7 +451,7 @@ def process_command_with_progress(agent, command, command_id, language_code=None
         # Update progress based on command type with more granular updates
         if action == 'list':
             update_progress(command_id, 5, get_progress_message('fetching_emails', language_code=language_code))
-            result = process_with_detailed_progress(agent, command, command_id, 5, 95, language_code)
+            result = process_with_email_listing_progress(agent, command, command_id, 5, 95, language_code)
             update_progress(command_id, 95, get_progress_message('processing_results', language_code=language_code))
         elif action == 'search':
             update_progress(command_id, 25, get_progress_message('searching_emails', language_code=language_code))
@@ -644,6 +644,9 @@ def index(request):
                 if mode == 'all_mail':
                     per_page = request.session.get('per_page', 50)
                     res = agent_instance.list_all_emails(max_results=per_page, page_token=token)
+                    # Check if res is valid before calling .get()
+                    if not res or not isinstance(res, dict):
+                        return JsonResponse({"data": [], "next_page_token": None, "error": "Invalid response from list_all_emails"})
                     return JsonResponse({"data": res.get('emails', []), "next_page_token": res.get('next_page_token')})
                 if mode == 'custom_category':
                     per_page = request.session.get('per_page', 50)
