@@ -3037,8 +3037,9 @@ class GmailAIAgent:
                         start_date = (today - timedelta(days=60)).strftime("%Y/%m/%d")
                         end_date = (today + timedelta(days=1)).strftime("%Y/%m/%d")
                     elif time_period == "last year":
-                        start_date = (today - timedelta(days=400)).strftime("%Y/%m/%d")
-                        end_date = (today + timedelta(days=1)).strftime("%Y/%m/%d")
+                        # Calendar year window: Jan 1 last year to Jan 1 this year (exclusive)
+                        start_date = datetime(today.year - 1, 1, 1).strftime("%Y/%m/%d")
+                        end_date = datetime(today.year, 1, 1).strftime("%Y/%m/%d")
                     elif time_period and " ago" in time_period:
                         # Handle "X days/weeks/months/years ago" format
                         import re
@@ -3059,9 +3060,10 @@ class GmailAIAgent:
                                     start_date = (today - relativedelta(months=qty+1)).strftime("%Y/%m/%d")
                                     end_date = (today - relativedelta(months=qty-1)).strftime("%Y/%m/%d")
                                 elif unit in ['year', 'years']:
-                                    from dateutil.relativedelta import relativedelta
-                                    start_date = (today - relativedelta(years=qty+1)).strftime("%Y/%m/%d")
-                                    end_date = (today - relativedelta(years=qty-1)).strftime("%Y/%m/%d")
+                                    # Calendar year window for 'from N years ago'
+                                    anchor_year = today.year - qty
+                                    start_date = datetime(anchor_year, 1, 1).strftime("%Y/%m/%d")
+                                    end_date = datetime(anchor_year + 1, 1, 1).strftime("%Y/%m/%d")
                             except (ValueError, AttributeError) as e:
                                 print(f"Error parsing time period '{time_period}': {e}")
                                 return {"error": f"Invalid time period format: {time_period}"}
@@ -3133,9 +3135,10 @@ class GmailAIAgent:
                                     target_start = today - relativedelta(months=qty)
                                     target_end = target_start + relativedelta(months=1)
                                 elif unit in ['year', 'years']:
-                                    from dateutil.relativedelta import relativedelta
-                                    target_start = today - relativedelta(years=qty)
-                                    target_end = target_start + relativedelta(years=1)
+                                    # Calendar year window for 'from N years ago'
+                                    anchor_year = today.year - qty
+                                    target_start = datetime(anchor_year, 1, 1)
+                                    target_end = datetime(anchor_year + 1, 1, 1)
                             
                             if target_start and target_end:
                                 for msg in messages:
