@@ -625,9 +625,12 @@
         }
         [data-theme="dark"] .example-commands ul { color: #ccc; }
         
-        /* Hebrew PC: larger font for example commands */
+        /* Hebrew PC: make example commands use normal UI font/style (not code/monospace) */
         html[lang="he"] .example-commands ul li code {
-            font-size: 1.2em;
+            font-size: 1.05em; /* slightly smaller */
+            font-style: normal;
+            font-family: inherit;
+            font-weight: 400;
         }
         /* Mobile English: tighter spacing between example command lines */
         @media (max-width: 768px) {
@@ -638,6 +641,13 @@
                 display: inline-block;
                 letter-spacing: -0.2px;
                 font-size: 0.9em; /* final nudge smaller only for this long item */
+            }
+            /* Keep other long EN examples (archive/delete) on one line and make them fit */
+            html[dir="ltr"] .example-commands ul li.long-example code {
+                white-space: nowrap;
+                display: inline-block;
+                letter-spacing: -0.35px; /* tighter spacing to fit */
+                font-size: 0.82em;       /* slightly smaller text on mobile */
             }
             /* Promotions long example: keep in one line with tighter spacing */
             html[dir="ltr"] .example-commands ul li.long-promo-example { 
@@ -650,6 +660,12 @@
                 display: inline-block;
                 letter-spacing: -0.2px;
                 font-size: 0.85em;
+            }
+        }
+        @media (max-width: 480px) {
+            html[dir="ltr"] .example-commands ul li.long-example code {
+                letter-spacing: -0.55px;
+                font-size: 0.76em;
             }
         }
         /* Mobile English-only: show shorter variants for specific long examples */
@@ -1311,7 +1327,7 @@
                     <h3>{% trans 'Example Commands' %}</h3>
                     <ul>
                         {% for cmd in example_commands %}
-                        <li class="{% if 'label emails from' in cmd %}long-label-example {% endif %}{% if 'delete promotions older than' in cmd or 'delete all promotions older than' in cmd %}long-promo-example{% endif %}{% if 'מחק את כל קידומי המכירות ישנים מ-30 ימים' in cmd %}long-hebrew-example{% endif %}"><code>{{ cmd }}</code></li>
+                        <li class="{% if 'label emails from' in cmd %}long-label-example {% endif %}{% if 'delete promotions older than' in cmd or 'delete all promotions older than' in cmd %}long-promo-example{% endif %}{% if 'מחק את כל קידומי המכירות ישנים מ-30 ימים' in cmd %}long-hebrew-example{% endif %}{% if 'archive emails from' in cmd or 'delete emails from' in cmd %} long-example{% endif %}"><code>{{ cmd }}</code></li>
                         {% endfor %}
                     </ul>
                 </div>

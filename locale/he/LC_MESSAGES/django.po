@@ -1026,6 +1026,23 @@ msgstr "מחק מיילים מ-[דומיין]"
 msgid "archive all emails older than 1 year"
 msgstr "ארכב את כל המיילים ישנים משנה"
 
+# New example commands (Hebrew translations)
+#: .\agent\views.py
+msgid "delete emails from google older than 30 days"
+msgstr "מחק מיילים מ-google ישנים מ-30 ימים"
+
+#: .\agent\views.py
+msgid "delete all emails older than 2 years"
+msgstr "מחק את כל המיילים ישנים מ-2 שנים"
+
+#: .\agent\views.py
+msgid "archive emails from google from last year"
+msgstr "ארכב מיילים מ-google מהשנה שעברה"
+
+#: .\agent\views.py
+msgid "archive emails older than [duration]"
+msgstr "ארכב מיילים ישנים מ-[משך]"
+
 #: .\agent\views.py:249 .\agent\views.py:304
 msgid "label emails from [domain] as \"[label]\""
 msgstr "תייג מיילים מ-[דומיין] כתווית \"[תווית]\""
