@@ -23,6 +23,13 @@ from django.utils.translation import gettext as _
 # We need the .compose scope to send emails
 SCOPES = ['https://www.googleapis.com/auth/gmail.modify', 'https://www.googleapis.com/auth/gmail.compose']
 
+# Minimal SSL configuration to reduce SSL errors without breaking authentication
+import ssl
+import urllib3
+
+# Disable SSL warnings globally (safe)
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
 class GmailAIAgent:
     def __init__(self, gmail_api_key=None, gemini_api_key=None):
         self.service = None
@@ -94,6 +101,10 @@ class GmailAIAgent:
                 os.environ['NO_PROXY'] = merged_no_proxy
                 os.environ['no_proxy'] = merged_no_proxy
 
+                # Apply basic retry configuration
+                import requests
+                requests.adapters.DEFAULT_RETRIES = 3
+
                 self.service = build('gmail', 'v1', credentials=creds)
             except Exception:
                 return False
@@ -137,7 +148,7 @@ class GmailAIAgent:
                 for i, message in enumerate(messages):
                     msg = self.service.users().messages().get(
                         userId='me', id=message['id'], format='metadata', metadataHeaders=['From','Subject'],
-                        fields='payload/headers,id').execute()
+                        fields='payload/headers,id,internalDate').execute()
                     headers = msg['payload']['headers']
                     
                     # Update progress
@@ -145,10 +156,21 @@ class GmailAIAgent:
                         update_email_progress(self.command_id, i + 1, total_emails)
                     subject = next((h['value'] for h in headers if h['name'] == 'Subject'), 'No Subject')
                     sender = next((h['value'] for h in headers if h['name'] == 'From'), 'Unknown Sender')
+                    
+                    # Add date information like in other list functions
+                    date_str = ''
+                    try:
+                        ts_ms = int(msg.get('internalDate', '0') or '0')
+                        if ts_ms:
+                            date_str = datetime.fromtimestamp(ts_ms/1000).strftime('%Y-%m-%d %H:%M')
+                    except Exception:
+                        date_str = ''
+                    
                     email_list.append({
                         'id': message['id'],
                         'subject': subject,
                         'sender': sender,
+                        'date': date_str,
                         'snippet': ''
                     })
                 return {"emails": email_list, "next_page_token": next_token}
@@ -252,14 +274,25 @@ class GmailAIAgent:
                 for i, message in enumerate(messages):
                     msg = self.service.users().messages().get(
                         userId='me', id=message['id'], format='metadata', metadataHeaders=['From','Subject'],
-                        fields='payload/headers,id').execute()
+                        fields='payload/headers,id,internalDate').execute()
                     headers = msg['payload']['headers']
                     subject = next((h['value'] for h in headers if h['name'] == 'Subject'), 'No Subject')
                     sender = next((h['value'] for h in headers if h['name'] == 'From'), 'Unknown Sender')
+                    
+                    # Add date information
+                    date_str = ''
+                    try:
+                        ts_ms = int(msg.get('internalDate', '0') or '0')
+                        if ts_ms:
+                            date_str = datetime.fromtimestamp(ts_ms/1000).strftime('%Y-%m-%d %H:%M')
+                    except Exception:
+                        date_str = ''
+                    
                     email_list.append({
                         'id': message['id'],
                         'subject': subject,
                         'sender': sender,
+                        'date': date_str,
                         'snippet': ''
                     })
                     
@@ -313,14 +346,25 @@ class GmailAIAgent:
             for message in messages:
                 msg = self.service.users().messages().get(
                     userId='me', id=message['id'], format='metadata', metadataHeaders=['From','Subject'],
-                    fields='payload/headers,id').execute()
+                    fields='payload/headers,id,internalDate').execute()
                 headers = msg['payload']['headers']
                 subject = next((h['value'] for h in headers if h['name'] == 'Subject'), 'No Subject')
                 sender = next((h['value'] for h in headers if h['name'] == 'From'), 'Unknown Sender')
+                
+                # Add date information
+                date_str = ''
+                try:
+                    ts_ms = int(msg.get('internalDate', '0') or '0')
+                    if ts_ms:
+                        date_str = datetime.fromtimestamp(ts_ms/1000).strftime('%Y-%m-%d %H:%M')
+                except Exception:
+                    date_str = ''
+                
                 email_list.append({
                     'id': message['id'],
                     'subject': subject,
                     'sender': sender,
+                    'date': date_str,
                     'snippet': ''
                 })
             return {"emails": email_list, "next_page_token": next_token}
@@ -956,8 +1000,8 @@ class GmailAIAgent:
         Lists emails from a specific date range with intelligent window sizing.
         """
         today = datetime.now()
-        if max_results is None:
-            max_results = self.default_max_results
+        # Don't set a default max_results - let it be None to fetch all emails
+        # The user's page size will be handled by the UI pagination
         start_date, end_date = None, None
         description = ""
         # Simple, predefined ranges
@@ -1002,7 +1046,43 @@ class GmailAIAgent:
                 description = _("from last year")
         else:
             parts = date_range_str.split()
-            if len(parts) == 2 and parts[0].isdigit():
+            # Handle "ago" patterns (e.g., "2 months ago", "3 weeks ago", "a month ago")
+            if len(parts) == 3 and parts[2] == "ago":
+                # Handle "a [unit] ago" patterns
+                if parts[0] == "a":
+                    quantity = 1
+                    unit = parts[1]
+                # Handle numeric patterns
+                elif parts[0].isdigit():
+                    quantity = int(parts[0])
+                    unit = parts[1]
+                else:
+                    quantity = None
+                    unit = None
+                
+                if quantity is not None and unit:
+                    # Use precise duration logic like archive commands
+                    if "day" in unit:
+                        # Use wide range to catch timezone issues, then filter precisely
+                        start_date = (today - timedelta(days=quantity+2)).replace(hour=0, minute=0, second=0, microsecond=0)
+                        end_date = (today - timedelta(days=quantity-2)).replace(hour=23, minute=59, second=59, microsecond=999999)
+                        description = _("from %(quantity)d %(unit)s ago") % {"quantity": quantity, "unit": unit}
+                    elif "week" in unit:
+                        start_date = (today - timedelta(weeks=quantity+1)).replace(hour=0, minute=0, second=0, microsecond=0)
+                        end_date = (today - timedelta(weeks=quantity-1)).replace(hour=23, minute=59, second=59, microsecond=999999)
+                        description = _("from %(quantity)d %(unit)s ago") % {"quantity": quantity, "unit": unit}
+                    elif "month" in unit:
+                        start_date = (today - relativedelta(months=quantity+1)).replace(hour=0, minute=0, second=0, microsecond=0)
+                        end_date = (today - relativedelta(months=quantity-1)).replace(hour=23, minute=59, second=59, microsecond=999999)
+                        description = _("from %(quantity)d %(unit)s ago") % {"quantity": quantity, "unit": unit}
+                    elif "year" in unit:
+                        # Calendar year window for 'from N years ago'
+                        anchor_year = today.year - quantity
+                        start_date = datetime(anchor_year, 1, 1, 0, 0, 0)
+                        end_date = datetime(anchor_year, 12, 31, 23, 59, 59)
+                        description = _("from %(quantity)d %(unit)s ago") % {"quantity": quantity, "unit": unit}
+            # Handle patterns without "ago" (e.g., "2 days", "3 weeks")
+            elif len(parts) == 2 and parts[0].isdigit():
                 quantity = int(parts[0])
                 unit = parts[1]
                 delta = None
@@ -1029,7 +1109,15 @@ class GmailAIAgent:
 
         if not start_date or not end_date:
             return {"error": f"Could not determine date range for '{date_range_str}'"}
-        query = f"after:{start_date.strftime('%Y/%m/%d')} before:{end_date.strftime('%Y/%m/%d')}"
+        
+        # Gmail API before: is exclusive, so add 1 day to end_date to include emails from that day
+        inclusive_end_date = end_date + timedelta(days=1)
+        query = f"after:{start_date.strftime('%Y/%m/%d')} before:{inclusive_end_date.strftime('%Y/%m/%d')}"
+        
+        # Debug: Print the query being used
+        print(f"DEBUG: Date range query: {query}")
+        print(f"DEBUG: Max results: {max_results}")
+        
         result = self._execute_list_query(query, description, max_results, page_token=page_token)
         # pass through next page token
         return result
@@ -1179,12 +1267,13 @@ class GmailAIAgent:
 
     def _execute_list_query(self, query, description, max_results=None, page_token=None):
         """A helper function to execute list queries and print results."""
-        max_retries = 5
-        retry_delay = 2
+        max_retries = 8  # Increased retries
+        retry_delay = 1  # Start with shorter delay
         results = None  # Initialize results to avoid UnboundLocalError
         
         for attempt in range(max_retries):
             try:
+                # Use the specified max_results or default
                 if max_results is None:
                     max_results = self.default_max_results
                 kwargs = {"userId":"me", "q": query, "maxResults": max_results}
@@ -1218,11 +1307,20 @@ class GmailAIAgent:
                     "WinError 10060" in error_msg or "failed to respond" in error_msg.lower() or
                     "SSL" in error_msg or "WRONG_VERSION_NUMBER" in error_msg or "DECRYPTION_FAILED_OR_BAD_RECORD_MAC" in error_msg):
                     if attempt < max_retries - 1:
-                        print(f"Retrying in {retry_delay} seconds...")
-                        time.sleep(retry_delay)
+                        # Add randomization to prevent thundering herd
+                        import random
+                        jitter = random.uniform(0.5, 1.5)
+                        actual_delay = retry_delay * jitter
+                        print(f"Retrying in {actual_delay:.1f} seconds...")
+                        time.sleep(actual_delay)
                         retry_delay *= 2
                         continue  # Continue to next attempt in outer for loop
-                return {"error": f"Error executing search query: {error_msg}"}
+                    else:
+                        print(f"❌ SSL/Connection error after {max_retries} attempts: {error_msg}")
+                        return {"error": f"Connection error after {max_retries} attempts: {error_msg}"}
+                else:
+                    # Non-SSL error, don't retry
+                    return {"error": f"Error executing search query: {error_msg}"}
         
         # Check if results was successfully obtained
         if results is None:
@@ -1243,11 +1341,22 @@ class GmailAIAgent:
         
         for i, message in enumerate(messages):
             msg = self.service.users().messages().get(
-                userId='me', id=message['id'], format='metadata', metadataHeaders=['From', 'Subject']).execute()
+                userId='me', id=message['id'], format='metadata', metadataHeaders=['From', 'Subject'],
+                fields='id,internalDate,payload/headers').execute()
             headers = msg['payload']['headers']
             subject = next((h['value'] for h in headers if h['name'] == 'Subject'), 'No Subject')
             sender = next((h['value'] for h in headers if h['name'] == 'From'), 'Unknown Sender')
-            email_list.append({"sender": sender, "subject": subject})
+            
+            # Add date information like in preview function
+            date_str = ''
+            try:
+                ts_ms = int(msg.get('internalDate', '0') or '0')
+                if ts_ms:
+                    date_str = datetime.fromtimestamp(ts_ms/1000).strftime('%Y-%m-%d %H:%M')
+            except Exception:
+                date_str = ''
+            
+            email_list.append({"sender": sender, "subject": subject, "date": date_str})
             
             # Update progress
             if hasattr(self, 'command_id') and self.command_id:
@@ -1506,7 +1615,17 @@ class GmailAIAgent:
             headers = msg.get('payload', {}).get('headers', [])
             subject = next((h.get('value') for h in headers if h.get('name') == 'Subject'), 'No Subject')
             sender = next((h.get('value') for h in headers if h.get('name') == 'From'), 'Unknown Sender')
-            email_list.append({'id': message['id'], 'subject': subject, 'sender': sender, 'snippet': msg.get('snippet','')})
+            
+            # Add date information
+            date_str = ''
+            try:
+                ts_ms = int(msg.get('internalDate', '0') or '0')
+                if ts_ms:
+                    date_str = datetime.fromtimestamp(ts_ms/1000).strftime('%Y-%m-%d %H:%M')
+            except Exception:
+                date_str = ''
+            
+            email_list.append({'id': message['id'], 'subject': subject, 'sender': sender, 'date': date_str, 'snippet': msg.get('snippet','')})
             
             # Update progress
             if hasattr(self, 'command_id') and self.command_id:
@@ -2625,14 +2744,16 @@ class GmailAIAgent:
                     emails = res.get("emails", [])
                     if "error" in res:
                         return {"status": "error", "message": f"Error fetching emails: {res['error']}"}
-                    if not emails: return {"status": "success", "message": "No recent emails found."}
-                    return {"status": "success", "data": emails, "type": "email_list", "next_page_token": res.get("next_page_token"), "list_context": {"mode": "recent"}}
+                    if not emails: 
+                        return {"status": "success", "message": "No recent emails found."}
+                    return {"status": "success", "data": emails, "type": "email_list", "message": f"Found {len(emails)} recent emails.", "next_page_token": res.get("next_page_token"), "list_context": {"mode": "recent"}}
                 elif target_type == "archived":
                     res = self.list_archived_emails()
                     emails = res.get("emails", []) if isinstance(res, dict) else res
                     next_token = res.get("next_page_token") if isinstance(res, dict) else None
-                    if not emails: return {"status": "success", "message": _("No archived emails found.")}
-                    return {"status": "success", "data": emails, "type": "email_list", "next_page_token": next_token, "list_context": {"mode": "archived"}}
+                    if not emails: 
+                        return {"status": "success", "message": _("No archived emails found.")}
+                    return {"status": "success", "data": emails, "type": "email_list", "message": f"Found {len(emails)} archived emails.", "next_page_token": next_token, "list_context": {"mode": "archived"}}
                 elif target_type == "all_mail":
                     res = self.list_all_emails()
                     # Check if res is valid before calling .get()
@@ -2642,8 +2763,9 @@ class GmailAIAgent:
                     if "error" in res:
                         return {"status": "error", "message": f"Error: {res['error']}"}
                     emails = res.get("emails", [])
-                    if not emails: return {"status": "success", "message": _("No emails found in All Mail.")}
-                    return {"status": "success", "data": emails, "type": "email_list", "next_page_token": res.get("next_page_token"), "list_context": {"mode": "all_mail"}}
+                    if not emails: 
+                        return {"status": "success", "message": _("No emails found in All Mail.")}
+                    return {"status": "success", "data": emails, "type": "email_list", "message": f"Found {len(emails)} emails in All Mail.", "next_page_token": res.get("next_page_token"), "list_context": {"mode": "all_mail"}}
                 elif target_type == "labels" or parsed.get("target") == "labels":
                     labels = self.list_labels()
                     if not labels: return {"status": "success", "message": _("You have no custom labels.")}
@@ -2663,25 +2785,54 @@ class GmailAIAgent:
                     # Support phrases like 'from 2 weeks ago' by mapping to date_range window
                     res = self.list_emails_by_domain(target, older_than_days=older_than_days)
                     emails = res.get("emails", [])
-                    if not emails: return {"status": "success", "message": _("No emails found from domain: %(domain)s.") % {"domain": target}}
+                    if not emails: 
+                        return {"status": "success", "message": _("No emails found from domain: %(domain)s.") % {"domain": target}}
                     lc = {"mode": "domain", "target": target}
                     if older_than_days is not None: lc["older_than_days"] = older_than_days
-                    return {"status": "success", "data": emails, "type": "email_list", "next_page_token": res.get("next_page_token"), "list_context": lc}
+                    return {"status": "success", "data": emails, "type": "email_list", "message": f"Found {len(emails)} emails from {target}.", "next_page_token": res.get("next_page_token"), "list_context": lc}
                 elif target_type == "sender":
                     res = self.list_emails_by_sender(target, older_than_days=older_than_days)
                     emails = res.get("emails", [])
-                    if not emails: return {"status": "success", "message": _("No emails found from sender: %(sender)s.") % {"sender": target}}
+                    if not emails: 
+                        return {"status": "success", "message": _("No emails found from sender: %(sender)s.") % {"sender": target}}
                     lc = {"mode": "sender", "target": target}
                     if older_than_days is not None: lc["older_than_days"] = older_than_days
-                    return {"status": "success", "data": emails, "type": "email_list", "next_page_token": res.get("next_page_token"), "list_context": lc}
+                    return {"status": "success", "data": emails, "type": "email_list", "message": f"Found {len(emails)} emails from {target}.", "next_page_token": res.get("next_page_token"), "list_context": lc}
                 elif target_type == "date_range":
-                    result = self.list_emails_by_date_range(target)
-                    # Handle errors gracefully instead of showing None
-                    if isinstance(result, dict) and result.get("error"):
-                        return {"status": "error", "message": result.get("error")}
-                    if not result.get("emails"):
-                        return {"status": "success", "message": result.get("message")}
-                    return {"status": "success", "data": result.get("emails"), "type": "email_list", "message": result.get("message"), "next_page_token": result.get("next_page_token"), "list_context": {"mode": "date_range", "target": target}}
+                    # Add SSL retry logic for date range commands
+                    max_retries = 5
+                    retry_delay = 1
+                    
+                    for attempt in range(max_retries):
+                        try:
+                            # Use the user's page size setting instead of fetching all emails
+                            max_results = getattr(self, 'default_max_results', 50)
+                            result = self.list_emails_by_date_range(target, max_results=max_results)
+                            # Handle errors gracefully instead of showing None
+                            if isinstance(result, dict) and result.get("error"):
+                                return {"status": "error", "message": result.get("error")}
+                            if not result.get("emails"):
+                                return {"status": "success", "message": result.get("message")}
+                            return {"status": "success", "data": result.get("emails"), "type": "email_list", "message": result.get("message"), "next_page_token": result.get("next_page_token"), "list_context": {"mode": "date_range", "target": target}}
+                        except Exception as e:
+                            error_msg = str(e)
+                            print(f"Error in date_range command (attempt {attempt + 1}): {error_msg}")
+                            
+                            # Check if it's an SSL error or connection issue
+                            if ("SSL" in error_msg or "WRONG_VERSION_NUMBER" in error_msg or "DECRYPTION_FAILED_OR_BAD_RECORD_MAC" in error_msg or
+                                "timeout" in error_msg.lower() or "connection" in error_msg.lower() or
+                                "WinError 10060" in error_msg or "failed to respond" in error_msg.lower()):
+                                if attempt < max_retries - 1:
+                                    print(f"SSL/Connection error, retrying in {retry_delay} seconds... (attempt {attempt + 1}/{max_retries})")
+                                    time.sleep(retry_delay)
+                                    retry_delay *= 2  # Exponential backoff
+                                    continue
+                                else:
+                                    print(f"❌ SSL/Connection error after {max_retries} attempts: {error_msg}")
+                                    return {"status": "error", "message": f"Connection error after {max_retries} attempts: {error_msg}"}
+                            else:
+                                # Non-SSL error, don't retry
+                                return {"status": "error", "message": f"Error executing command: {error_msg}"}
                 elif target_type == "older_than":
                     result = self.list_emails_older_than(target)
                     if not result.get("emails"): return {"status": "success", "message": result.get("message")}
@@ -3534,7 +3685,7 @@ class GmailAIAgent:
                             id=message['id'],
                             format='metadata', 
                             metadataHeaders=['From','Subject'],
-                            fields='payload/headers,id,labelIds'
+                            fields='payload/headers,id,labelIds,internalDate'
                         )
                     )
                 
@@ -3552,10 +3703,21 @@ class GmailAIAgent:
                             headers = msg.get('payload', {}).get('headers', [])
                             subject = next((h['value'] for h in headers if h.get('name') == 'Subject'), 'No Subject')
                             sender = next((h['value'] for h in headers if h.get('name') == 'From'), 'Unknown Sender')
+                            
+                            # Add date information
+                            date_str = ''
+                            try:
+                                ts_ms = int(msg.get('internalDate', '0') or '0')
+                                if ts_ms:
+                                    date_str = datetime.fromtimestamp(ts_ms/1000).strftime('%Y-%m-%d %H:%M')
+                            except Exception:
+                                date_str = ''
+                            
                             archived_emails.append({
                                 'id': message['id'],
                                 'subject': subject,
                                 'sender': sender,
+                                'date': date_str,
                                 'snippet': ''
                             })
                             
@@ -3574,15 +3736,26 @@ class GmailAIAgent:
                         try:
                             msg = self.service.users().messages().get(
                                 userId='me', id=message['id'], format='metadata', metadataHeaders=['From','Subject'],
-                                fields='payload/headers,id,labelIds'
+                                fields='payload/headers,id,labelIds,internalDate'
                             ).execute()
                             headers = msg.get('payload', {}).get('headers', [])
                             subject = next((h['value'] for h in headers if h.get('name') == 'Subject'), 'No Subject')
                             sender = next((h['value'] for h in headers if h.get('name') == 'From'), 'Unknown Sender')
+                            
+                            # Add date information
+                            date_str = ''
+                            try:
+                                ts_ms = int(msg.get('internalDate', '0') or '0')
+                                if ts_ms:
+                                    date_str = datetime.fromtimestamp(ts_ms/1000).strftime('%Y-%m-%d %H:%M')
+                            except Exception:
+                                date_str = ''
+                            
                             archived_emails.append({
                                 'id': message['id'],
                                 'subject': subject,
                                 'sender': sender,
+                                'date': date_str,
                                 'snippet': ''
                             })
                             
@@ -3617,14 +3790,25 @@ class GmailAIAgent:
                 try:
                     msg = self.service.users().messages().get(
                         userId='me', id=message['id'], format='metadata', metadataHeaders=['From','Subject'],
-                        fields='payload/headers,id,labelIds').execute()
+                        fields='payload/headers,id,labelIds,internalDate').execute()
                     headers = msg.get('payload', {}).get('headers', [])
                     subject = next((h['value'] for h in headers if h.get('name') == 'Subject'), 'No Subject')
                     sender = next((h['value'] for h in headers if h.get('name') == 'From'), 'Unknown Sender')
+                    
+                    # Add date information
+                    date_str = ''
+                    try:
+                        ts_ms = int(msg.get('internalDate', '0') or '0')
+                        if ts_ms:
+                            date_str = datetime.fromtimestamp(ts_ms/1000).strftime('%Y-%m-%d %H:%M')
+                    except Exception:
+                        date_str = ''
+                    
                     archived_emails.append({
                         'id': message['id'],
                         'subject': subject,
                         'sender': sender,
+                        'date': date_str,
                         'snippet': ''
                     })
                     
@@ -3747,7 +3931,7 @@ class GmailAIAgent:
                                 id=message['id'], 
                                 format='metadata', 
                                 metadataHeaders=['From','Subject'],
-                                fields='payload/headers,id'
+                                fields='payload/headers,id,internalDate'
                             )
                         )
                     
@@ -3775,7 +3959,17 @@ class GmailAIAgent:
                                 headers = msg.get('payload', {}).get('headers', [])
                                 subject = next((h['value'] for h in headers if h.get('name') == 'Subject'), 'No Subject')
                                 sender = next((h['value'] for h in headers if h.get('name') == 'From'), 'Unknown Sender')
-                                emails.append({'id': message['id'], 'subject': subject, 'sender': sender, 'snippet': ''})
+                                
+                                # Add date information
+                                date_str = ''
+                                try:
+                                    ts_ms = int(msg.get('internalDate', '0') or '0')
+                                    if ts_ms:
+                                        date_str = datetime.fromtimestamp(ts_ms/1000).strftime('%Y-%m-%d %H:%M')
+                                except Exception:
+                                    date_str = ''
+                                
+                                emails.append({'id': message['id'], 'subject': subject, 'sender': sender, 'date': date_str, 'snippet': ''})
                                 
                                 # Update progress
                                 if hasattr(self, 'command_id') and self.command_id:
@@ -3792,7 +3986,7 @@ class GmailAIAgent:
                             try:
                                 msg = self.service.users().messages().get(
                                     userId='me', id=message['id'], format='metadata', metadataHeaders=['From','Subject'],
-                                    fields='payload/headers,id'
+                                    fields='payload/headers,id,internalDate'
                                 ).execute()
                                 
                                 # Check if msg is valid
@@ -3803,7 +3997,17 @@ class GmailAIAgent:
                                 headers = msg.get('payload', {}).get('headers', [])
                                 subject = next((h['value'] for h in headers if h.get('name') == 'Subject'), 'No Subject')
                                 sender = next((h['value'] for h in headers if h.get('name') == 'From'), 'Unknown Sender')
-                                emails.append({'id': message['id'], 'subject': subject, 'sender': sender, 'snippet': ''})
+                                
+                                # Add date information
+                                date_str = ''
+                                try:
+                                    ts_ms = int(msg.get('internalDate', '0') or '0')
+                                    if ts_ms:
+                                        date_str = datetime.fromtimestamp(ts_ms/1000).strftime('%Y-%m-%d %H:%M')
+                                except Exception:
+                                    date_str = ''
+                                
+                                emails.append({'id': message['id'], 'subject': subject, 'sender': sender, 'date': date_str, 'snippet': ''})
                                 
                                 # Update progress
                                 if hasattr(self, 'command_id') and self.command_id:
@@ -3836,7 +4040,7 @@ class GmailAIAgent:
                 try:
                     msg = self.service.users().messages().get(
                         userId='me', id=message['id'], format='metadata', metadataHeaders=['From','Subject'],
-                        fields='payload/headers,id').execute()
+                        fields='payload/headers,id,internalDate').execute()
                     
                     # Check if msg is None or doesn't have expected structure
                     if not msg or not isinstance(msg, dict):
@@ -3846,7 +4050,17 @@ class GmailAIAgent:
                     headers = msg.get('payload', {}).get('headers', [])
                     subject = next((h['value'] for h in headers if h.get('name') == 'Subject'), 'No Subject')
                     sender = next((h['value'] for h in headers if h.get('name') == 'From'), 'Unknown Sender')
-                    emails.append({'id': message['id'], 'subject': subject, 'sender': sender, 'snippet': ''})
+                    
+                    # Add date information
+                    date_str = ''
+                    try:
+                        ts_ms = int(msg.get('internalDate', '0') or '0')
+                        if ts_ms:
+                            date_str = datetime.fromtimestamp(ts_ms/1000).strftime('%Y-%m-%d %H:%M')
+                    except Exception:
+                        date_str = ''
+                    
+                    emails.append({'id': message['id'], 'subject': subject, 'sender': sender, 'date': date_str, 'snippet': ''})
                     
                     # Update progress
                     if hasattr(self, 'command_id') and self.command_id:

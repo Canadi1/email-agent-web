@@ -1,3 +1,14 @@
+#: .\agent\views.py
+msgid "list emails from this week"
+msgstr "רשום מיילים מהשבוע"
+
+#: .\agent\views.py
+msgid "list emails from this month"
+msgstr "רשום מיילים מהחודש"
+
+#: .\agent\views.py
+msgid "list emails from this year"
+msgstr "רשום מיילים מהשנה"
 #: .\agent\templates\agent\index.html
 msgid "Archives messages from a sender from specific time (today, yesterday, last week, etc.)."
 msgstr "מארכב הודעות משולח מתקופת זמן מסוימת (היום, אתמול, שבוע שעבר וכו')"
