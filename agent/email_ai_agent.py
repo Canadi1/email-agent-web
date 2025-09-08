@@ -969,18 +969,31 @@ class GmailAIAgent:
             start_date = (today - timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
             end_date = start_date + timedelta(days=1)
             description = _("for yesterday")
+        elif date_range_str == "this week":
+            start_of_this_week = (today - timedelta(days=today.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
+            start_date = start_of_this_week
+            end_date = (today + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+            description = _("from this week")
         elif date_range_str == "last week":
             start_of_this_week = today - timedelta(days=today.weekday())
             start_date = (start_of_this_week - timedelta(days=7)).replace(hour=0, minute=0, second=0, microsecond=0)
             end_date = start_date + timedelta(days=7)
             description = _("from last week")
-        elif date_range_str in ["last month", "last year"]:
+        elif date_range_str in ["this month", "last month", "this year", "last year"]:
             # Handle "last month" and "last year" specifically
-            if date_range_str == "last month":
+            if date_range_str == "this month":
+                # From first of this month (inclusive) to tomorrow (exclusive)
+                start_date = today.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+                end_date = (today + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+                description = _("from this month")
+            elif date_range_str == "last month":
                 # Inclusive last month: from the first day of last month to the first day of this month (exclusive)
                 start_date = (today.replace(day=1) - relativedelta(months=1)).replace(hour=0, minute=0, second=0, microsecond=0)
                 end_date = today.replace(day=1).replace(hour=0, minute=0, second=0, microsecond=0)
                 description = _("from last month")
+            elif date_range_str == "this year":
+                # Use year chunking to prevent timeouts on large date ranges
+                return self._list_emails_this_year_chunked(max_results, page_token)
             elif date_range_str == "last year":
                 # Inclusive last year: from Jan 1 last year to Jan 1 this year (exclusive)
                 start_date = today.replace(month=1, day=1) - relativedelta(years=1)
@@ -1049,6 +1062,120 @@ class GmailAIAgent:
                 return {"error": f"Unknown unit in 'older than' command: {unit}"}
         else:
             return {"error": f"Invalid format for 'older than' command: {older_than_str}"}
+
+    def _list_emails_this_year_chunked(self, max_results=None, page_token=None):
+        """
+        Lists emails from this year using smart chunking to prevent timeouts.
+        """
+        if max_results is None:
+            max_results = self.default_max_results
+        
+        today = datetime.now()
+        current_year = today.year
+        
+        # Try the full year first for reasonable page sizes
+        if max_results <= 200:
+            start_date = datetime(current_year, 1, 1, 0, 0, 0)
+            end_date = (today + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+            
+            query = f"after:{start_date.strftime('%Y/%m/%d')} before:{end_date.strftime('%Y/%m/%d')}"
+            description = _("from this year")
+            
+            print(f"Searching entire year at once...")
+            result = self._execute_list_query(query, description, max_results=max_results, page_token=page_token)
+            
+            if result and "emails" in result:
+                return result
+            else:
+                print("Full year search failed, falling back to monthly chunks...")
+        
+        # Fallback to monthly chunks for larger page sizes or if full year fails
+        # Search in reverse chronological order (most recent first)
+        months = [
+            (12, 31), (11, 30), (10, 31), (9, 30), (8, 31), (7, 31),
+            (6, 30), (5, 31), (4, 30), (3, 31), (2, 28), (1, 31)
+        ]
+        
+        # Handle leap year for February (now at index 10 in reverse order)
+        if current_year % 4 == 0 and (current_year % 100 != 0 or current_year % 400 == 0):
+            months[10] = (2, 29)  # Feb 29 in leap year
+        
+        all_emails = []
+        
+        for month, max_day in months:
+            # Skip future months (since we're going in reverse order)
+            if month > today.month:
+                continue
+                
+            # For current month, go up to today + 1 to include today's emails
+            if month == today.month:
+                max_day = today.day + 1
+            
+            # Create date range for this month
+            start_date = datetime(current_year, month, 1, 0, 0, 0)
+            end_date = datetime(current_year, month, max_day, 23, 59, 59)
+            
+            # Skip if we're past today
+            if start_date > today:
+                continue
+                
+            # Use inclusive date range to ensure we get today's emails
+            query = f"after:{start_date.strftime('%Y/%m/%d')} before:{(end_date + timedelta(days=1)).strftime('%Y/%m/%d')}"
+            description = f"from {start_date.strftime('%B %Y')}"
+            
+            print(f"Searching {description}...")
+            # Use the full page size for each month search
+            chunk_size = max_results
+            result = self._execute_list_query(query, description, max_results=chunk_size, page_token=None)
+            
+            if result and "emails" in result:
+                emails = result["emails"]
+                all_emails.extend(emails)
+                print(f"Found {len(emails)} emails in {description} (Total: {len(all_emails)})")
+                
+                # Stop if we've reached the max results
+                if len(all_emails) >= max_results:
+                    print(f"Reached max results limit ({max_results}), stopping search")
+                    break
+            else:
+                print(f"No emails found in {description}")
+        
+        # Sort by date (newest first) - handle emails without date field
+        def get_sort_key(email):
+            try:
+                if not isinstance(email, dict):
+                    return '9999-12-31'  # Put non-dict items at the end
+                
+                # Try different possible date field names
+                date_str = email.get('date', '') or email.get('timestamp', '') or email.get('received_date', '')
+                
+                if not date_str:
+                    # If no date field, use a default sort order
+                    return '9999-12-31'
+                elif isinstance(date_str, str):
+                    return date_str
+                elif hasattr(date_str, 'strftime'):
+                    return date_str.strftime('%Y-%m-%d %H:%M:%S')
+                else:
+                    return str(date_str)
+            except Exception as e:
+                print(f"Error sorting email: {e}, email type: {type(email)}")
+                return '9999-12-31'  # Put problematic items at the end
+        
+        # Only sort if we have emails
+        if all_emails:
+            all_emails.sort(key=get_sort_key, reverse=True)
+        
+        # Limit to requested max_results
+        if len(all_emails) > max_results:
+            all_emails = all_emails[:max_results]
+        
+        return {
+            "emails": all_emails,
+            "total_count": len(all_emails),
+            "description": _("from this year"),
+            "chunked": True
+        }
 
     def _execute_list_query(self, query, description, max_results=None, page_token=None):
         """A helper function to execute list queries and print results."""
@@ -1264,15 +1391,25 @@ class GmailAIAgent:
         elif key == "yesterday":
             start_date = (today - timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
             end_date = start_date + timedelta(days=1)
+        elif key == "this week":
+            start_of_this_week = (today - timedelta(days=today.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
+            start_date = start_of_this_week
+            end_date = (today + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
         elif key == "last week":
             start_of_this_week = today - timedelta(days=today.weekday())
             start_date = (start_of_this_week - timedelta(days=7)).replace(hour=0, minute=0, second=0, microsecond=0)
             end_date = start_date + timedelta(days=7)
+        elif key == "this month":
+            start_date = today.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            end_date = (today + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
         elif key == "last month":
             # First day of current month is the exclusive upper bound
             end_date = today.replace(day=1)
             # First day of last month as inclusive lower bound
             start_date = (end_date - relativedelta(months=1))
+        elif key == "this year":
+            start_date = today.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+            end_date = (today + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
         elif key == "last year":
             # Jan 1 of current year as exclusive upper bound
             end_date = today.replace(month=1, day=1)
@@ -2203,9 +2340,14 @@ class GmailAIAgent:
             if "recent" in command_lower:
                 return {"action": "list", "target_type": "recent", "target": "recent", "confirmation_required": False}
             
-            # Detect domain/sender after 'from'
+            # Detect time window or domain/sender after 'from'
             if "from" in command_lower:
-                # Try domain first (including single words that are common domains)
+                # First: explicit time window after 'from'
+                time_after_from = re.search(r'from\s+(today|yesterday|last\s+week|last\s+month|last\s+year|this\s+week|this\s+month|this\s+year|\d+\s+(?:day|days|week|weeks|month|months|year|years)\s+ago)', command_lower)
+                if time_after_from:
+                    date_phrase = time_after_from.group(1)
+                    return {"action": "list", "target_type": "date_range", "target": date_phrase, "confirmation_required": False}
+                # Then: domain first (including single words that are common domains)
                 domain_match = re.search(r'from\s+([a-zA-Z0-9.-]+\.[a-zA-Z0-9.-]+)', command_lower)
                 if domain_match:
                     print(f"DEBUG: Parsed as domain command: {domain_match.group(1)}")
@@ -2226,7 +2368,7 @@ class GmailAIAgent:
         # Initialize optional date filters to avoid UnboundLocalError when not set
         older_than_match = re.search(r'(older than|before)\s+(a|\d+)\s+(day|week|month|year)s?', command_lower)
         from_ago_match = re.search(r'from\s+(a|\d+)\s+(day|week|month|year)s?\s+ago', command_lower)
-        simple_date_match = re.search(r'from\s+(today|yesterday|last week|last month|last year)', command_lower)
+        simple_date_match = re.search(r'from\s+(today|yesterday|last week|last month|last year|this week|this month|this year)', command_lower)
 
         if older_than_match:
             quantity = older_than_match.group(2)
@@ -2243,7 +2385,7 @@ class GmailAIAgent:
             return {"action": "list", "target_type": "date_range", "target": date_range, "confirmation_required": False}
 
         # Fallbacks: detect common time phrases anywhere, even without 'from'
-        for key in ["today", "yesterday", "last week", "last month", "last year"]:
+        for key in ["today", "yesterday", "last week", "last month", "last year", "this week", "this month", "this year"]:
             if key in command_lower:
                 return {"action": "list", "target_type": "date_range", "target": key, "confirmation_required": False}
         
@@ -2534,7 +2676,11 @@ class GmailAIAgent:
                     return {"status": "success", "data": emails, "type": "email_list", "next_page_token": res.get("next_page_token"), "list_context": lc}
                 elif target_type == "date_range":
                     result = self.list_emails_by_date_range(target)
-                    if not result.get("emails"): return {"status": "success", "message": result.get("message")}
+                    # Handle errors gracefully instead of showing None
+                    if isinstance(result, dict) and result.get("error"):
+                        return {"status": "error", "message": result.get("error")}
+                    if not result.get("emails"):
+                        return {"status": "success", "message": result.get("message")}
                     return {"status": "success", "data": result.get("emails"), "type": "email_list", "message": result.get("message"), "next_page_token": result.get("next_page_token"), "list_context": {"mode": "date_range", "target": target}}
                 elif target_type == "older_than":
                     result = self.list_emails_older_than(target)
