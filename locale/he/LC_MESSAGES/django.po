@@ -1,3 +1,6 @@
+#: .\agent\templates\agent\index.html
+msgid "Archives messages from a sender from specific time (today, yesterday, last week, etc.)."
+msgstr "מארכב הודעות משולח מתקופת זמן מסוימת (היום, אתמול, שבוע שעבר וכו')"
 # Example Commands (specific brand/value examples)
 #: .\agent\views.py
 msgid "list emails from google"

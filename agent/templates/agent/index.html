@@ -547,17 +547,33 @@
         }
         
         /* Fix pill spacing in favorites list */
-        /* Desktop: 3 columns, fill top->bottom with exactly 4 items per column */
+        /* Desktop (PC): column-first grid (4 rows), columns keep compact widths */
         @media (min-width: 769px) {
             #favorites-list {
                 display: grid;
-                grid-auto-flow: column;               /* fill columns first */
-                grid-template-rows: repeat(4, max-content); /* 4 rows per column */
-                grid-auto-columns: 1fr;               /* equal column widths */
-                gap: 8px;
+                grid-auto-flow: column;                    /* fill down first */
+                grid-template-rows: repeat(4, max-content); /* up to 4 rows */
+                grid-auto-columns: minmax(240px, 320px);    /* compact column width */
+                justify-content: start;                     /* don't stretch to full width */
+                gap: 8px 12px;
                 margin-top: 10px;
+                max-width: 1024px;                          /* cap total width so 1-3 cols stay short */
             }
             #favorites-list li { margin: 0; }
+            .fav-item { width: 100%; }
+            /* Keep space for the X so it never clips, especially in 3-column layout */
+            .fav-item .pill { flex: 1 1 auto; max-width: calc(100% - 44px); }
+            .fav-item .cancel-btn { padding: 2px 6px; }
+        }
+
+        /* Wider desktops (typically 3 columns): make pills slightly smaller */
+        @media (min-width: 1200px) {
+            #favorites-list {
+                grid-auto-columns: minmax(200px, 260px);
+                max-width: 900px; /* encourage 3 compact columns */
+            }
+            .fav-item .pill { padding: 5px 8px; }
+            .fav-item .cancel-btn { padding: 2px 6px; }
         }
 
         /* Mobile: 2 columns */
@@ -599,12 +615,23 @@
         }
         .fav-item .pill {
             min-width: 0;
-            max-width: calc(100% - 48px); /* leave room for the X button */
+            flex: 1 1 0%;              /* take remaining space, allow shrink */
+            max-width: none;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
-            flex: 0 1 auto; /* do not stretch across the whole row */
         }
+        /* Ensure the pill text truncates instead of overflowing offscreen */
+        .fav-item .pill code {
+            display: inline-block;
+            max-width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            vertical-align: bottom;
+        }
+        #favorites-list { overflow-x: hidden; }
+        #favorites-list li { min-width: 0; }
         .fav-item .cancel-btn { flex-shrink: 0; }
         .error-message {
             color: var(--error-color);
@@ -1368,7 +1395,7 @@
                         <!-- Archive group -->
                         <li><b>{% trans 'archive emails older than [duration]' %}</b> - {% trans 'Bulk archives old emails.' %}</li>
                         <li><b>{% trans 'archive emails from [sender] older than [duration]' %}</b> - {% trans 'Archives messages from a sender with an age filter.' %}</li>
-                        <li><b>{% trans 'archive emails from [sender] from [time period]' %}</b> - {% trans 'מארכב הודעות משולח מתקופת זמן מסוימת (היום, אתמול, שבוע שעבר וכו\')' %}</li>
+                        <li><b>{% trans 'archive emails from [sender] from [time period]' %}</b> - {% trans 'Archives messages from a sender from specific time (today, yesterday, last week, etc.).' %}</li>
                         <li><b>{% trans 'archive verification codes older than [duration]' %}</b> - {% trans 'Archives codes after a period.' %}</li>
                         <li><b>{% trans 'archive shipping emails older than [duration]' %}</b> - {% trans 'Archives old shipping updates.' %}</li>
                         <li><b>{% trans 'archive account security emails older than [duration]' %}</b> - {% trans 'Archives older security alerts.' %}</li>
