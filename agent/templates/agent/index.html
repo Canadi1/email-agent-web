@@ -624,6 +624,11 @@
             color: #666;
         }
         [data-theme="dark"] .example-commands ul { color: #ccc; }
+        /* RTL: adjust padding so list is slightly pushed to the right */
+        html[dir="rtl"] .example-commands ul {
+            padding-right: 24px;
+            padding-left: 8px;
+        }
         
         /* Hebrew PC: make example commands use normal UI font/style (not code/monospace) */
         html[lang="he"] .example-commands ul li code {
@@ -634,7 +639,17 @@
         }
         /* Mobile English: tighter spacing between example command lines */
         @media (max-width: 768px) {
+            /* Nudge example commands closer to the edge on mobile */
+            html[dir="ltr"] .example-commands { margin-left: -12px; }
+            html[dir="rtl"] .example-commands { margin-right: -12px; }
             html[dir="ltr"] .example-commands ul li { margin: 4px 0; }
+            /* Hebrew mobile: keep commands on one line and nudge size */
+            html[dir="rtl"] .example-commands ul li code {
+                white-space: nowrap;
+                display: inline-block;
+                letter-spacing: -0.25px;
+                font-size: 0.95em;
+            }
             /* Ensure the specific long label example stays on one line with local scroll */
             html[dir="ltr"] .example-commands ul li.long-label-example code {
                 white-space: nowrap;
@@ -1344,33 +1359,35 @@
                         <li><b>{% trans 'list emails before [duration]' %}</b> - {% trans "e.g., '6 months', '2 weeks'" %}</li>
                         <li><b>{% trans 'list emails from [duration] ago' %}</b> - {% trans "e.g., '4 months ago'" %}</li>
                         <li><b>{% trans 'list emails older than [duration]' %}</b> - {% trans "e.g., '6 months', '1 year'" %}</li>
-                        <li><b>{% trans 'list emails before 6 months' %}</b></li>
-                        <li><b>{% trans 'list emails before 2 weeks' %}</b></li>
-                        <li><b>{% trans 'list emails from 4 months ago' %}</b></li>
-                        <li><b>{% trans 'search emails with subject [keyword]' %}</b> - {% trans 'Finds emails with a specific subject.' %}</li>
-                        <li><b>{% trans 'show email stats' %}</b> - {% trans 'Displays a report of top senders and domains.' %}</li>
-                        <li><b>{% trans 'delete emails from [sender/domain]' %}</b> - {% trans 'Moves emails to Trash.' %}</li>
-                        <li><b>{% trans 'delete promotions older than [duration]' %}</b> - {% trans 'Cleans up the Promotions tab.' %}</li>
-                        <li><b>{% trans 'archive emails older than [duration]' %}</b> - {% trans 'Bulk archives old emails.' %}</li>
-                        <li><b>{% trans 'archive emails from [sender] older than [duration]' %}</b> - {% trans 'Archives messages from a sender with an age filter.' %}</li>
-                        <li><b>{% trans 'archive emails from [sender] from [time period]' %}</b> - {% trans 'Archives messages from a sender from specific time (today, yesterday, last week, etc.).' %}</li>
                         <li><b>{% trans 'list verification codes' %}</b> - {% trans 'Finds login and 2FA codes.' %}</li>
                         <li><b>{% trans 'list verification codes older than [duration]' %}</b> - {% trans 'Lists codes by age window.' %}</li>
-                        <li><b>{% trans 'delete verification codes older than [duration]' %}</b> - {% trans 'Cleans codes past a safe window.' %}</li>
-                        <li><b>{% trans 'archive verification codes older than [duration]' %}</b> - {% trans 'Archives codes after a period.' %}</li>
                         <li><b>{% trans 'list shipping emails' %}</b> - {% trans 'Carrier updates and delivery notices.' %}</li>
                         <li><b>{% trans 'list shipping emails older than [duration]' %}</b> - {% trans 'Carrier updates and delivery notices.' %}</li>
-                        <li><b>{% trans 'archive shipping emails older than [duration]' %}</b> - {% trans 'Archives old shipping updates.' %}</li>
-                        <li><b>{% trans 'delete shipping emails older than [duration]' %}</b> - {% trans 'Deletes stale shipping updates.' %}</li>
                         <li><b>{% trans 'list account security emails' %}</b> - {% trans 'Security alerts and sign-in notices.' %}</li>
                         <li><b>{% trans 'list account security emails older than [duration]' %}</b> - {% trans 'Older security notices.' %}</li>
+                        <!-- Archive group -->
+                        <li><b>{% trans 'archive emails older than [duration]' %}</b> - {% trans 'Bulk archives old emails.' %}</li>
+                        <li><b>{% trans 'archive emails from [sender] older than [duration]' %}</b> - {% trans 'Archives messages from a sender with an age filter.' %}</li>
+                        <li><b>{% trans 'archive emails from [sender] from [time period]' %}</b> - {% trans 'מארכב הודעות משולח מתקופת זמן מסוימת (היום, אתמול, שבוע שעבר וכו\')' %}</li>
+                        <li><b>{% trans 'archive verification codes older than [duration]' %}</b> - {% trans 'Archives codes after a period.' %}</li>
+                        <li><b>{% trans 'archive shipping emails older than [duration]' %}</b> - {% trans 'Archives old shipping updates.' %}</li>
                         <li><b>{% trans 'archive account security emails older than [duration]' %}</b> - {% trans 'Archives older security alerts.' %}</li>
+                        <!-- Delete group -->
+                        <li><b>{% trans 'delete emails from [sender/domain]' %}</b> - {% trans 'Moves emails to Trash.' %}</li>
+                        <li><b>{% trans 'delete promotions older than [duration]' %}</b> - {% trans 'Cleans up the Promotions tab.' %}</li>
+                        <li><b>{% trans 'delete verification codes older than [duration]' %}</b> - {% trans 'Cleans codes past a safe window.' %}</li>
+                        <li><b>{% trans 'delete shipping emails older than [duration]' %}</b> - {% trans 'Deletes stale shipping updates.' %}</li>
                         <li><b>{% trans 'delete account security emails older than [duration]' %}</b> - {% trans 'Deletes stale security alerts.' %}</li>
+                        <!-- Label group -->
                         <li><b>{% trans 'label emails from [sender] as [label]' %}</b> - {% trans 'Organizes emails with a label.' %}</li>
                         <li><b>{% trans 'list labels' %}</b> - {% trans 'Shows all your custom Gmail labels.' %}</li>
                         <li><b>{% trans 'show label "[label]"' %}</b> - {% trans 'Displays all emails with a specific label.' %}</li>
+                        <!-- Stats, Search, Restore, Send -->
+                        <li><b>{% trans 'show email stats' %}</b> - {% trans 'Displays a report of top senders and domains.' %}</li>
+                        <li><b>{% trans 'search emails with subject [keyword]' %}</b> - {% trans 'Finds emails with a specific subject.' %}</li>
                         <li><b>{% trans 'restore emails from [sender]' %}</b> - {% trans 'Moves archived emails back to the inbox.' %}</li>
                         <li><b>{% trans 'send email' %}</b> - {% trans 'Composes and sends an email.' %}</li>
+                        <!-- Deduplicated moved items removed -->
                     </ul>
                 </div>
 
@@ -1833,15 +1850,14 @@
                 'list emails from last week',
                 'list emails from last month',
                 'list emails from yesterday',
-                'list emails from 2 days ago',
-                'list emails older than 6 months',
-                'list emails older than 1 year',
+                'list emails from [duration] ago',
+                'list emails older than [duration]',
                 'search emails with subject "[keyword]"',
                 'show email stats',
                 'delete emails from [domain.com]',
-                'delete all promotions',
-                'delete emails from [sender] older than 30 days',
-                'delete all emails older than 2 years',
+                'delete all promotions older than [duration]',
+                'delete emails from [sender] older than [duration]',
+                'delete all emails older than [duration]',
                 'archive emails older than [duration]',
                 'archive emails from [sender] older than [duration]',
                 'archive emails from [sender] from [time period]',

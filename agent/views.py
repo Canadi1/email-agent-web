@@ -838,23 +838,22 @@ def index(request):
     # Add example commands for the user interface
     example_commands = [
         _("list recent emails"),
-        _("list emails from [domain]"),
+        _("list emails from google"),
         _("list emails from last week"),
         _("list emails older than 6 months"),
         _("list archived emails"),
         _("list all mail"),
-        _("search emails with subject \"[keyword]\""),
+        _("search emails with subject \"sale\""),
         _("show email stats"),
-        _("delete emails from [domain]"),
-        _("delete emails from google older than 30 days"),
-        _("delete all emails older than 2 years"),
+        _("delete emails from netflix"),
         _("delete all promotions older than 30 days"),
-        _("archive emails older than [duration]"),
-        _("archive emails from google from last year"),
-        _("label emails from [domain] as \"[label]\""),
+        _("archive emails older than 1 year"),
+        _("archive emails from google older than 90 days"),
+        _("archive emails from youtube from last month"),
+        _("label emails from amazon as \"shopping\""),
         _("list labels"),
-        _("show label \"[label]\""),
-        _("restore emails from [sender]"),
+        _("show label \"shopping\""),
+        _("restore emails from netflix"),
         _("send email")
     ]
     context['example_commands'] = example_commands
@@ -872,55 +871,48 @@ def index(request):
         _("list emails from last week"),
         _("list emails from last month"),
         _("list emails from last year"),
-        _("list emails before a week"),
-        _("list emails before a month"),
-        _("list emails before a year"),
-        _("list emails older than [duration]"),
-        _("list emails older than 1 year"),
-        _("list emails older than 30 days"),
+        _("show email stats"),
         _("list emails before [duration]"),
         _("list emails from [duration] ago"),
-        _("list emails before 6 months"),
-        _("list emails before 2 weeks"),
-        _("list emails from 4 months ago"),
+        _("list emails older than [duration]"),
         _("list archived emails"),
         _("list all mail"),
         _("list emails from [domain] older than [duration]"),
         _("list emails from [sender] older than [duration]"),
-        _("delete emails from [domain] older than 30 days"),
+        _("delete emails from [domain] older than [duration]"),
         _("archive emails from [sender]"),
+        _("archive emails from [sender] from [time period]"),
         _("list shipping emails"),
-        _("list verification codes"),
-        _("archive verification codes"),
-        _("delete verification codes"),
-        _("list verification codes older than [duration]"),
-        _("delete verification codes older than 14 days"),
-        _("archive verification codes older than 30 days"),
         _("list shipping emails older than [duration]"),
         _("archive shipping emails"),
         _("delete shipping emails"),
-        _("archive shipping emails older than 90 days"),
-        _("delete shipping emails older than 180 days"),
+        _("archive shipping emails older than [duration]"),
+        _("delete shipping emails older than [duration]"),
         _("list account security emails"),
         _("list account security emails older than [duration]"),
-        _("archive account security emails older than 90 days"),
-        _("delete account security emails older than 180 days"),
+        _("archive account security emails older than [duration]"),
+        _("delete account security emails older than [duration]"),
+        _("list verification codes"),
+        _("list verification codes older than [duration]"),
+        _("archive verification codes older than [duration]"),
+        _("delete verification codes older than [duration]"),
         _("label emails from [domain] as \"[label]\""),
         _("search emails with subject \"[keyword]\""),
         _("send email")
     ]
+    # Build autocomplete list ONLY from curated_extras (placeholders, no concrete values)
     seen_lower = set()
     autocomplete_list = []
-    for arr in [example_commands, curated_extras]:
-        for c in arr:
-            key = c.lower()
-            if key not in seen_lower:
-                seen_lower.add(key)
-                autocomplete_list.append(c)
+    for c in curated_extras:
+        key = c.lower()
+        if key not in seen_lower:
+            seen_lower.add(key)
+            autocomplete_list.append(c)
     try:
         context['autocomplete_commands_json'] = json.dumps(autocomplete_list)
     except Exception:
-        context['autocomplete_commands_json'] = json.dumps(example_commands)
+        # Fallback to curated_extras (still placeholders) if serialization fails
+        context['autocomplete_commands_json'] = json.dumps(curated_extras)
 
     # Provide recent undoable actions and per-page to template
     context['recent_actions'] = agent_instance.get_recent_actions()

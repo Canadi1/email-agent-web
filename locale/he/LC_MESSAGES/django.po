@@ -1,3 +1,55 @@
+# Example Commands (specific brand/value examples)
+#: .\agent\views.py
+msgid "list emails from google"
+msgstr "רשום מיילים מ-google"
+
+#: .\agent\views.py
+msgid "search emails with subject \"sale\""
+msgstr "חפש מיילים עם נושא \"sale\""
+
+#: .\agent\views.py
+msgid "delete emails from netflix"
+msgstr "מחק מיילים מ-netflix"
+
+#: .\agent\views.py
+msgid "archive emails older than 1 year"
+msgstr "ארכב מיילים ישנים משנה"
+
+#: .\agent\views.py
+msgid "archive emails from google older than 90 days"
+msgstr "ארכב מיילים מ-google ישנים מ-90 ימים"
+
+#: .\agent\views.py
+msgid "archive emails from youtube from last month"
+msgstr "ארכב מיילים מ-youtube מהחודש שעבר"
+
+#: .\agent\views.py
+msgid "label emails from amazon as \"shopping\""
+msgstr "תייג מיילים מ-amazon כ-\"קניות\""
+
+#: .\agent\views.py
+msgid "show label \"shopping\""
+msgstr "הצג תווית \"קניות\""
+
+#: .\agent\views.py
+msgid "restore emails from netflix"
+msgstr "שחזר מיילים מ-netflix"
+# Missing Hebrew for unquoted/short variants used in template
+#: .\agent\templates\agent\index.html
+msgid "delete promotions older than [duration]"
+msgstr "מחק קידומי מכירות ישנים מ-[משך]"
+
+#: .\agent\templates\agent\index.html
+msgid "label emails from [sender] as [label]"
+msgstr "תייג מיילים מ-[שולח] כתווית [תווית]"
+
+#: .\agent\templates\agent\index.html
+msgid "search emails with subject [keyword]"
+msgstr "חפש מיילים עם נושא [מילת מפתח]"
+#: .\agent\templates\agent\index.html
+msgid "archive emails from [sender] older than [duration]"
+msgstr "ארכב מיילים מ-[שולח] ישנים מ-[משך]"
+# (moved specific example command translations further down to avoid header duplication)
 # SOME DESCRIPTIVE TITLE.
 # Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the PACKAGE package.
@@ -737,17 +789,7 @@ msgstr "רשום מיילים ישנים מ-[משך]"
 msgid "e.g., '6 months', '1 year'"
 msgstr "למשל: '6 חודשים', 'שנה אחת'"
 
-#: .\agent\templates\agent\index.html:630 .\agent\views.py:278
-msgid "list emails before 6 months"
-msgstr "רשום מיילים לפני 6 חודשים"
-
-#: .\agent\templates\agent\index.html:631 .\agent\views.py:279
-msgid "list emails before 2 weeks"
-msgstr "רשום מיילים לפני שבועיים"
-
-#: .\agent\templates\agent\index.html:632 .\agent\views.py:280
-msgid "list emails from 4 months ago"
-msgstr "רשום מיילים מלפני 4 חודשים"
+## Removed specific dated examples from UI - keep for history only if needed
 
 #: .\agent\templates\agent\index.html:633 .\agent\views.py:244
 #: .\agent\views.py:305
@@ -1028,16 +1070,16 @@ msgstr "ארכב את כל המיילים ישנים משנה"
 
 # New example commands (Hebrew translations)
 #: .\agent\views.py
-msgid "delete emails from google older than 30 days"
-msgstr "מחק מיילים מ-google ישנים מ-30 ימים"
+msgid "delete emails from [sender] older than 30 days"
+msgstr "מחק מיילים מ-[שולח] ישנים מ-30 ימים"
 
 #: .\agent\views.py
 msgid "delete all emails older than 2 years"
 msgstr "מחק את כל המיילים ישנים מ-2 שנים"
 
 #: .\agent\views.py
-msgid "archive emails from google from last year"
-msgstr "ארכב מיילים מ-google מהשנה שעברה"
+msgid "archive emails from [sender] from [time period]"
+msgstr "ארכב מיילים מ-[שולח] מ-[תקופת זמן]"
 
 #: .\agent\views.py
 msgid "archive emails older than [duration]"
@@ -1086,6 +1128,10 @@ msgstr "רשום מיילים ישנים מ-30 ימים"
 #: .\agent\views.py:283
 msgid "list emails from [domain] older than [duration]"
 msgstr "רשום מיילים מ-[דומיין] ישנים מ-[משך]"
+
+#: .\agent\views.py
+msgid "delete emails from [domain] older than [duration]"
+msgstr "מחק מיילים מ-[דומיין] ישנים מ-[משך]"
 
 #: .\agent\views.py:284
 msgid "list emails from [sender] older than [duration]"
