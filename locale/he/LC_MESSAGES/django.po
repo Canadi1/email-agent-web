@@ -48,6 +48,54 @@ msgstr "הצג תווית \"קניות\""
 #: .\agent\views.py
 msgid "restore emails from netflix"
 msgstr "שחזר מיילים מ-netflix"
+
+#: .\agent\views.py
+msgid "list emails from [sender] from [timeframe]"
+msgstr "רשום מיילים מ-[שולח] מ-[תקופת זמן]"
+
+#: .\agent\views.py
+msgid "list emails from [sender] from today"
+msgstr "רשום מיילים מ-[שולח] מהיום"
+
+#: .\agent\views.py
+msgid "list emails from [sender] from yesterday"
+msgstr "רשום מיילים מ-[שולח] מאתמול"
+
+#: .\agent\views.py
+msgid "list emails from [sender] from this week"
+msgstr "רשום מיילים מ-[שולח] מהשבוע"
+
+#: .\agent\views.py
+msgid "list emails from [sender] from this month"
+msgstr "רשום מיילים מ-[שולח] מהחודש"
+
+#: .\agent\views.py
+msgid "list emails from [sender] from this year"
+msgstr "רשום מיילים מ-[שולח] מהשנה"
+
+#: .\agent\views.py
+msgid "list emails from [sender] from last week"
+msgstr "רשום מיילים מ-[שולח] מהשבוע שעבר"
+
+#: .\agent\views.py
+msgid "list emails from [sender] from last month"
+msgstr "רשום מיילים מ-[שולח] מהחודש שעבר"
+
+#: .\agent\views.py
+msgid "list emails from [sender] from last year"
+msgstr "רשום מיילים מ-[שולח] מהשנה שעברה"
+
+#: .\agent\views.py
+msgid "list emails from [sender] from [duration] ago"
+msgstr "רשום מיילים מ-[שולח] מ-[משך זמן] שעבר"
+
+#: .\agent\templates\agent\index.html
+msgid "e.g., 'list emails from google from today', 'list emails from amazon from last month', 'list emails from google from 2 weeks ago'"
+msgstr "למשל, 'רשום מיילים מ-google מהיום', 'רשום מיילים מ-amazon מהחודש שעבר', 'רשום מיילים מ-google מ-2 שבועות שעברו'"
+
+#: .\agent\templates\agent\index.html
+msgid "e.g., 'list emails from google older than 3 months'"
+msgstr "למשל, 'רשום מיילים מ-google ישנים מ-3 חודשים'"
 # Missing Hebrew for unquoted/short variants used in template
 #: .\agent\templates\agent\index.html
 msgid "delete promotions older than [duration]"
