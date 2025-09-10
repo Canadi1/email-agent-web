@@ -252,7 +252,8 @@ class GmailAIAgent:
                     query = f"{query} before:{cutoff_date}"
                 if date_range:
                     try:
-                        start_date, end_date = self._compute_date_range_window(date_range)
+                        # Use precise calendar window logic for "from [duration] ago" commands
+                        start_date, end_date = self._compute_precise_date_range_window(date_range)
                         if start_date and end_date:
                             query = f"{query} after:{start_date.strftime('%Y/%m/%d')} before:{end_date.strftime('%Y/%m/%d')}"
                     except Exception:
@@ -331,7 +332,8 @@ class GmailAIAgent:
                 query = f"{query} before:{cutoff_date}"
             if date_range:
                 try:
-                    start_date, end_date = self._compute_date_range_window(date_range)
+                    # Use precise calendar window logic for "from [duration] ago" commands
+                    start_date, end_date = self._compute_precise_date_range_window(date_range)
                     if start_date and end_date:
                         query = f"{query} after:{start_date.strftime('%Y/%m/%d')} before:{end_date.strftime('%Y/%m/%d')}"
                 except Exception:
@@ -1075,11 +1077,10 @@ class GmailAIAgent:
             parts = date_range_str.split()
             # Handle "ago" patterns (e.g., "2 months ago", "3 weeks ago", "a month ago")
             if len(parts) == 3 and parts[2] == "ago":
-                # Handle "a [unit] ago" patterns
+                # Handle "a [unit] ago" and numeric patterns
                 if parts[0] == "a":
                     quantity = 1
                     unit = parts[1]
-                # Handle numeric patterns
                 elif parts[0].isdigit():
                     quantity = int(parts[0])
                     unit = parts[1]
@@ -1088,25 +1089,26 @@ class GmailAIAgent:
                     unit = None
                 
                 if quantity is not None and unit:
-                    # Use precise duration logic like archive commands
+                    # Compute strict calendar windows with EXCLUSIVE end bounds
                     if "day" in unit:
-                        # Use wide range to catch timezone issues, then filter precisely
-                        start_date = (today - timedelta(days=quantity+2)).replace(hour=0, minute=0, second=0, microsecond=0)
-                        end_date = (today - timedelta(days=quantity-2)).replace(hour=23, minute=59, second=59, microsecond=999999)
+                        start_date = (today - timedelta(days=quantity)).replace(hour=0, minute=0, second=0, microsecond=0)
+                        end_date = start_date + timedelta(days=1)  # exclusive
                         description = _("from %(quantity)d %(unit)s ago") % {"quantity": quantity, "unit": unit}
                     elif "week" in unit:
-                        start_date = (today - timedelta(weeks=quantity+1)).replace(hour=0, minute=0, second=0, microsecond=0)
-                        end_date = (today - timedelta(weeks=quantity-1)).replace(hour=23, minute=59, second=59, microsecond=999999)
+                        # Weeks start on Monday
+                        anchor = today - timedelta(weeks=quantity)
+                        start_date = (anchor - timedelta(days=anchor.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
+                        end_date = start_date + timedelta(days=7)  # exclusive
                         description = _("from %(quantity)d %(unit)s ago") % {"quantity": quantity, "unit": unit}
                     elif "month" in unit:
-                        start_date = (today - relativedelta(months=quantity+1)).replace(hour=0, minute=0, second=0, microsecond=0)
-                        end_date = (today - relativedelta(months=quantity-1)).replace(hour=23, minute=59, second=59, microsecond=999999)
+                        target_month = today - relativedelta(months=quantity)
+                        start_date = target_month.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+                        end_date = start_date + relativedelta(months=1)  # exclusive (first day of next month)
                         description = _("from %(quantity)d %(unit)s ago") % {"quantity": quantity, "unit": unit}
                     elif "year" in unit:
-                        # Calendar year window for 'from N years ago'
-                        anchor_year = today.year - quantity
-                        start_date = datetime(anchor_year, 1, 1, 0, 0, 0)
-                        end_date = datetime(anchor_year, 12, 31, 23, 59, 59)
+                        target_year = today.year - quantity
+                        start_date = datetime(target_year, 1, 1, 0, 0, 0)
+                        end_date = datetime(target_year + 1, 1, 1, 0, 0, 0)  # exclusive (Jan 1 of next year)
                         description = _("from %(quantity)d %(unit)s ago") % {"quantity": quantity, "unit": unit}
             # Handle patterns without "ago" (e.g., "2 days", "3 weeks")
             elif len(parts) == 2 and parts[0].isdigit():
@@ -1137,9 +1139,8 @@ class GmailAIAgent:
         if not start_date or not end_date:
             return {"error": f"Could not determine date range for '{date_range_str}'"}
         
-        # Gmail API before: is exclusive, so add 1 day to end_date to include emails from that day
-        inclusive_end_date = end_date + timedelta(days=1)
-        query = f"after:{start_date.strftime('%Y/%m/%d')} before:{inclusive_end_date.strftime('%Y/%m/%d')}"
+        # Build query using EXCLUSIVE end bound (Gmail before: is exclusive at that date)
+        query = f"after:{start_date.strftime('%Y/%m/%d')} before:{end_date.strftime('%Y/%m/%d')}"
         
         # Debug: Print the query being used
         print(f"DEBUG: Date range query: {query}")
@@ -1148,6 +1149,105 @@ class GmailAIAgent:
         result = self._execute_list_query(query, description, max_results, page_token=page_token)
         # pass through next page token
         return result
+
+    def _compute_precise_date_range_window(self, date_range_str):
+        """
+        Compute precise calendar windows for "from [duration] ago" and "last [period]" commands.
+        Returns (start_date, end_date) with exclusive end bounds.
+        """
+        today = datetime.now()
+        start_date = None
+        end_date = None
+        
+        parts = date_range_str.split()
+        
+        # Handle "ago" patterns (e.g., "2 months ago", "3 weeks ago", "a month ago")
+        if len(parts) == 3 and parts[2] == "ago":
+            # Handle "a [unit] ago" and numeric patterns
+            if parts[0] == "a":
+                quantity = 1
+                unit = parts[1]
+            elif parts[0].isdigit():
+                quantity = int(parts[0])
+                unit = parts[1]
+            else:
+                return None, None
+            
+            # Compute strict calendar windows with EXCLUSIVE end bounds
+            if "day" in unit:
+                start_date = (today - timedelta(days=quantity)).replace(hour=0, minute=0, second=0, microsecond=0)
+                end_date = start_date + timedelta(days=1)  # exclusive
+            elif "week" in unit:
+                # Weeks start on Monday
+                anchor = today - timedelta(weeks=quantity)
+                start_date = (anchor - timedelta(days=anchor.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
+                end_date = start_date + timedelta(days=7)  # exclusive
+            elif "month" in unit:
+                target_month = today - relativedelta(months=quantity)
+                start_date = target_month.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+                end_date = start_date + relativedelta(months=1)  # exclusive (first day of next month)
+            elif "year" in unit:
+                target_year = today.year - quantity
+                start_date = datetime(target_year, 1, 1, 0, 0, 0)
+                end_date = datetime(target_year + 1, 1, 1, 0, 0, 0)  # exclusive (Jan 1 of next year)
+        
+        # Handle "last" patterns (e.g., "last week", "last month", "last year")
+        elif len(parts) == 2 and parts[0] == "last":
+            unit = parts[1]
+            
+            if "day" in unit:
+                # Last day = yesterday
+                start_date = (today - timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+                end_date = start_date + timedelta(days=1)  # exclusive
+            elif "week" in unit:
+                # Last week = previous Monday to Sunday
+                last_week_start = today - timedelta(weeks=1)
+                start_date = (last_week_start - timedelta(days=last_week_start.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
+                end_date = start_date + timedelta(days=7)  # exclusive
+            elif "month" in unit:
+                # Last month = previous month (1st to last day)
+                last_month = today - relativedelta(months=1)
+                start_date = last_month.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+                end_date = start_date + relativedelta(months=1)  # exclusive (first day of current month)
+            elif "year" in unit:
+                # Last year = previous year (Jan 1 to Dec 31)
+                last_year = today.year - 1
+                start_date = datetime(last_year, 1, 1, 0, 0, 0)
+                end_date = datetime(last_year + 1, 1, 1, 0, 0, 0)  # exclusive (Jan 1 of current year)
+        
+        # Handle "this" patterns (e.g., "this week", "this month", "this year")
+        elif len(parts) == 2 and parts[0] == "this":
+            unit = parts[1]
+            
+            if "day" in unit:
+                # This day = today
+                start_date = today.replace(hour=0, minute=0, second=0, microsecond=0)
+                end_date = start_date + timedelta(days=1)  # exclusive
+            elif "week" in unit:
+                # This week = current Monday to Sunday
+                start_date = (today - timedelta(days=today.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
+                end_date = start_date + timedelta(days=7)  # exclusive
+            elif "month" in unit:
+                # This month = current month (1st to last day)
+                start_date = today.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+                end_date = start_date + relativedelta(months=1)  # exclusive (first day of next month)
+            elif "year" in unit:
+                # This year = current year (Jan 1 to Dec 31)
+                start_date = datetime(today.year, 1, 1, 0, 0, 0)
+                end_date = datetime(today.year + 1, 1, 1, 0, 0, 0)  # exclusive (Jan 1 of next year)
+        
+        # Handle single word patterns (e.g., "today", "yesterday")
+        elif len(parts) == 1:
+            if parts[0] == "today":
+                # Today = current day (00:00 to 00:00 exclusive)
+                start_date = today.replace(hour=0, minute=0, second=0, microsecond=0)
+                end_date = start_date + timedelta(days=1)  # exclusive
+            elif parts[0] == "yesterday":
+                # Yesterday = previous day (00:00 to 00:00 exclusive)
+                start_date = (today - timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+                end_date = start_date + timedelta(days=1)  # exclusive
+        
+        return start_date, end_date
 
     def list_emails_older_than(self, older_than_str, max_results=None, page_token=None):
         """
@@ -2488,7 +2588,15 @@ class GmailAIAgent:
             
             # Detect time window or domain/sender after 'from'
             if "from" in command_lower:
-                # First: explicit time window after 'from'
+                # First: check for "from [sender] from [time period]" pattern
+                sender_from_time_match = re.search(r'from\s+([a-zA-Z0-9\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff]+)\s+from\s+(today|yesterday|last\s+week|last\s+month|last\s+year|this\s+week|this\s+month|this\s+year|\d+\s+(?:day|days|week|weeks|month|months|year|years)\s+ago)', command_lower)
+                if sender_from_time_match:
+                    sender_keyword = sender_from_time_match.group(1)
+                    time_period = sender_from_time_match.group(2)
+                    if sender_keyword not in ['emails','all','the','my','any','this','that','these','those']:
+                        return {"action": "list", "target_type": "sender", "target": sender_keyword, "date_range": time_period, "confirmation_required": False}
+                
+                # Then: explicit time window after 'from' (only if no sender was found)
                 time_after_from = re.search(r'from\s+(today|yesterday|last\s+week|last\s+month|last\s+year|this\s+week|this\s+month|this\s+year|\d+\s+(?:day|days|week|weeks|month|months|year|years)\s+ago)', command_lower)
                 if time_after_from:
                     date_phrase = time_after_from.group(1)
@@ -2810,24 +2918,30 @@ class GmailAIAgent:
                     return payload
                 elif target_type == "domain":
                     # Support phrases like 'from 2 weeks ago' by mapping to date_range window
-                    res = self.list_emails_by_domain(target, older_than_days=older_than_days)
+                    date_range = parsed.get("date_range")
+                    res = self.list_emails_by_domain(target, older_than_days=older_than_days, date_range=date_range)
                     emails = res.get("emails", [])
                     if not emails: 
                         return {"status": "success", "message": _("No emails found from domain: %(domain)s.") % {"domain": target}}
                     lc = {"mode": "domain", "target": target}
                     if older_than_days is not None: lc["older_than_days"] = older_than_days
+                    if date_range is not None: lc["date_range"] = date_range
                     age_txt = _(" older than %(days)d days") % {"days": older_than_days} if older_than_days else ""
-                    msg = _("Found %(count)d emails from %(who)s%(age)s.") % {"count": len(emails), "who": target, "age": age_txt}
+                    date_txt = f" from {date_range}" if date_range else ""
+                    msg = _("Found %(count)d emails from %(who)s%(age)s%(date)s.") % {"count": len(emails), "who": target, "age": age_txt, "date": date_txt}
                     return {"status": "success", "data": emails, "type": "email_list", "message": msg, "next_page_token": res.get("next_page_token"), "list_context": lc}
                 elif target_type == "sender":
-                    res = self.list_emails_by_sender(target, older_than_days=older_than_days)
+                    date_range = parsed.get("date_range")
+                    res = self.list_emails_by_sender(target, older_than_days=older_than_days, date_range=date_range)
                     emails = res.get("emails", [])
                     if not emails: 
                         return {"status": "success", "message": _("No emails found from sender: %(sender)s.") % {"sender": target}}
                     lc = {"mode": "sender", "target": target}
                     if older_than_days is not None: lc["older_than_days"] = older_than_days
+                    if date_range is not None: lc["date_range"] = date_range
                     age_txt = _(" older than %(days)d days") % {"days": older_than_days} if older_than_days else ""
-                    msg = _("Found %(count)d emails from %(who)s%(age)s.") % {"count": len(emails), "who": target, "age": age_txt}
+                    date_txt = f" from {date_range}" if date_range else ""
+                    msg = _("Found %(count)d emails from %(who)s%(age)s%(date)s.") % {"count": len(emails), "who": target, "age": age_txt, "date": date_txt}
                     return {"status": "success", "data": emails, "type": "email_list", "message": msg, "next_page_token": res.get("next_page_token"), "list_context": lc}
                 elif target_type == "date_range":
                     # Add SSL retry logic for date range commands
