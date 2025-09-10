@@ -343,7 +343,14 @@ class GmailAIAgent:
             messages = results.get('messages', [])
             next_token = results.get('nextPageToken')
             email_list = []
-            for message in messages:
+
+            # Initialize progress with total emails
+            total_emails = len(messages)
+            if hasattr(self, 'command_id') and self.command_id:
+                from agent.views import update_email_progress
+                update_email_progress(self.command_id, 0, total_emails)
+
+            for i, message in enumerate(messages):
                 msg = self.service.users().messages().get(
                     userId='me', id=message['id'], format='metadata', metadataHeaders=['From','Subject'],
                     fields='payload/headers,id,internalDate').execute()
@@ -367,7 +374,27 @@ class GmailAIAgent:
                     'date': date_str,
                     'snippet': ''
                 })
-            return {"emails": email_list, "next_page_token": next_token}
+
+                # Update progress after processing each message
+                if hasattr(self, 'command_id') and self.command_id:
+                    update_email_progress(self.command_id, i + 1, total_emails)
+
+            # Build snackbar message with details (older_than/date_range)
+            extra_parts = []
+            if older_than_days:
+                try:
+                    extra_parts.append(_("older than %(days)d days") % {"days": int(older_than_days)})
+                except Exception:
+                    extra_parts.append(_("older than %(text)s") % {"text": str(older_than_days)})
+            if date_range:
+                try:
+                    extra_parts.append(_("in %(range)s") % {"range": str(date_range)})
+                except Exception:
+                    pass
+            extra_text = (" " + " and ".join(extra_parts)) if extra_parts else ""
+            message_text = _("Found %(count)d emails from %(who)s%(extra)s.") % {"count": len(messages), "who": sender_keyword, "extra": extra_text}
+
+            return {"message": message_text, "emails": email_list, "next_page_token": next_token}
         except HttpError as error:
             return {"emails": [], "next_page_token": None}
 
@@ -2789,7 +2816,9 @@ class GmailAIAgent:
                         return {"status": "success", "message": _("No emails found from domain: %(domain)s.") % {"domain": target}}
                     lc = {"mode": "domain", "target": target}
                     if older_than_days is not None: lc["older_than_days"] = older_than_days
-                    return {"status": "success", "data": emails, "type": "email_list", "message": f"Found {len(emails)} emails from {target}.", "next_page_token": res.get("next_page_token"), "list_context": lc}
+                    age_txt = _(" older than %(days)d days") % {"days": older_than_days} if older_than_days else ""
+                    msg = _("Found %(count)d emails from %(who)s%(age)s.") % {"count": len(emails), "who": target, "age": age_txt}
+                    return {"status": "success", "data": emails, "type": "email_list", "message": msg, "next_page_token": res.get("next_page_token"), "list_context": lc}
                 elif target_type == "sender":
                     res = self.list_emails_by_sender(target, older_than_days=older_than_days)
                     emails = res.get("emails", [])
@@ -2797,7 +2826,9 @@ class GmailAIAgent:
                         return {"status": "success", "message": _("No emails found from sender: %(sender)s.") % {"sender": target}}
                     lc = {"mode": "sender", "target": target}
                     if older_than_days is not None: lc["older_than_days"] = older_than_days
-                    return {"status": "success", "data": emails, "type": "email_list", "message": f"Found {len(emails)} emails from {target}.", "next_page_token": res.get("next_page_token"), "list_context": lc}
+                    age_txt = _(" older than %(days)d days") % {"days": older_than_days} if older_than_days else ""
+                    msg = _("Found %(count)d emails from %(who)s%(age)s.") % {"count": len(emails), "who": target, "age": age_txt}
+                    return {"status": "success", "data": emails, "type": "email_list", "message": msg, "next_page_token": res.get("next_page_token"), "list_context": lc}
                 elif target_type == "date_range":
                     # Add SSL retry logic for date range commands
                     max_retries = 5
