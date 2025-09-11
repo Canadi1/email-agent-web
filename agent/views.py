@@ -658,13 +658,27 @@ def index(request):
                     target = list_context.get('target')
                     per_page = request.session.get('per_page', 50)
                     older = list_context.get('older_than_days')
-                    res = agent_instance.list_emails_by_domain(target, max_results=per_page, page_token=token, older_than_days=older)
+                    date_range = list_context.get('date_range')
+                    res = agent_instance.list_emails_by_domain(
+                        target,
+                        max_results=per_page,
+                        page_token=token,
+                        older_than_days=older,
+                        date_range=date_range
+                    )
                     return JsonResponse({"data": res.get('emails', []), "next_page_token": res.get('next_page_token')})
                 if mode == 'sender':
                     target = list_context.get('target')
                     per_page = request.session.get('per_page', 50)
                     older = list_context.get('older_than_days')
-                    res = agent_instance.list_emails_by_sender(target, max_results=per_page, page_token=token, older_than_days=older)
+                    date_range = list_context.get('date_range')
+                    res = agent_instance.list_emails_by_sender(
+                        target,
+                        max_results=per_page,
+                        page_token=token,
+                        older_than_days=older,
+                        date_range=date_range
+                    )
                     return JsonResponse({"data": res.get('emails', []), "next_page_token": res.get('next_page_token')})
                 return JsonResponse({"error": "Unsupported pagination mode"}, status=400)
             except Exception as e:
@@ -893,6 +907,9 @@ def index(request):
         _("list emails from [sender] from last month"),
         _("list emails from [sender] from last year"),
         _("list emails from [sender] from [duration] ago"),
+        # Hebrew-specific suggestions for duration-ago using natural phrasing
+        "רשום מיילים מלפני [משך]",
+        "רשום מיילים מ[שולח] מלפני [משך]",
         _("archive emails older than [duration]"),
         _("archive emails from [sender] older than [duration]"),
         _("delete promotions older than [duration]"),
@@ -950,6 +967,32 @@ def _translate_hebrew_command_to_english(command: str) -> str:
     print(f"Translating Hebrew command: '{orig}'")  # Debug log
     # Normalize punctuation styles
     # Longer phrases first
+    # Direct mapping for: רשום מיילים מ[sender] מלפני N [unit]
+    try:
+        def _sender_melifney_repl(m):
+            sender = (m.group(1) or '').strip()
+            qty = int(m.group(2))
+            unit_he = m.group(3)
+            unit_en = _he_to_en_unit(unit_he, qty)
+            return f"list emails from {sender} from {qty} {unit_en} ago"
+        # with hyphen after 'מ' or without
+        c = re.sub(r"^[\s]*רש(?:ו)?ם\s+מיילים\s+מ-?\s*([A-Za-z0-9_.+\-@\u0590-\u05FF]+)\s+מלפני\s*(\d+)\s*(יום(?:ים)?|שבוע(?:ות)?|חודש(?:ים)?|שנה(?:ים)?)\b",
+                   _sender_melifney_repl, c, flags=re.IGNORECASE)
+        # without explicit number (assume 1): 'מלפני חודש'
+        def _sender_melifney_one_repl(m):
+            sender = (m.group(1) or '').strip()
+            unit_he = m.group(2)
+            unit_en = _he_to_en_unit(unit_he, 1)
+            return f"list emails from {sender} from 1 {unit_en} ago"
+        c = re.sub(r"^[\s]*רש(?:ו)?ם\s+מיילים\s+מ-?\s*([A-Za-z0-9_.+\-@\u0590-\u05FF]+)\s+מלפני\s*(יום|שבוע|חודש|שנה)\b",
+                   _sender_melifney_one_repl, c, flags=re.IGNORECASE)
+        # If we produced a fully formed 'list emails from ... from N unit ago', return early
+        if re.search(r"^list\s+emails\s+from\s+[A-Za-z0-9_.+\-@\u0590-\u05FF]+\s+from\s+(?:a|\d+)\s+(?:day|days|week|weeks|month|months|year|years)\s+ago\b", c, flags=re.IGNORECASE):
+            c = re.sub(r"\s{2,}", " ", c).strip()
+            print(f"Final translated command: '{c}'")
+            return c
+    except Exception:
+        pass
     replacements = [
         # Actions (line-start variants)
         (r"^[\s]*העבר\s+לארכיון", "archive "),
@@ -973,13 +1016,20 @@ def _translate_hebrew_command_to_english(command: str) -> str:
         (r"^[\s]*שחזר", "restore "),
         (r"^[\s]*חפש", "search "),
 
-        # Time phrases and ranges
-        (r"שבוע\s+שעבר", "last week"),
-        (r"חודש\s+שעבר", "last month"),
-        (r"שנה\s+שעברה", "last year"),
+        # Time phrases and ranges (handle specific 'from <time>' BEFORE generic tokens)
+        # Direct Hebrew 'from <time>'
+        (r"מהיום", "from today"),
+        (r"מאתמול", "from yesterday"),
         (r"מהשבוע\s+שעבר", "from last week"),
         (r"מהחודש\s+שעבר", "from last month"),
         (r"מהשנה\s+שעברה", "from last year"),
+        (r"מהשבוע", "from this week"),
+        (r"מהחודש", "from this month"),
+        (r"מהשנה", "from this year"),
+        # Generic previous period words
+        (r"שבוע\s+שעבר", "last week"),
+        (r"חודש\s+שעבר", "last month"),
+        (r"שנה\s+שעברה", "last year"),
         # 'before' without a number should mean the previous calendar period
         (r"\bלפני\s*שבוע(?:\b|$)", "last week"),
         (r"\bלפני\s*חודש(?:\b|$)", "last month"),
@@ -987,6 +1037,7 @@ def _translate_hebrew_command_to_english(command: str) -> str:
         (r"\bמלפני\s*שבוע(?:\b|$)", "last week"),
         (r"\bמלפני\s*חודש(?:\b|$)", "last month"),
         (r"\bמלפני\s*שנה(?:\b|$)", "last year"),
+        # Generic tokens (after direct forms above to avoid 'מtoday')
         (r"אתמול", "yesterday"),
         (r"היום", "today"),
 
@@ -1023,8 +1074,20 @@ def _translate_hebrew_command_to_english(command: str) -> str:
         # 'from' forms
         (r"\bמאת\s+", "from "),
         (r"\bמ\s+", "from "),
+        (r"\bמי\s+", "from "),
         # standalone prefix form with hyphen: 'מ-<token>' or 'מ־<token>' etc.
         (r"\bמ[-–—־]", "from "),
+        # Handle cases created by earlier replacements like 'מtoday', 'מthis month', etc.
+        (r"\bמ(?=today\b)", "from "),
+        (r"\bמ(?=yesterday\b)", "from "),
+        (r"\bמ(?=this\s+week\b)", "from "),
+        (r"\bמ(?=this\s+month\b)", "from "),
+        (r"\bמ(?=this\s+year\b)", "from "),
+        (r"\bמ(?=last\s+week\b)", "from "),
+        (r"\bמ(?=last\s+month\b)", "from "),
+        (r"\bמ(?=last\s+year\b)", "from "),
+        # And finally, any 'מ' prefix directly before latin/digit token
+        (r"\bמ(?=[A-Za-z0-9])", "from "),
     ]
     for pattern, repl in replacements:
         try:
@@ -1051,6 +1114,16 @@ def _translate_hebrew_command_to_english(command: str) -> str:
         unit_he = m.group(2)
         unit_en = _he_to_en_unit(unit_he, qty)
         return f"from {qty} {unit_en} ago"
+    # Convert '<מ> <N> <unit> שעבר' into 'from N <unit> ago' (Hebrew units)
+    def _m_duration_ago_hebrew(m):
+        qty = int(m.group(1))
+        unit_he = m.group(2)
+        unit_en = _he_to_en_unit(unit_he, qty)
+        return f"from {qty} {unit_en} ago"
+    c = re.sub(r"\bמ[-–—־]?\s*(\d+)\s*(יום(?:ים)?|שבוע(?:ות)?|חודש(?:ים)?|שנה(?:ים)?)\s*שעבר(?:ו)?\b", _m_duration_ago_hebrew, c, flags=re.IGNORECASE)
+    # Convert 'from N <english-unit> שעבר/שעברו' into 'from N <english-unit> ago'
+    c = re.sub(r"\bfrom\s+(\d+)\s+(day|days|week|weeks|month|months|year|years)\s+שעבר(?:ו)?\b", r"from \1 \2 ago", c, flags=re.IGNORECASE)
+
     # 'מלפני 4 חודשים' or 'מ לפני 4 חודשים'
     c = re.sub(r"\bמ\s*לפני\s*(\d+)\s*(יום(?:ים)?|שבוע(?:ות)?|חודש(?:ים)?|שנה(?:ים)?)\b", _mlifnei_repl, c, flags=re.IGNORECASE)
     # For Hebrew 'לפני ...' we prefer a bounded window ("from N <unit> ago")

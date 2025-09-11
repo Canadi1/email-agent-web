@@ -336,7 +336,7 @@ class GmailAIAgent:
                     start_date, end_date = self._compute_precise_date_range_window(date_range)
                     if start_date and end_date:
                         query = f"{query} after:{start_date.strftime('%Y/%m/%d')} before:{end_date.strftime('%Y/%m/%d')}"
-                except Exception:
+                except Exception as e:
                     pass
             kwargs = {"userId": 'me', "q": query, "maxResults": max_results, "fields": 'messages/id,nextPageToken'}
             if page_token:
@@ -2548,6 +2548,36 @@ class GmailAIAgent:
 
         # List filters
         if best_match_action == "list":
+            # Hebrew sender+timeframe parsing FIRST (before standalone timeframe)
+            hebrew_sender_time_match = re.search(r'מ-?([a-zA-Z0-9\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff]+)\s+(מהיום|מאתמול|מהשבוע|מהחודש|מהשנה|מהשבוע\s+שעבר|מהחודש\s+שעבר|מהשנה\s+שעברה)', command_lower)
+            if hebrew_sender_time_match:
+                sender_keyword = hebrew_sender_time_match.group(1)
+                hebrew_time = hebrew_sender_time_match.group(2)
+                # Map Hebrew to English for internal processing
+                hebrew_to_english = {
+                    "מהיום": "today",
+                    "מאתמול": "yesterday", 
+                    "מהשבוע": "this week",
+                    "מהחודש": "this month",
+                    "מהשנה": "this year",
+                    "מהשבוע שעבר": "last week",
+                    "מהחודש שעבר": "last month", 
+                    "מהשנה שעברה": "last year"
+                }
+                time_period = hebrew_to_english.get(hebrew_time, hebrew_time)
+                if sender_keyword not in ['emails','all','the','my','any','this','that','these','those']:
+                    return {"action": "list", "target_type": "sender", "target": sender_keyword, "date_range": time_period, "confirmation_required": False}
+            
+            # Hebrew: handle standalone "this week/month/year" (e.g., "רשום מיילים מהשבוע/מהחודש/מהשנה")
+            try:
+                if "מהשבוע" in command_lower:
+                    return {"action": "list", "target_type": "date_range", "target": "this week", "confirmation_required": False}
+                if "מהחודש" in command_lower:
+                    return {"action": "list", "target_type": "date_range", "target": "this month", "confirmation_required": False}
+                if "מהשנה" in command_lower:
+                    return {"action": "list", "target_type": "date_range", "target": "this year", "confirmation_required": False}
+            except Exception:
+                pass
             # Custom category listing should be checked early so it doesn't get overridden by generic date parsing
             # Detect optional age filter
             custom_older_days = None
@@ -2588,11 +2618,27 @@ class GmailAIAgent:
             
             # Detect time window or domain/sender after 'from'
             if "from" in command_lower:
-                # First: check for "from [sender] from [time period]" pattern
+                # Check for "from [sender] from [time period]" pattern (English)
                 sender_from_time_match = re.search(r'from\s+([a-zA-Z0-9\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff]+)\s+from\s+(today|yesterday|last\s+week|last\s+month|last\s+year|this\s+week|this\s+month|this\s+year|\d+\s+(?:day|days|week|weeks|month|months|year|years)\s+ago)', command_lower)
                 if sender_from_time_match:
                     sender_keyword = sender_from_time_match.group(1)
                     time_period = sender_from_time_match.group(2)
+                    if sender_keyword not in ['emails','all','the','my','any','this','that','these','those']:
+                        return {"action": "list", "target_type": "sender", "target": sender_keyword, "date_range": time_period, "confirmation_required": False}
+                # Alt: "from [sender] [N unit] ago" (without second 'from')
+                sender_ago_match = re.search(r'from\s+([a-zA-Z0-9\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff]+)\s+(a|\d+)\s+(day|days|week|weeks|month|months|year|years)\s+ago', command_lower)
+                if sender_ago_match:
+                    sender_keyword = sender_ago_match.group(1)
+                    qty = sender_ago_match.group(2)
+                    unit = sender_ago_match.group(3)
+                    if qty == 'a': qty = '1'
+                    if sender_keyword not in ['emails','all','the','my','any','this','that','these','those']:
+                        return {"action": "list", "target_type": "sender", "target": sender_keyword, "date_range": f"{qty} {unit} ago", "confirmation_required": False}
+                # Alt: "from [sender] (today|yesterday|this X|last X)"
+                sender_simple_time_match = re.search(r'from\s+([a-zA-Z0-9\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff]+)\s+(today|yesterday|this\s+week|this\s+month|this\s+year|last\s+week|last\s+month|last\s+year)', command_lower)
+                if sender_simple_time_match:
+                    sender_keyword = sender_simple_time_match.group(1)
+                    time_period = sender_simple_time_match.group(2)
                     if sender_keyword not in ['emails','all','the','my','any','this','that','these','those']:
                         return {"action": "list", "target_type": "sender", "target": sender_keyword, "date_range": time_period, "confirmation_required": False}
                 
@@ -2725,8 +2771,8 @@ class GmailAIAgent:
             domain_match = re.search(r'from\s+([a-zA-Z0-9.-]+\.(?:com|org|net|edu|gov|co\.[a-z.]+|[a-z]{2}))', command_lower)
             if domain_match:
                 return {"action": "archive", "target_type": "domain", "target": domain_match.group(1), "confirmation_required": True, "older_than_days": older_than_days}
-            # Archive emails from sender from specific time periods (e.g., "from today", "from yesterday", "from last week", "from 2 months ago")
-            from_time_match = re.search(r'from\s+([a-zA-Z0-9\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff]+)\s+from\s+(today|yesterday|last week|last month|last year|\d+\s+(?:day|days|week|weeks|month|months|year|years)\s+ago)', command_lower)
+            # Archive emails from sender from specific time periods (today/yesterday/this X/last X/N ago)
+            from_time_match = re.search(r'from\s+([a-zA-Z0-9\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff]+)\s+from\s+(today|yesterday|last\s+week|last\s+month|last\s+year|this\s+week|this\s+month|this\s+year|\d+\s+(?:day|days|week|weeks|month|months|year|years)\s+ago)', command_lower)
             if from_time_match:
                 sender_keyword = from_time_match.group(1)
                 time_period = from_time_match.group(2)
@@ -2855,6 +2901,21 @@ class GmailAIAgent:
         confirm_required = parsed.get("confirmation_required", False)
 
         try:
+            # Detect Hebrew mode (any Hebrew letters present in the command)
+            hebrew_mode = bool(re.search(r'[\u0590-\u05FF]', command or ''))
+
+            def _hebrew_date_phrase(eng_phrase: str) -> str:
+                mapping = {
+                    "this week": "מהשבוע",
+                    "this month": "מהחודש",
+                    "this year": "מהשנה",
+                    "today": "מהיום",
+                    "yesterday": "מאתמול",
+                    "last week": "מהשבוע שעבר",
+                    "last month": "מהחודש שעבר",
+                    "last year": "מהשנה שעברה",
+                }
+                return mapping.get(eng_phrase, eng_phrase)
             if action == "delete":
                 # For web, we don't ask for confirmation here. We return a confirmation request.
                 if target_type == "domain":
@@ -2927,7 +2988,10 @@ class GmailAIAgent:
                     if older_than_days is not None: lc["older_than_days"] = older_than_days
                     if date_range is not None: lc["date_range"] = date_range
                     age_txt = _(" older than %(days)d days") % {"days": older_than_days} if older_than_days else ""
-                    date_txt = f" from {date_range}" if date_range else ""
+                    if date_range:
+                        date_txt = (" " + _hebrew_date_phrase(date_range)) if hebrew_mode else f" from {date_range}"
+                    else:
+                        date_txt = ""
                     msg = _("Found %(count)d emails from %(who)s%(age)s%(date)s.") % {"count": len(emails), "who": target, "age": age_txt, "date": date_txt}
                     return {"status": "success", "data": emails, "type": "email_list", "message": msg, "next_page_token": res.get("next_page_token"), "list_context": lc}
                 elif target_type == "sender":
@@ -2940,7 +3004,10 @@ class GmailAIAgent:
                     if older_than_days is not None: lc["older_than_days"] = older_than_days
                     if date_range is not None: lc["date_range"] = date_range
                     age_txt = _(" older than %(days)d days") % {"days": older_than_days} if older_than_days else ""
-                    date_txt = f" from {date_range}" if date_range else ""
+                    if date_range:
+                        date_txt = (" " + _hebrew_date_phrase(date_range)) if hebrew_mode else f" from {date_range}"
+                    else:
+                        date_txt = ""
                     msg = _("Found %(count)d emails from %(who)s%(age)s%(date)s.") % {"count": len(emails), "who": target, "age": age_txt, "date": date_txt}
                     return {"status": "success", "data": emails, "type": "email_list", "message": msg, "next_page_token": res.get("next_page_token"), "list_context": lc}
                 elif target_type == "date_range":
@@ -2957,8 +3024,39 @@ class GmailAIAgent:
                             if isinstance(result, dict) and result.get("error"):
                                 return {"status": "error", "message": result.get("error")}
                             if not result.get("emails"):
-                                return {"status": "success", "message": result.get("message")}
-                            return {"status": "success", "data": result.get("emails"), "type": "email_list", "message": result.get("message"), "next_page_token": result.get("next_page_token"), "list_context": {"mode": "date_range", "target": target}}
+                                # Localize date phrase in message for Hebrew mode
+                                msg_out = result.get("message") or ""
+                                if hebrew_mode and isinstance(msg_out, str):
+                                    # Replace ' from this week/month/year' with Hebrew
+                                    replacements = {
+                                        " from this week": " " + _hebrew_date_phrase("this week"),
+                                        " from this month": " " + _hebrew_date_phrase("this month"),
+                                        " from this year": " " + _hebrew_date_phrase("this year"),
+                                        " from today": " " + _hebrew_date_phrase("today"),
+                                        " from yesterday": " " + _hebrew_date_phrase("yesterday"),
+                                        " from last week": " " + _hebrew_date_phrase("last week"),
+                                        " from last month": " " + _hebrew_date_phrase("last month"),
+                                        " from last year": " " + _hebrew_date_phrase("last year"),
+                                    }
+                                    for k, v in replacements.items():
+                                        msg_out = msg_out.replace(k, v)
+                                return {"status": "success", "message": msg_out}
+                            # Localize date phrase in message for Hebrew mode (success with data)
+                            msg_out = result.get("message")
+                            if hebrew_mode and isinstance(msg_out, str):
+                                replacements = {
+                                    " from this week": " " + _hebrew_date_phrase("this week"),
+                                    " from this month": " " + _hebrew_date_phrase("this month"),
+                                    " from this year": " " + _hebrew_date_phrase("this year"),
+                                    " from today": " " + _hebrew_date_phrase("today"),
+                                    " from yesterday": " " + _hebrew_date_phrase("yesterday"),
+                                    " from last week": " " + _hebrew_date_phrase("last week"),
+                                    " from last month": " " + _hebrew_date_phrase("last month"),
+                                    " from last year": " " + _hebrew_date_phrase("last year"),
+                                }
+                                for k, v in replacements.items():
+                                    msg_out = msg_out.replace(k, v)
+                            return {"status": "success", "data": result.get("emails"), "type": "email_list", "message": msg_out, "next_page_token": result.get("next_page_token"), "list_context": {"mode": "date_range", "target": target}}
                         except Exception as e:
                             error_msg = str(e)
                             print(f"Error in date_range command (attempt {attempt + 1}): {error_msg}")
@@ -3456,67 +3554,14 @@ class GmailAIAgent:
                     # Build search query with sender and time period
                     query_parts = [f"from:{sender_email}"]
                     
-                    # Add time period filter - use a wide range for all time periods to catch timezone issues
+                    # Compute precise calendar window using shared helper
                     if not time_period:
                         return {"error": "Time period is None or empty"}
-                    
-                    # Import datetime for all time period calculations
-                    from datetime import datetime, timedelta
-                    today = datetime.now()
-                    
-                    # Use a wide date range for all time periods to catch timezone issues
-                    # We'll filter by internal date later for precision
-                    if time_period == "today":
-                        start_date = (today - timedelta(days=2)).strftime("%Y/%m/%d")
-                        end_date = (today + timedelta(days=1)).strftime("%Y/%m/%d")
-                    elif time_period == "yesterday":
-                        start_date = (today - timedelta(days=3)).strftime("%Y/%m/%d")
-                        end_date = (today + timedelta(days=1)).strftime("%Y/%m/%d")
-                    elif time_period == "last week":
-                        start_date = (today - timedelta(weeks=2)).strftime("%Y/%m/%d")
-                        end_date = (today + timedelta(days=1)).strftime("%Y/%m/%d")
-                    elif time_period == "last month":
-                        start_date = (today - timedelta(days=60)).strftime("%Y/%m/%d")
-                        end_date = (today + timedelta(days=1)).strftime("%Y/%m/%d")
-                    elif time_period == "last year":
-                        # Calendar year window: Jan 1 last year to Jan 1 this year (exclusive)
-                        start_date = datetime(today.year - 1, 1, 1).strftime("%Y/%m/%d")
-                        end_date = datetime(today.year, 1, 1).strftime("%Y/%m/%d")
-                    elif time_period and " ago" in time_period:
-                        # Handle "X days/weeks/months/years ago" format
-                        import re
-                        ago_match = re.search(r'(\d+)\s+(day|days|week|weeks|month|months|year|years)\s+ago', time_period)
-                        if ago_match and ago_match.group(1) and ago_match.group(2):
-                            try:
-                                qty = int(ago_match.group(1))
-                                unit = ago_match.group(2).lower()
-                                
-                                if unit in ['day', 'days']:
-                                    start_date = (today - timedelta(days=qty+2)).strftime("%Y/%m/%d")
-                                    end_date = (today - timedelta(days=qty-2)).strftime("%Y/%m/%d")
-                                elif unit in ['week', 'weeks']:
-                                    start_date = (today - timedelta(weeks=qty+1)).strftime("%Y/%m/%d")
-                                    end_date = (today - timedelta(weeks=qty-1)).strftime("%Y/%m/%d")
-                                elif unit in ['month', 'months']:
-                                    from dateutil.relativedelta import relativedelta
-                                    start_date = (today - relativedelta(months=qty+1)).strftime("%Y/%m/%d")
-                                    end_date = (today - relativedelta(months=qty-1)).strftime("%Y/%m/%d")
-                                elif unit in ['year', 'years']:
-                                    # Calendar year window for 'from N years ago'
-                                    anchor_year = today.year - qty
-                                    start_date = datetime(anchor_year, 1, 1).strftime("%Y/%m/%d")
-                                    end_date = datetime(anchor_year + 1, 1, 1).strftime("%Y/%m/%d")
-                            except (ValueError, AttributeError) as e:
-                                print(f"Error parsing time period '{time_period}': {e}")
-                                return {"error": f"Invalid time period format: {time_period}"}
-                        else:
-                            # Fallback for unrecognized time periods
-                            start_date = (today - timedelta(days=7)).strftime("%Y/%m/%d")
-                            end_date = (today + timedelta(days=1)).strftime("%Y/%m/%d")
-                    else:
-                        # Fallback for unrecognized time periods
-                        start_date = (today - timedelta(days=7)).strftime("%Y/%m/%d")
-                        end_date = (today + timedelta(days=1)).strftime("%Y/%m/%d")
+                    start_dt, end_dt = self._compute_precise_date_range_window(time_period)
+                    if not start_dt or not end_dt:
+                        return {"error": f"Invalid or unsupported time period: {time_period}"}
+                    start_date = start_dt.strftime("%Y/%m/%d")
+                    end_date = end_dt.strftime("%Y/%m/%d")
                     
                     query_parts.append(f"after:{start_date}")
                     query_parts.append(f"before:{end_date}")
@@ -3543,44 +3588,9 @@ class GmailAIAgent:
                             target_start = None
                             target_end = None
                             
-                            # Calculate the exact target time period
-                            if time_period == "today":
-                                target_start = today.replace(hour=0, minute=0, second=0, microsecond=0)
-                                target_end = today.replace(hour=23, minute=59, second=59, microsecond=999999)
-                            elif time_period == "yesterday":
-                                yesterday = today - timedelta(days=1)
-                                target_start = yesterday.replace(hour=0, minute=0, second=0, microsecond=0)
-                                target_end = yesterday.replace(hour=23, minute=59, second=59, microsecond=999999)
-                            elif time_period == "last week":
-                                target_start = today - timedelta(weeks=1)
-                                target_end = today
-                            elif time_period == "last month":
-                                first_day_this_month = today.replace(day=1)
-                                last_day_last_month = first_day_this_month - timedelta(days=1)
-                                target_start = last_day_last_month.replace(day=1)
-                                target_end = first_day_this_month
-                            elif time_period == "last year":
-                                target_start = today.replace(year=today.year-1, month=1, day=1)
-                                target_end = today.replace(month=1, day=1)
-                            elif time_period and " ago" in time_period and ago_match:
-                                qty = int(ago_match.group(1))
-                                unit = ago_match.group(2).lower()
-                                if unit in ['day', 'days']:
-                                    target_day = today - timedelta(days=qty)
-                                    target_start = target_day.replace(hour=0, minute=0, second=0, microsecond=0)
-                                    target_end = target_day.replace(hour=23, minute=59, second=59, microsecond=999999)
-                                elif unit in ['week', 'weeks']:
-                                    target_start = today - timedelta(weeks=qty)
-                                    target_end = target_start + timedelta(weeks=1)
-                                elif unit in ['month', 'months']:
-                                    from dateutil.relativedelta import relativedelta
-                                    target_start = today - relativedelta(months=qty)
-                                    target_end = target_start + relativedelta(months=1)
-                                elif unit in ['year', 'years']:
-                                    # Calendar year window for 'from N years ago'
-                                    anchor_year = today.year - qty
-                                    target_start = datetime(anchor_year, 1, 1)
-                                    target_end = datetime(anchor_year + 1, 1, 1)
+                            # Use the same precise window for local filtering
+                            target_start = start_dt
+                            target_end = end_dt
                             
                             if target_start and target_end:
                                 for msg in messages:
