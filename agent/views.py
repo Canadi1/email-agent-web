@@ -1144,6 +1144,8 @@ def _translate_hebrew_command_to_english(command: str) -> str:
     # If we have 'older than <unit>' without a number, assume 1 unit
     c = re.sub(r"\b(older than|before)\s+(day|days|week|weeks|month|months|year|years)\b",
                lambda m: f"{m.group(1)} 1 {m.group(2)}", c)
+    # Normalize accidental duplicate 'from from'
+    c = re.sub(r"\bfrom\s+from\b", "from", c, flags=re.IGNORECASE)
     # Normalize multiple spaces that can result from replacements
     c = re.sub(r"\s{2,}", " ", c).strip()
     print(f"Final translated command: '{c}'")  # Debug log

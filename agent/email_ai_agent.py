@@ -7,6 +7,11 @@ import json
 import re
 import time
 from datetime import datetime, timedelta
+import re
+try:
+    from django.utils import translation as _dj_translation
+except Exception:
+    _dj_translation = None
 from dateutil.relativedelta import relativedelta
 from email.mime.text import MIMEText
 from email.utils import getaddresses, parseaddr
@@ -323,82 +328,108 @@ class GmailAIAgent:
 
     def list_emails_by_sender(self, sender_keyword, max_results=None, page_token=None, older_than_days=None, date_range=None):
         """List emails from a sender containing specific keyword with pagination."""
-        try:
-            if max_results is None:
-                max_results = self.default_max_results
-            query = f"from:{sender_keyword}"
-            if older_than_days:
-                cutoff_date = (datetime.utcnow() - timedelta(days=int(older_than_days))).strftime('%Y/%m/%d')
-                query = f"{query} before:{cutoff_date}"
-            if date_range:
-                try:
-                    # Use precise calendar window logic for "from [duration] ago" commands
-                    start_date, end_date = self._compute_precise_date_range_window(date_range)
-                    if start_date and end_date:
-                        query = f"{query} after:{start_date.strftime('%Y/%m/%d')} before:{end_date.strftime('%Y/%m/%d')}"
-                except Exception as e:
-                    pass
-            kwargs = {"userId": 'me', "q": query, "maxResults": max_results, "fields": 'messages/id,nextPageToken'}
-            if page_token:
-                kwargs["pageToken"] = page_token
-            results = self.service.users().messages().list(**kwargs).execute()
-            messages = results.get('messages', [])
-            next_token = results.get('nextPageToken')
-            email_list = []
+        import time
+        max_retries = 5
+        for attempt in range(max_retries):
+            try:
+                if max_results is None:
+                    max_results = self.default_max_results
+                query = f"from:{sender_keyword}"
+                if older_than_days:
+                    cutoff_date = (datetime.utcnow() - timedelta(days=int(older_than_days))).strftime('%Y/%m/%d')
+                    query = f"{query} before:{cutoff_date}"
+                if date_range:
+                    try:
+                        # Use precise calendar window logic for "from [duration] ago" commands
+                        start_date, end_date = self._compute_precise_date_range_window(date_range)
+                        if start_date and end_date:
+                            query = f"{query} after:{start_date.strftime('%Y/%m/%d')} before:{end_date.strftime('%Y/%m/%d')}"
+                    except Exception:
+                        pass
+                kwargs = {"userId": 'me', "q": query, "maxResults": max_results, "fields": 'messages/id,nextPageToken'}
+                if page_token:
+                    kwargs["pageToken"] = page_token
+                results = self.service.users().messages().list(**kwargs).execute()
+                messages = results.get('messages', [])
+                next_token = results.get('nextPageToken')
+                email_list = []
 
-            # Initialize progress with total emails
-            total_emails = len(messages)
-            if hasattr(self, 'command_id') and self.command_id:
-                from agent.views import update_email_progress
-                update_email_progress(self.command_id, 0, total_emails)
-
-            for i, message in enumerate(messages):
-                msg = self.service.users().messages().get(
-                    userId='me', id=message['id'], format='metadata', metadataHeaders=['From','Subject'],
-                    fields='payload/headers,id,internalDate').execute()
-                headers = msg['payload']['headers']
-                subject = next((h['value'] for h in headers if h['name'] == 'Subject'), 'No Subject')
-                sender = next((h['value'] for h in headers if h['name'] == 'From'), 'Unknown Sender')
-                
-                # Add date information
-                date_str = ''
-                try:
-                    ts_ms = int(msg.get('internalDate', '0') or '0')
-                    if ts_ms:
-                        date_str = datetime.fromtimestamp(ts_ms/1000).strftime('%Y-%m-%d %H:%M')
-                except Exception:
-                    date_str = ''
-                
-                email_list.append({
-                    'id': message['id'],
-                    'subject': subject,
-                    'sender': sender,
-                    'date': date_str,
-                    'snippet': ''
-                })
-
-                # Update progress after processing each message
+                # Initialize progress with total emails
+                total_emails = len(messages)
                 if hasattr(self, 'command_id') and self.command_id:
-                    update_email_progress(self.command_id, i + 1, total_emails)
+                    from agent.views import update_email_progress
+                    update_email_progress(self.command_id, 0, total_emails)
 
-            # Build snackbar message with details (older_than/date_range)
-            extra_parts = []
-            if older_than_days:
-                try:
-                    extra_parts.append(_("older than %(days)d days") % {"days": int(older_than_days)})
-                except Exception:
-                    extra_parts.append(_("older than %(text)s") % {"text": str(older_than_days)})
-            if date_range:
-                try:
-                    extra_parts.append(_("in %(range)s") % {"range": str(date_range)})
-                except Exception:
-                    pass
-            extra_text = (" " + " and ".join(extra_parts)) if extra_parts else ""
-            message_text = _("Found %(count)d emails from %(who)s%(extra)s.") % {"count": len(messages), "who": sender_keyword, "extra": extra_text}
+                for i, message in enumerate(messages):
+                    # Add per-message retry
+                    inner_retries = 3
+                    for inner_attempt in range(inner_retries):
+                        try:
+                            msg = self.service.users().messages().get(
+                                userId='me', id=message['id'], format='metadata', metadataHeaders=['From','Subject'],
+                                fields='payload/headers,id,internalDate').execute()
+                            break
+                        except Exception as e:
+                            err = str(e).lower()
+                            if ("ssl" in err or "connection" in err or "wrong_version_number" in err) and inner_attempt < inner_retries - 1:
+                                time.sleep(1.5 * (inner_attempt + 1))
+                                continue
+                            else:
+                                raise e
+                    headers = msg['payload']['headers']
+                    subject = next((h['value'] for h in headers if h['name'] == 'Subject'), 'No Subject')
+                    sender = next((h['value'] for h in headers if h['name'] == 'From'), 'Unknown Sender')
+                    
+                    # Add date information
+                    date_str = ''
+                    try:
+                        ts_ms = int(msg.get('internalDate', '0') or '0')
+                        if ts_ms:
+                            date_str = datetime.fromtimestamp(ts_ms/1000).strftime('%Y-%m-%d %H:%M')
+                    except Exception:
+                        date_str = ''
+                    
+                    email_list.append({
+                        'id': message['id'],
+                        'subject': subject,
+                        'sender': sender,
+                        'date': date_str,
+                        'snippet': ''
+                    })
 
-            return {"message": message_text, "emails": email_list, "next_page_token": next_token}
-        except HttpError as error:
-            return {"emails": [], "next_page_token": None}
+                    # Update progress after processing each message
+                    if hasattr(self, 'command_id') and self.command_id:
+                        update_email_progress(self.command_id, i + 1, total_emails)
+
+                # Build snackbar message with details (older_than/date_range)
+                extra_parts = []
+                if older_than_days:
+                    try:
+                        extra_parts.append(_("older than %(days)d days") % {"days": int(older_than_days)})
+                    except Exception:
+                        extra_parts.append(_("older than %(text)s") % {"text": str(older_than_days)})
+                if date_range:
+                    try:
+                        extra_parts.append(_("in %(range)s") % {"range": str(date_range)})
+                    except Exception:
+                        pass
+                extra_text = (" " + " and ".join(extra_parts)) if extra_parts else ""
+                message_text = _("Found %(count)d emails from %(who)s%(extra)s.") % {"count": len(messages), "who": sender_keyword, "extra": extra_text}
+
+                return {"message": message_text, "emails": email_list, "next_page_token": next_token}
+            except Exception as e:
+                error_str = str(e).lower()
+                if 'ssl' in error_str or 'connection' in error_str or 'wrong_version_number' in error_str:
+                    if attempt < max_retries - 1:
+                        wait_time = 2 ** attempt
+                        time.sleep(wait_time)
+                        continue
+                    else:
+                        return {"emails": [], "next_page_token": None}
+                else:
+                    return {"emails": [], "next_page_token": None}
+            except HttpError as error:
+                return {"emails": [], "next_page_token": None}
 
     def delete_emails_by_age_only(self, older_than_days, confirm=False):
         """Delete all emails older than specified days (bulk cleanup)."""
@@ -2901,10 +2932,12 @@ class GmailAIAgent:
         confirm_required = parsed.get("confirmation_required", False)
 
         try:
-            # Detect Hebrew mode (any Hebrew letters present in the command)
-            hebrew_mode = bool(re.search(r'[\u0590-\u05FF]', command or ''))
+            # Detect Hebrew mode from Django's current language (more reliable than command text)
+            lang_code = (_dj_translation.get_language() if _dj_translation else None) or 'en'
+            hebrew_mode = str(lang_code).startswith('he')
 
             def _hebrew_date_phrase(eng_phrase: str) -> str:
+                # Fixed phrases
                 mapping = {
                     "this week": "מהשבוע",
                     "this month": "מהחודש",
@@ -2915,7 +2948,27 @@ class GmailAIAgent:
                     "last month": "מהחודש שעבר",
                     "last year": "מהשנה שעברה",
                 }
-                return mapping.get(eng_phrase, eng_phrase)
+                if eng_phrase in mapping:
+                    return mapping[eng_phrase]
+                # Numeric "N unit" or "N unit ago"
+                try:
+                    m = re.match(r"^(\d+)\s+(day|days|week|weeks|month|months|year|years)(?:\s+ago)?$", str(eng_phrase).strip())
+                    if m:
+                        n = int(m.group(1))
+                        unit = m.group(2)
+                        # Hebrew unit pluralization (simple)
+                        if unit.startswith('day'):
+                            unit_he = 'יום' if n == 1 else 'ימים'
+                        elif unit.startswith('week'):
+                            unit_he = 'שבוע' if n == 1 else 'שבועות'
+                        elif unit.startswith('month'):
+                            unit_he = 'חודש' if n == 1 else 'חודשים'
+                        else:
+                            unit_he = 'שנה' if n == 1 else 'שנים'
+                        return f"מלפני {n} {unit_he}"
+                except Exception:
+                    pass
+                return eng_phrase
             if action == "delete":
                 # For web, we don't ask for confirmation here. We return a confirmation request.
                 if target_type == "domain":
@@ -2987,12 +3040,15 @@ class GmailAIAgent:
                     lc = {"mode": "domain", "target": target}
                     if older_than_days is not None: lc["older_than_days"] = older_than_days
                     if date_range is not None: lc["date_range"] = date_range
-                    age_txt = _(" older than %(days)d days") % {"days": older_than_days} if older_than_days else ""
-                    if date_range:
-                        date_txt = (" " + _hebrew_date_phrase(date_range)) if hebrew_mode else f" from {date_range}"
+                    # Localize snackbar fully in Hebrew
+                    if hebrew_mode:
+                        age_txt = f" ישנים מ-{int(older_than_days)} ימים" if older_than_days else ""
+                        date_txt = (" " + _hebrew_date_phrase(date_range)) if date_range else ""
+                        msg = f"נמצאו {len(emails)} מיילים מ-{target}{age_txt}{date_txt}."
                     else:
-                        date_txt = ""
-                    msg = _("Found %(count)d emails from %(who)s%(age)s%(date)s.") % {"count": len(emails), "who": target, "age": age_txt, "date": date_txt}
+                        age_txt = _(" older than %(days)d days") % {"days": older_than_days} if older_than_days else ""
+                        date_txt = f" from {date_range}" if date_range else ""
+                        msg = _("Found %(count)d emails from %(who)s%(age)s%(date)s.") % {"count": len(emails), "who": target, "age": age_txt, "date": date_txt}
                     return {"status": "success", "data": emails, "type": "email_list", "message": msg, "next_page_token": res.get("next_page_token"), "list_context": lc}
                 elif target_type == "sender":
                     date_range = parsed.get("date_range")
@@ -3003,12 +3059,14 @@ class GmailAIAgent:
                     lc = {"mode": "sender", "target": target}
                     if older_than_days is not None: lc["older_than_days"] = older_than_days
                     if date_range is not None: lc["date_range"] = date_range
-                    age_txt = _(" older than %(days)d days") % {"days": older_than_days} if older_than_days else ""
-                    if date_range:
-                        date_txt = (" " + _hebrew_date_phrase(date_range)) if hebrew_mode else f" from {date_range}"
+                    if hebrew_mode:
+                        age_txt = f" ישנים מ-{int(older_than_days)} ימים" if older_than_days else ""
+                        date_txt = (" " + _hebrew_date_phrase(date_range)) if date_range else ""
+                        msg = f"נמצאו {len(emails)} מיילים מ-{target}{age_txt}{date_txt}."
                     else:
-                        date_txt = ""
-                    msg = _("Found %(count)d emails from %(who)s%(age)s%(date)s.") % {"count": len(emails), "who": target, "age": age_txt, "date": date_txt}
+                        age_txt = _(" older than %(days)d days") % {"days": older_than_days} if older_than_days else ""
+                        date_txt = f" from {date_range}" if date_range else ""
+                        msg = _("Found %(count)d emails from %(who)s%(age)s%(date)s.") % {"count": len(emails), "who": target, "age": age_txt, "date": date_txt}
                     return {"status": "success", "data": emails, "type": "email_list", "message": msg, "next_page_token": res.get("next_page_token"), "list_context": lc}
                 elif target_type == "date_range":
                     # Add SSL retry logic for date range commands
@@ -3027,7 +3085,7 @@ class GmailAIAgent:
                                 # Localize date phrase in message for Hebrew mode
                                 msg_out = result.get("message") or ""
                                 if hebrew_mode and isinstance(msg_out, str):
-                                    # Replace ' from this week/month/year' with Hebrew
+                                    # Replace fixed phrases and numeric 'N unit ago'
                                     replacements = {
                                         " from this week": " " + _hebrew_date_phrase("this week"),
                                         " from this month": " " + _hebrew_date_phrase("this month"),
@@ -3040,22 +3098,19 @@ class GmailAIAgent:
                                     }
                                     for k, v in replacements.items():
                                         msg_out = msg_out.replace(k, v)
+                                    # Numeric pattern
+                                    msg_out = re.sub(r" from (\d+) (day|days|week|weeks|month|months|year|years) ago",
+                                                     lambda m: " " + _hebrew_date_phrase(f"{m.group(1)} {m.group(2)} ago"),
+                                                     msg_out)
                                 return {"status": "success", "message": msg_out}
-                            # Localize date phrase in message for Hebrew mode (success with data)
+                            # Localize message fully for Hebrew
+                            if hebrew_mode:
+                                emails_list = result.get("emails") or []
+                                heb_phrase = _hebrew_date_phrase(target)
+                                msg_out = f"נמצאו {len(emails_list)} מיילים {heb_phrase}."
+                                return {"status": "success", "data": emails_list, "type": "email_list", "message": msg_out, "next_page_token": result.get("next_page_token"), "list_context": {"mode": "date_range", "target": target}}
+                            # Non-Hebrew: keep original message (with limited replacements)
                             msg_out = result.get("message")
-                            if hebrew_mode and isinstance(msg_out, str):
-                                replacements = {
-                                    " from this week": " " + _hebrew_date_phrase("this week"),
-                                    " from this month": " " + _hebrew_date_phrase("this month"),
-                                    " from this year": " " + _hebrew_date_phrase("this year"),
-                                    " from today": " " + _hebrew_date_phrase("today"),
-                                    " from yesterday": " " + _hebrew_date_phrase("yesterday"),
-                                    " from last week": " " + _hebrew_date_phrase("last week"),
-                                    " from last month": " " + _hebrew_date_phrase("last month"),
-                                    " from last year": " " + _hebrew_date_phrase("last year"),
-                                }
-                                for k, v in replacements.items():
-                                    msg_out = msg_out.replace(k, v)
                             return {"status": "success", "data": result.get("emails"), "type": "email_list", "message": msg_out, "next_page_token": result.get("next_page_token"), "list_context": {"mode": "date_range", "target": target}}
                         except Exception as e:
                             error_msg = str(e)
