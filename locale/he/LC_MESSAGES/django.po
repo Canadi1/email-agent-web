@@ -907,6 +907,18 @@ msgstr "ארכוב גורף של הודעות ישנות."
 msgid "list verification codes"
 msgstr "רשום קודי אימות"
 
+#: .\agent\views.py
+msgid "list emails from [sender]"
+msgstr "רשום מיילים מ-[שולח]"
+
+#: .\agent\views.py
+msgid "delete emails from [sender]"
+msgstr "מחק מיילים מ-[שולח]"
+
+#: .\agent\views.py
+msgid "delete emails from [sender] older than [duration]"
+msgstr "מחק מיילים מ-[שולח] ישנים מ-[משך]"
+
 #: .\agent\templates\agent\index.html:639
 msgid "Finds login and 2FA codes."
 msgstr "מאתר קודי כניסה ו-2FA."

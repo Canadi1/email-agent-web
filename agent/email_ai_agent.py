@@ -151,9 +151,21 @@ class GmailAIAgent:
                     update_email_progress(self.command_id, 0, total_emails)
                 
                 for i, message in enumerate(messages):
-                    msg = self.service.users().messages().get(
-                        userId='me', id=message['id'], format='metadata', metadataHeaders=['From','Subject'],
-                        fields='payload/headers,id,internalDate').execute()
+                    # Add per-message retry
+                    inner_retries = 3
+                    for inner_attempt in range(inner_retries):
+                        try:
+                            msg = self.service.users().messages().get(
+                                userId='me', id=message['id'], format='metadata', metadataHeaders=['From','Subject'],
+                                fields='payload/headers,id,internalDate').execute()
+                            break
+                        except Exception as e:
+                            err = str(e).lower()
+                            if ("ssl" in err or "connection" in err or "wrong_version_number" in err) and inner_attempt < inner_retries - 1:
+                                time.sleep(1.5 * (inner_attempt + 1))
+                                continue
+                            else:
+                                raise e
                     headers = msg['payload']['headers']
                     
                     # Update progress
@@ -1766,10 +1778,22 @@ class GmailAIAgent:
             update_email_progress(self.command_id, 0, total_emails)
         
         for i, message in enumerate(messages):
-            msg = self.service.users().messages().get(
-                userId='me', id=message['id'], format='metadata', metadataHeaders=['From','Subject'],
-                fields='payload/headers,id,internalDate,snippet'
-            ).execute()
+            # Add per-message retry for custom category fetch
+            inner_retries = 3
+            for inner_attempt in range(inner_retries):
+                try:
+                    msg = self.service.users().messages().get(
+                        userId='me', id=message['id'], format='metadata', metadataHeaders=['From','Subject'],
+                        fields='payload/headers,id,internalDate,snippet'
+                    ).execute()
+                    break
+                except Exception as e:
+                    err = str(e).lower()
+                    if ("ssl" in err or "connection" in err or "wrong_version_number" in err) and inner_attempt < inner_retries - 1:
+                        time.sleep(1.5 * (inner_attempt + 1))
+                        continue
+                    else:
+                        raise e
             headers = msg.get('payload', {}).get('headers', [])
             subject = next((h.get('value') for h in headers if h.get('name') == 'Subject'), 'No Subject')
             sender = next((h.get('value') for h in headers if h.get('name') == 'From'), 'Unknown Sender')

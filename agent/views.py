@@ -907,9 +907,6 @@ def index(request):
         _("list emails from [sender] from last month"),
         _("list emails from [sender] from last year"),
         _("list emails from [sender] from [duration] ago"),
-        # Hebrew-specific suggestions for duration-ago using natural phrasing
-        "רשום מיילים מלפני [משך]",
-        "רשום מיילים מ[שולח] מלפני [משך]",
         _("archive emails older than [duration]"),
         _("archive emails from [sender] older than [duration]"),
         _("delete promotions older than [duration]"),
@@ -937,6 +934,16 @@ def index(request):
         _("search emails with subject \"[keyword]\""),
         _("send email")
     ]
+    # Add Hebrew-only natural phrasing suggestions only for Hebrew UI
+    try:
+        current_lang = translation.get_language() or 'en'
+        if current_lang.startswith('he'):
+            curated_extras.extend([
+                "רשום מיילים מלפני [משך]",
+                "רשום מיילים מ[שולח] מלפני [משך]",
+            ])
+    except Exception:
+        pass
     # Build autocomplete list ONLY from curated_extras (placeholders, no concrete values)
     seen_lower = set()
     autocomplete_list = []
