@@ -861,6 +861,8 @@
             text-overflow: ellipsis;
             word-wrap: break-word;
         }
+        /* Hebrew-only: make Quick Commands inline autocomplete smaller and adjust vertical position */
+        html[lang="he"] .fav-inline-suggestion { font-size: 12px !important; top: 7px !important; }
         [data-theme="dark"] .fav-inline-suggestion {
             color: #666;
         }
@@ -951,6 +953,10 @@
                 line-height: 1.4 !important; /* Better line height for mobile */
                 top: 5px !important; /* Better vertical alignment on mobile */
             }
+            /* English-only mobile: slightly smaller than default */
+            html[dir="ltr"] .fav-inline-suggestion { font-size: 16px !important; }
+            /* Hebrew-only mobile: 1px larger, adjust slightly higher */
+            html[lang="he"] .fav-inline-suggestion { font-size: 16px !important; top: 5px !important; }
             
             .quick-commands-buttons {
                 display: flex;

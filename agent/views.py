@@ -954,7 +954,19 @@ def index(request):
             curated_extras.extend([
                 "רשום מיילים מלפני [משך]",
                 "רשום מיילים מ[שולח] מלפני [משך]",
+                "רשום מיילי קודי אימות",
+                # Promote verification code variants to appear in Hebrew autocomplete
+                "רשום מיילי קודי אימות מ-[תקופה]",
+                "רשום מיילי קודי אימות מלפני [משך]",
+                "רשום מיילי קודי אימות ישנים מ-[משך]",
             ])
+            # Remove legacy non-mail forms for verification codes (and their variants) from Hebrew list
+            curated_extras = [
+                c for c in curated_extras
+                if not (isinstance(c, str) and ("קודי אימות" in c and "מיילי" not in c))
+            ]
+            # Remove the shorter base form to keep phrasing consistent with other categories
+            curated_extras = [c for c in curated_extras if c != "רשום קודי אימות"]
     except Exception:
         pass
     # Build autocomplete list ONLY from curated_extras (placeholders, no concrete values)
