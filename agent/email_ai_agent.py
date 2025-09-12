@@ -1586,16 +1586,21 @@ class GmailAIAgent:
             # Search across All Mail (exclude obvious ad categories)
             base = 'in:anywhere -category:promotions -category:social -category:forums'
             # Positive shipping subject phrases (strict), including Hebrew variants
-            subject_core = 'subject:("your order has shipped" OR "order shipped" OR "has shipped" OR "out for delivery" OR "tracking number" OR "track your package" OR "in transit" OR "estimated delivery" OR "delivery estimate" OR "expected delivery" OR "ready for pickup" OR "ready for collection" OR "משלוח" OR "נשלחה" OR "נשלח" OR "מספר מעקב" OR "בהובלה" OR "נמסרה" OR "בהגעה" OR "איסוף" OR "מוכן לאיסוף")'
+            subject_core = 'subject:("your order has shipped" OR "order shipped" OR "has shipped" OR "out for delivery" OR "tracking number" OR "track your package" OR "in transit" OR "estimated delivery" OR "delivery estimate" OR "expected delivery" OR "ready for pickup" OR "ready for collection" OR "on the way" OR "on its way" OR "dispatched" OR "dispatch" OR "shipment update" OR "tracking update" OR "track order" OR "track shipment" OR "delivery attempt" OR "left the warehouse" OR "package shipped" OR "משלוח" OR "נשלחה" OR "נשלח" OR "מספר מעקב" OR "בהובלה" OR "נמסרה" OR "בהגעה" OR "איסוף" OR "מוכן לאיסוף")'
             # Require context when using broader words
             arrive_clause = '(subject:(arriving OR arrives) subject:(order OR package OR delivery OR parcel))'
             delivered_clause = '(subject:delivered subject:(order OR package OR delivery OR parcel))'
+            update_clause = '(subject:(update OR updated) subject:(shipment OR shipping OR delivery OR tracking))'
             # Known carriers (kept as a supplement, not brand ads)
             carrier_domains = ['ups.com','fedex.com','dhl.com','usps.com','canadapost.ca','royalmail.com','israelpost.co.il','17track.net','aftership.com','cainiao.com']
             carriers_clause = '(' + ' OR '.join([f'from:*@{d}' for d in carrier_domains]) + ')'
+            # Marketplaces that frequently send shipping updates (paired with shipping context to reduce noise)
+            marketplace_domains = ['aliexpress.com','aliexpress.us','amazon.com','ebay.com','shein.com','temu.com','walmart.com','bestbuy.com']
+            subject_context = '(subject:(order OR package OR parcel OR delivery OR shipment OR shipped OR tracking))'
+            marketplaces_clause = '(' + ' OR '.join([f'(from:*@{d} {subject_context})' for d in marketplace_domains]) + ')'
             # Negatives to drop ads
             negative = '-subject:(sale OR discount OR coupon OR promo OR promotional OR offer OR deal OR wishlist OR cart OR recommendations OR recommendation)'
-            q = f"{base} ( {subject_core} OR {arrive_clause} OR {delivered_clause} OR {carriers_clause} ) {negative}"
+            q = f"{base} ( {subject_core} OR {arrive_clause} OR {delivered_clause} OR {update_clause} OR {carriers_clause} OR {marketplaces_clause} ) {negative}"
         elif category_key == 'account_security':
             # Security/account alerts across All Mail; match strict subject phrases and exclude common noise
             base = 'in:anywhere -category:promotions -category:social -category:forums'
@@ -1724,10 +1729,14 @@ class GmailAIAgent:
                 if max_results is None:
                     max_results = self.default_max_results
                 q = self._build_custom_category_q(category_key, older_than_days=older_than_days)
-                # Optional explicit date window for 'לפני ...' (mapped to 'from N <unit> ago')
+                # Optional explicit date window for 'from time period' and 'from N <unit> ago'
                 if date_range:
                     try:
-                        start_dt, end_dt = self._compute_date_range_window(f"{date_range} ago")
+                        # Normalize to a phrase understood by the precise window calculator
+                        dr = str(date_range).strip().lower()
+                        if not any(tok in dr for tok in ["ago", "today", "yesterday", "this", "last"]):
+                            dr = f"{dr} ago"
+                        start_dt, end_dt = self._compute_precise_date_range_window(dr)
                         if start_dt and end_dt:
                             q = f"({q}) after:{start_dt.strftime('%Y/%m/%d')} before:{end_dt.strftime('%Y/%m/%d')}"
                     except Exception:
@@ -2646,7 +2655,7 @@ class GmailAIAgent:
                     elif unit in ["year","years","y"]: custom_older_days = qty*365
                 except Exception:
                     custom_older_days = None
-            # Detect 'from N <unit> ago' to produce a bounded date window for custom categories
+            # Detect 'from N <unit> ago' and 'from <time period>' for custom categories
             custom_date_range = None
             from_ago_m = re.search(r'from\s+(a|\d+)\s+(day|week|month|year)s?\s+ago', command_lower)
             if from_ago_m:
@@ -2654,6 +2663,11 @@ class GmailAIAgent:
                 qty = 1 if qty_str == 'a' else int(qty_str)
                 unit = from_ago_m.group(2)
                 custom_date_range = f"{qty} {unit}"
+            else:
+                # Support: "from this|last <period>" and today/yesterday
+                timephrase_m = re.search(r'from\s+(today|yesterday|this\s+week|this\s+month|this\s+year|last\s+week|last\s+month|last\s+year)', command_lower)
+                if timephrase_m:
+                    custom_date_range = timephrase_m.group(1)
             if ("verification" in command_lower and "code" in command_lower) and ("list" in command_lower or "show" in command_lower or "view" in command_lower or "get" in command_lower):
                 return {"action": "list", "target_type": "custom_category", "target": "verification_codes", "older_than_days": custom_older_days, "date_range": custom_date_range, "confirmation_required": False}
             if ("shipping" in command_lower or "delivery" in command_lower or "shipped" in command_lower or "משלוח" in command_lower) and ("list" in command_lower or "show" in command_lower or "view" in command_lower or "get" in command_lower):
@@ -3165,15 +3179,69 @@ class GmailAIAgent:
                     next_token = res.get("next_page_token")
                     pretty = self._pretty_category_name(target)
                     if not emails:
+                        # Include timeframe/duration in no-results message when provided
+                        date_range = parsed.get("date_range")
+                        if date_range:
+                            dr = str(date_range).strip().lower()
+                            if not any(tok in dr for tok in ["ago", "today", "yesterday", "this", "last"]):
+                                dr = f"{dr} ago"
+                            if hebrew_mode:
+                                date_he = " " + _hebrew_date_phrase(dr)
+                                return {"status": "success", "message": f"לא נמצאו מיילים ב-{pretty}{date_he}."}
+                            else:
+                                # Normalize pluralization for numeric units
+                                try:
+                                    m = re.match(r"^(\d+)\s+(day|week|month|year)(s)?(?:\s+ago)?$", dr)
+                                    if m:
+                                        qty = int(m.group(1))
+                                        unit = m.group(2)
+                                        if qty != 1 and not unit.endswith('s'):
+                                            unit = unit + 's'
+                                        dr = f"{qty} {unit} ago"
+                                except Exception:
+                                    pass
+                                return {"status": "success", "message": f"No emails found in {pretty} from {dr}."}
+                        # Default no-results message without timeframe
                         return {"status": "success", "message": _("No emails found for %(what)s.") % {"what": pretty}}
-                    lc = {"mode": "custom_category", "category": pretty}
+                    # Include both display name and key for reliable pagination
+                    lc = {"mode": "custom_category", "category": pretty, "category_key": target}
                     if older_than_days is not None:
                         lc["older_than_days"] = older_than_days
-                    if parsed.get("date_range"):
-                        lc["date_range"] = parsed.get("date_range")
-                    # Always include a Hebrew message for list results
-                    age_txt = _(" older than %(days)d days") % {"days": older_than_days} if older_than_days else ""
-                    msg = _("Found %(count)d emails%(age)s in %(what)s.") % {"count": len(emails), "age": age_txt, "what": pretty} if older_than_days else _("Found %(count)d emails in %(what)s.") % {"count": len(emails), "what": pretty}
+                    date_range = parsed.get("date_range")
+                    if date_range:
+                        lc["date_range"] = date_range
+                    # Build localized snackbar message including timeframe when provided
+                    if hebrew_mode:
+                        age_he = f" ישנים מ-{int(older_than_days)} ימים" if older_than_days else ""
+                        if date_range:
+                            dr = str(date_range).strip().lower()
+                            if not any(tok in dr for tok in ["ago", "today", "yesterday", "this", "last"]):
+                                dr = f"{dr} ago"
+                            date_he = " " + _hebrew_date_phrase(dr)
+                        else:
+                            date_he = ""
+                        msg = f"נמצאו {len(emails)} מיילים ב-{pretty}{age_he}{date_he}."
+                    else:
+                        age_txt = _(" older than %(days)d days") % {"days": older_than_days} if older_than_days else ""
+                        if date_range:
+                            dr = str(date_range).strip().lower()
+                            if not any(tok in dr for tok in ["ago", "today", "yesterday", "this", "last"]):
+                                dr = f"{dr} ago"
+                            # Normalize pluralization for numeric units in English
+                            try:
+                                m = re.match(r"^(\d+)\s+(day|week|month|year)(s)?(?:\s+ago)?$", dr)
+                                if m:
+                                    qty = int(m.group(1))
+                                    unit = m.group(2)
+                                    if qty != 1 and not unit.endswith('s'):
+                                        unit = unit + 's'
+                                    dr = f"{qty} {unit} ago"
+                            except Exception:
+                                pass
+                            # Build the full sentence without stray period
+                            msg = f"Found {len(emails)} emails{age_txt} in {pretty} from {dr}."
+                        else:
+                            msg = _("Found %(count)d emails%(age)s in %(what)s.") % {"count": len(emails), "age": age_txt, "what": pretty} if older_than_days else _("Found %(count)d emails in %(what)s.") % {"count": len(emails), "what": pretty}
                     payload = {"status": "success", "data": emails, "type": "email_list", "next_page_token": next_token, "list_context": lc, "message": msg}
                     return payload
             

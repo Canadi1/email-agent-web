@@ -650,9 +650,16 @@ def index(request):
                     return JsonResponse({"data": res.get('emails', []), "next_page_token": res.get('next_page_token')})
                 if mode == 'custom_category':
                     per_page = request.session.get('per_page', 50)
-                    category_key = list_context.get('category') or list_context.get('category_key')
+                    category_key = list_context.get('category_key') or list_context.get('category')
                     older_than_days = list_context.get('older_than_days')
-                    res = agent_instance.list_emails_by_custom_category(category_key, max_results=per_page, page_token=token, older_than_days=older_than_days)
+                    date_range = list_context.get('date_range')
+                    res = agent_instance.list_emails_by_custom_category(
+                        category_key,
+                        max_results=per_page,
+                        page_token=token,
+                        older_than_days=older_than_days,
+                        date_range=date_range
+                    )
                     return JsonResponse({"data": res.get('emails', []), "next_page_token": res.get('next_page_token')})
                 if mode == 'domain':
                     target = list_context.get('target')
@@ -917,16 +924,22 @@ def index(request):
         _("list labels"),
         _("show label \"[label]\""),
         _("list shipping emails"),
+        _("list shipping emails from [timeframe]"),
+        _("list shipping emails from [duration] ago"),
         _("list shipping emails older than [duration]"),
         _("archive shipping emails"),
         _("delete shipping emails"),
         _("archive shipping emails older than [duration]"),
         _("delete shipping emails older than [duration]"),
         _("list account security emails"),
+        _("list account security emails from [timeframe]"),
+        _("list account security emails from [duration] ago"),
         _("list account security emails older than [duration]"),
         _("archive account security emails older than [duration]"),
         _("delete account security emails older than [duration]"),
         _("list verification codes"),
+        _("list verification codes from [timeframe]"),
+        _("list verification codes from [duration] ago"),
         _("list verification codes older than [duration]"),
         _("archive verification codes older than [duration]"),
         _("delete verification codes older than [duration]"),

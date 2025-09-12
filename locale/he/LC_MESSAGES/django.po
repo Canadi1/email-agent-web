@@ -1,3 +1,21 @@
+# Custom category timeframe autocomplete entries
+msgid "list shipping emails from [timeframe]"
+msgstr "רשום מיילי משלוח מ-[תקופה]"
+
+msgid "list shipping emails from [duration] ago"
+msgstr "רשום מיילי משלוח מלפני [משך]"
+
+msgid "list account security emails from [timeframe]"
+msgstr "רשום מיילי אבטחת חשבון מ-[תקופה]"
+
+msgid "list account security emails from [duration] ago"
+msgstr "רשום מיילי אבטחת חשבון מלפני [משך]"
+
+msgid "list verification codes from [timeframe]"
+msgstr "רשום קודי אימות מ-[תקופה]"
+
+msgid "list verification codes from [duration] ago"
+msgstr "רשום קודי אימות מלפני [משך]"
 #: .\agent\views.py
 msgid "list emails from this week"
 msgstr "רשום מיילים מהשבוע"
