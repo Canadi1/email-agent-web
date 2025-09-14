@@ -263,6 +263,7 @@ class GmailAIAgent:
                 print(f"DEBUG: Attempt {attempt + 1}/{max_retries}")
                 if max_results is None: 
                     max_results = self.default_max_results
+                # Use Gmail domain search with wildcard to match any local part
                 query = f"from:*@{domain}"
                 if older_than_days:
                     cutoff_date = (datetime.utcnow() - timedelta(days=int(older_than_days))).strftime('%Y/%m/%d')
@@ -346,7 +347,9 @@ class GmailAIAgent:
             try:
                 if max_results is None:
                     max_results = self.default_max_results
-                query = f"from:{sender_keyword}"
+                # Quote multi-word senders for exact match within 'from:' operator
+                sender_term = f'"{sender_keyword}"' if ' ' in str(sender_keyword).strip() else sender_keyword
+                query = f"from:{sender_term}"
                 if older_than_days:
                     cutoff_date = (datetime.utcnow() - timedelta(days=int(older_than_days))).strftime('%Y/%m/%d')
                     query = f"{query} before:{cutoff_date}"
@@ -2463,25 +2466,25 @@ class GmailAIAgent:
                     "label": label_match.group(1).strip(),
                     "confirmation_required": True
                 }
-            sender_match = re.search(r'from\s+([a-zA-Z0-9\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff]+)', command_lower)
+            sender_match = re.search(r'from\s+([a-zA-Z0-9._\-+@\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff ]+?)(?=\s+(?:as\b|with\b|$))', command_lower)
             if sender_match and label_match:
                 return {
                     "action": "label",
                     "target_type": "sender",
-                    "target": sender_match.group(1),
+                    "target": sender_match.group(1).strip(),
                     "label": label_match.group(1).strip(),
                     "confirmation_required": True
                 }
 
         # Early handling for restore commands
         if "restore" in command_lower and " from " in command_lower:
-            # Extract the token immediately after 'from' tolerating typos before it
-            sender_any_match = re.search(r'from\s+([a-zA-Z0-9._\-+@\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff]+)', command_lower)
+            # Capture multi-word sender until end of command
+            sender_any_match = re.search(r'from\s+([a-zA-Z0-9._\-+@\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff ]+)\s*$', command_lower)
             if sender_any_match:
                 return {
                     "action": "restore",
                     "target_type": "sender",
-                    "target": sender_any_match.group(1),
+                    "target": sender_any_match.group(1).strip(),
                     "confirmation_required": True
                 }
 
@@ -2535,10 +2538,10 @@ class GmailAIAgent:
         
         # Archive emails from sender from time period (check this BEFORE older than)
         if best_match_action == "archive" and "from" in command_lower and " from " in command_lower:
-            # Check for "archive emails from [sender] from [time period]" pattern
-            sender_from_time_match = re.search(r'from\s+([a-zA-Z0-9\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff]+)\s+from\s+(today|yesterday|last\s+week|last\s+month|last\s+year|\d+\s+(?:day|days|week|weeks|month|months|year|years)\s+ago)', command_lower)
+            # Check for "archive emails from [sender] from [time period]" pattern (allow multi-word sender)
+            sender_from_time_match = re.search(r'from\s+([a-zA-Z0-9._\-+@\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff ]+?)\s+from\s+(today|yesterday|last\s+week|last\s+month|last\s+year|\d+\s+(?:day|days|week|weeks|month|months|year|years)\s+ago)', command_lower)
             if sender_from_time_match:
-                sender_keyword = sender_from_time_match.group(1)
+                sender_keyword = sender_from_time_match.group(1).strip()
                 time_period = sender_from_time_match.group(2)
                 if sender_keyword not in ['emails','all','the','my','any','this','that','these','those']:
                     return {
@@ -2551,9 +2554,9 @@ class GmailAIAgent:
 
         # Archive emails from sender older than duration (check this BEFORE bulk cleanup)
         if best_match_action == "archive" and "from" in command_lower and "older" in command_lower:
-            sender_older_match = re.search(r'from\s+([a-zA-Z0-9\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff]+)\s+older\s+(?:than|then)\s+(\d+)\s*(day|days|d|week|weeks|w|month|months|m|year|years|y)', command_lower)
+            sender_older_match = re.search(r'from\s+([a-zA-Z0-9._\-+@\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff ]+?)\s+older\s+(?:than|then)\s+(\d+)\s*(day|days|d|week|weeks|w|month|months|m|year|years|y)', command_lower)
             if sender_older_match:
-                sender_keyword = sender_older_match.group(1)
+                sender_keyword = sender_older_match.group(1).strip()
                 qty = int(sender_older_match.group(2))
                 unit = sender_older_match.group(3).lower()
                 if sender_keyword not in ['emails','all','the','my','any','this','that','these','those']:
@@ -2568,8 +2571,26 @@ class GmailAIAgent:
                         older_than_days = qty
                     return {"action": "archive", "target_type": "sender", "target": sender_keyword, "confirmation_required": True, "older_than_days": older_than_days}
         
-        # Bulk cleanup by age only (skip if a category/custom-category is mentioned)
-        if (best_match_action in ["delete", "archive"]) and ("all" in command_lower or "emails" in command_lower) and "older" in command_lower:
+        # Delete emails from sender older than duration (handled BEFORE bulk cleanup)
+        if best_match_action == "delete" and "from" in command_lower and "older" in command_lower:
+            sender_older_match = re.search(r'from\s+([a-zA-Z0-9._\-+@\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff ]+?)\s+older\s+(?:than|then)\s+(\d+)\s*(day|days|d|week|weeks|w|month|months|m|year|years|y)', command_lower)
+            if sender_older_match:
+                sender_keyword = sender_older_match.group(1).strip()
+                qty = int(sender_older_match.group(2))
+                unit = sender_older_match.group(3).lower()
+                if sender_keyword not in ['emails','all','the','my','any','this','that','these','those']:
+                    if unit in ['week', 'weeks', 'w']:
+                        older_than_days = qty * 7
+                    elif unit in ['month', 'months', 'm']:
+                        older_than_days = qty * 30
+                    elif unit in ['year', 'years', 'y']:
+                        older_than_days = qty * 365
+                    else:  # days
+                        older_than_days = qty
+                    return {"action": "delete", "target_type": "sender", "target": sender_keyword, "confirmation_required": True, "older_than_days": older_than_days}
+
+        # Bulk cleanup by age only (skip if a category/custom-category is mentioned and if 'from' is present)
+        if (best_match_action in ["delete", "archive"]) and ("all" in command_lower or "emails" in command_lower) and "older" in command_lower and (" from " not in command_lower):
             category_tokens_present = any(tok in command_lower for tok in [
                 "promotion","promotions","social","updates","forums","personal",
                 "verification","code","shipping","delivery","shipped","משלוח",
@@ -2613,9 +2634,10 @@ class GmailAIAgent:
         # List filters
         if best_match_action == "list":
             # Hebrew sender+timeframe parsing FIRST (before standalone timeframe)
-            hebrew_sender_time_match = re.search(r'מ-?([a-zA-Z0-9\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff]+)\s+(מהיום|מאתמול|מהשבוע|מהחודש|מהשנה|מהשבוע\s+שעבר|מהחודש\s+שעבר|מהשנה\s+שעברה)', command_lower)
+            # Require the intent phrase 'רשום מיילים' before sender to avoid falling back to global date ranges
+            hebrew_sender_time_match = re.search(r'רש(?:ו)?ם\s+מיילים\s+מ-?([a-zA-Z0-9\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff ]+?)\s+(מהיום|מאתמול|מהשבוע|מהחודש|מהשנה|מהשבוע\s+שעבר|מהחודש\s+שעבר|מהשנה\s+שעברה)', command_lower)
             if hebrew_sender_time_match:
-                sender_keyword = hebrew_sender_time_match.group(1)
+                sender_keyword = hebrew_sender_time_match.group(1).strip()
                 hebrew_time = hebrew_sender_time_match.group(2)
                 # Map Hebrew to English for internal processing
                 hebrew_to_english = {
@@ -2688,25 +2710,25 @@ class GmailAIAgent:
             # Detect time window or domain/sender after 'from'
             if "from" in command_lower:
                 # Check for "from [sender] from [time period]" pattern (English)
-                sender_from_time_match = re.search(r'from\s+([a-zA-Z0-9\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff]+)\s+from\s+(today|yesterday|last\s+week|last\s+month|last\s+year|this\s+week|this\s+month|this\s+year|\d+\s+(?:day|days|week|weeks|month|months|year|years)\s+ago)', command_lower)
+                sender_from_time_match = re.search(r'from\s+([a-zA-Z0-9._\-+@\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff ]+?)\s+from\s+(today|yesterday|last\s+week|last\s+month|last\s+year|this\s+week|this\s+month|this\s+year|\d+\s+(?:day|days|week|weeks|month|months|year|years)\s+ago)', command_lower)
                 if sender_from_time_match:
-                    sender_keyword = sender_from_time_match.group(1)
+                    sender_keyword = sender_from_time_match.group(1).strip()
                     time_period = sender_from_time_match.group(2)
                     if sender_keyword not in ['emails','all','the','my','any','this','that','these','those']:
                         return {"action": "list", "target_type": "sender", "target": sender_keyword, "date_range": time_period, "confirmation_required": False}
                 # Alt: "from [sender] [N unit] ago" (without second 'from')
-                sender_ago_match = re.search(r'from\s+([a-zA-Z0-9\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff]+)\s+(a|\d+)\s+(day|days|week|weeks|month|months|year|years)\s+ago', command_lower)
+                sender_ago_match = re.search(r'from\s+([a-zA-Z0-9._\-+@\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff ]+?)\s+(a|\d+)\s+(day|days|week|weeks|month|months|year|years)\s+ago', command_lower)
                 if sender_ago_match:
-                    sender_keyword = sender_ago_match.group(1)
+                    sender_keyword = sender_ago_match.group(1).strip()
                     qty = sender_ago_match.group(2)
                     unit = sender_ago_match.group(3)
                     if qty == 'a': qty = '1'
                     if sender_keyword not in ['emails','all','the','my','any','this','that','these','those']:
                         return {"action": "list", "target_type": "sender", "target": sender_keyword, "date_range": f"{qty} {unit} ago", "confirmation_required": False}
                 # Alt: "from [sender] (today|yesterday|this X|last X)"
-                sender_simple_time_match = re.search(r'from\s+([a-zA-Z0-9\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff]+)\s+(today|yesterday|this\s+week|this\s+month|this\s+year|last\s+week|last\s+month|last\s+year)', command_lower)
+                sender_simple_time_match = re.search(r'from\s+([a-zA-Z0-9._\-+@\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff ]+?)\s+(today|yesterday|this\s+week|this\s+month|this\s+year|last\s+week|last\s+month|last\s+year)', command_lower)
                 if sender_simple_time_match:
-                    sender_keyword = sender_simple_time_match.group(1)
+                    sender_keyword = sender_simple_time_match.group(1).strip()
                     time_period = sender_simple_time_match.group(2)
                     if sender_keyword not in ['emails','all','the','my','any','this','that','these','those']:
                         return {"action": "list", "target_type": "sender", "target": sender_keyword, "date_range": time_period, "confirmation_required": False}
@@ -2716,8 +2738,8 @@ class GmailAIAgent:
                 if time_after_from:
                     date_phrase = time_after_from.group(1)
                     return {"action": "list", "target_type": "date_range", "target": date_phrase, "confirmation_required": False}
-                # Then: domain first (including single words that are common domains)
-                domain_match = re.search(r'from\s+([a-zA-Z0-9.-]+\.[a-zA-Z0-9.-]+)', command_lower)
+                # Then: domain first (including TLDs and ccTLD chains like .co.il)
+                domain_match = re.search(r'from\s+([a-zA-Z0-9.-]+\.[a-zA-Z]{2,}(?:\.[a-zA-Z]{2,})*)', command_lower)
                 if domain_match:
                     print(f"DEBUG: Parsed as domain command: {domain_match.group(1)}")
                     return {"action": "list", "target_type": "domain", "target": domain_match.group(1), "confirmation_required": False, "older_than_days": custom_older_days}
@@ -2728,9 +2750,9 @@ class GmailAIAgent:
                     print(f"DEBUG: Parsed as single-word domain command: {single_domain_match.group(1)}")
                     return {"action": "list", "target_type": "domain", "target": single_domain_match.group(1), "confirmation_required": False, "older_than_days": custom_older_days}
                 # Then try sender
-                sender_match = re.search(r'from\s+([a-zA-Z0-9\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff]+)', command_lower)
+                sender_match = re.search(r'from\s+([a-zA-Z0-9._\-+@\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff ]+?)(?=\s+(?:older\b|from\b|today\b|yesterday\b|this\s+week\b|this\s+month\b|this\s+year\b|last\s+week\b|last\s+month\b|last\s+year\b|\d+\s+(?:day|days|week|weeks|month|months|year|years)\s+ago\b|as\b|with\b)\b|$)', command_lower)
                 if sender_match:
-                    sender_keyword = sender_match.group(1)
+                    sender_keyword = sender_match.group(1).strip()
                     if sender_keyword not in ['emails','all','the','my','any','this','that','these','those']:
                         return {"action": "list", "target_type": "sender", "target": sender_keyword, "confirmation_required": False, "older_than_days": custom_older_days}
         
@@ -2804,9 +2826,9 @@ class GmailAIAgent:
             domain_match = re.search(r'from\s+([a-zA-Z0-9.-]+\.(?:com|org|net|edu|gov|co\.[a-z.]+|[a-z]{2}))', command_lower)
             if domain_match:
                 return {"action": "delete", "target_type": "domain", "target": domain_match.group(1), "confirmation_required": True, "older_than_days": older_than_days}
-            flexible_sender_match = re.search(r'from\s+([a-zA-Z0-9\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff]+)', command_lower)
+            flexible_sender_match = re.search(r'from\s+([a-zA-Z0-9._\-+@\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff ]+?)(?=\s+|$)', command_lower)
             if flexible_sender_match:
-                sender_keyword = flexible_sender_match.group(1)
+                sender_keyword = flexible_sender_match.group(1).strip()
                 if sender_keyword not in ['emails','all','the','my','any','this','that','these','those','older','than','then','before','after']:
                     return {"action": "delete", "target_type": "sender", "target": sender_keyword, "confirmation_required": True, "older_than_days": older_than_days}
             if "promotion" in command_lower or "promotions" in command_lower:
@@ -2841,16 +2863,16 @@ class GmailAIAgent:
             if domain_match:
                 return {"action": "archive", "target_type": "domain", "target": domain_match.group(1), "confirmation_required": True, "older_than_days": older_than_days}
             # Archive emails from sender from specific time periods (today/yesterday/this X/last X/N ago)
-            from_time_match = re.search(r'from\s+([a-zA-Z0-9\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff]+)\s+from\s+(today|yesterday|last\s+week|last\s+month|last\s+year|this\s+week|this\s+month|this\s+year|\d+\s+(?:day|days|week|weeks|month|months|year|years)\s+ago)', command_lower)
+            from_time_match = re.search(r'from\s+([a-zA-Z0-9._\-+@\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff ]+?)\s+from\s+(today|yesterday|last\s+week|last\s+month|last\s+year|this\s+week|this\s+month|this\s+year|\d+\s+(?:day|days|week|weeks|month|months|year|years)\s+ago)', command_lower)
             if from_time_match:
-                sender_keyword = from_time_match.group(1)
+                sender_keyword = from_time_match.group(1).strip()
                 time_period = from_time_match.group(2)
                 print(f"DEBUG: from_time_match found - sender='{sender_keyword}', time_period='{time_period}'")
                 if sender_keyword not in ['emails','all','the','my','any','this','that','these','those']:
                     return {"action": "archive", "target_type": "sender_from_time", "target": sender_keyword, "time_period": time_period, "confirmation_required": True}
-            flexible_sender_match = re.search(r'from\s+([a-zA-Z0-9\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff]+)', command_lower)
+            flexible_sender_match = re.search(r'from\s+([a-zA-Z0-9._\-+@\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff ]+?)(?=\s+|$)', command_lower)
             if flexible_sender_match:
-                sender_keyword = flexible_sender_match.group(1)
+                sender_keyword = flexible_sender_match.group(1).strip()
                 if sender_keyword not in ['emails','all','the','my','any','this','that','these','those']:
                     return {"action": "archive", "target_type": "sender", "target": sender_keyword, "confirmation_required": True, "older_than_days": older_than_days}
             
@@ -3073,7 +3095,12 @@ class GmailAIAgent:
                     date_range = parsed.get("date_range")
                     res = self.list_emails_by_domain(target, older_than_days=older_than_days, date_range=date_range)
                     emails = res.get("emails", [])
-                    if not emails: 
+                    if not emails:
+                        if hebrew_mode:
+                            date_txt = (" " + _hebrew_date_phrase(date_range)) if date_range else ""
+                            return {"status": "success", "message": f"לא נמצאו מיילים מ-{target}{date_txt}."}
+                        if date_range:
+                            return {"status": "success", "message": _("No emails found from domain: %(domain)s from %(time)s.") % {"domain": target, "time": date_range}}
                         return {"status": "success", "message": _("No emails found from domain: %(domain)s.") % {"domain": target}}
                     lc = {"mode": "domain", "target": target}
                     if older_than_days is not None: lc["older_than_days"] = older_than_days
@@ -3092,7 +3119,12 @@ class GmailAIAgent:
                     date_range = parsed.get("date_range")
                     res = self.list_emails_by_sender(target, older_than_days=older_than_days, date_range=date_range)
                     emails = res.get("emails", [])
-                    if not emails: 
+                    if not emails:
+                        if hebrew_mode:
+                            date_txt = (" " + _hebrew_date_phrase(date_range)) if date_range else ""
+                            return {"status": "success", "message": f"לא נמצאו מיילים מ-{target}{date_txt}."}
+                        if date_range:
+                            return {"status": "success", "message": _("No emails found from sender: %(sender)s from %(time)s.") % {"sender": target, "time": date_range}}
                         return {"status": "success", "message": _("No emails found from sender: %(sender)s.") % {"sender": target}}
                     lc = {"mode": "sender", "target": target}
                     if older_than_days is not None: lc["older_than_days"] = older_than_days
@@ -4377,7 +4409,9 @@ class GmailAIAgent:
         """Restore archived emails from a specific sender back to inbox"""
         try:
             # Search for emails from the sender
-            query = f"from:{sender_email}"
+            # Quote multi-word senders so both words are matched as a single unit
+            sender_term = f'"{sender_email}"' if ' ' in str(sender_email).strip() else sender_email
+            query = f"from:{sender_term}"
             results = self.service.users().messages().list(
                 userId='me', q=query, maxResults=100).execute()
             messages = results.get('messages', [])
@@ -4545,7 +4579,8 @@ class GmailAIAgent:
         """Label all emails from a specific sender"""
         try:
             # Search for emails from the sender first
-            query = f"from:{sender_email}"
+            sender_term = f'"{sender_email}"' if ' ' in str(sender_email).strip() else sender_email
+            query = f"from:{sender_term}"
             results = self.service.users().messages().list(
                 userId='me', q=query).execute()
             messages = results.get('messages', [])
