@@ -6,6 +6,7 @@ import email
 import json
 import re
 import time
+import random
 from datetime import datetime, timedelta
 import re
 try:
@@ -46,6 +47,137 @@ class GmailAIAgent:
         self._contacts_cache = None
         self._contacts_cache_ts = 0
         self.setup_gemini_api(gemini_api_key)
+    
+    def _is_retryable_network_error(self, error):
+        """Detect retryable SSL/connection errors from googleapiclient/requests."""
+        try:
+            message = str(error)
+        except Exception:
+            message = ""
+        text = message.lower()
+        retry_tokens = [
+            "ssl",
+            "certificate",
+            "wrong_version_number",
+            "wrong version number",
+            "timed out",
+            "timeout",
+            "read timed out",
+            "connection reset",
+            "connection aborted",
+            "connection refused",
+            "remote end closed connection",
+            "max retries exceeded",
+            "temporarily unavailable",
+            "name or service not known",
+            "gaierror",
+            "dns",
+            "proxy",
+        ]
+        return any(token in text for token in retry_tokens)
+
+    def _execute_with_retries(self, request, max_retries=5, base_delay=1.0):
+        """Execute a googleapiclient request with retries on SSL/connection failures.
+        Uses exponential backoff with jitter.
+        """
+        last_exc = None
+        for attempt in range(max_retries):
+            try:
+                # Avoid library-internal retries to keep control here
+                return request.execute(num_retries=0)
+            except Exception as exc:
+                last_exc = exc
+                if attempt < max_retries - 1 and self._is_retryable_network_error(exc):
+                    delay = base_delay * (2 ** attempt)
+                    jitter = random.uniform(0, max(0.1, 0.25 * delay))
+                    time.sleep(delay + jitter)
+                    continue
+                raise
+        if last_exc is not None:
+            raise last_exc
+        raise RuntimeError("Unknown error executing Gmail request with retries")
+
+    # Centralized Gmail API wrappers (use retries consistently)
+    def api_list_messages(self, user_id='me', **kwargs):
+        # Avoid passing userId twice if provided in kwargs
+        if 'userId' in kwargs:
+            user_id = kwargs.pop('userId') or user_id
+        return self._execute_with_retries(
+            self.service.users().messages().list(userId=user_id, **kwargs),
+            max_retries=5,
+            base_delay=1.0,
+        )
+
+    def api_get_message(self, message_id, user_id='me', **kwargs):
+        # Avoid passing userId twice if provided in kwargs
+        if 'userId' in kwargs:
+            user_id = kwargs.pop('userId') or user_id
+        return self._execute_with_retries(
+            self.service.users().messages().get(userId=user_id, id=message_id, **kwargs),
+            max_retries=4,
+            base_delay=0.8,
+        )
+
+    def api_batch_modify(self, message_ids, add_label_ids=None, remove_label_ids=None, user_id='me'):
+        body = {
+            'ids': list(message_ids) if message_ids else [],
+        }
+        if add_label_ids:
+            body['addLabelIds'] = list(add_label_ids)
+        if remove_label_ids:
+            body['removeLabelIds'] = list(remove_label_ids)
+        return self._execute_with_retries(
+            self.service.users().messages().batchModify(userId=user_id, body=body),
+            max_retries=5,
+            base_delay=1.0,
+        )
+
+    def api_modify(self, message_id, add_label_ids=None, remove_label_ids=None, user_id='me'):
+        body = {}
+        if add_label_ids:
+            body['addLabelIds'] = list(add_label_ids)
+        if remove_label_ids:
+            body['removeLabelIds'] = list(remove_label_ids)
+        return self._execute_with_retries(
+            self.service.users().messages().modify(userId=user_id, id=message_id, body=body),
+            max_retries=5,
+            base_delay=1.0,
+        )
+
+    def api_trash(self, message_id, user_id='me'):
+        return self._execute_with_retries(
+            self.service.users().messages().trash(userId=user_id, id=message_id),
+            max_retries=5,
+            base_delay=1.0,
+        )
+
+    def api_untrash(self, message_id, user_id='me'):
+        return self._execute_with_retries(
+            self.service.users().messages().untrash(userId=user_id, id=message_id),
+            max_retries=5,
+            base_delay=1.0,
+        )
+
+    def api_list_labels(self, user_id='me'):
+        return self._execute_with_retries(
+            self.service.users().labels().list(userId=user_id),
+            max_retries=5,
+            base_delay=1.0,
+        )
+
+    def api_create_label(self, label_object, user_id='me'):
+        return self._execute_with_retries(
+            self.service.users().labels().create(userId=user_id, body=label_object),
+            max_retries=5,
+            base_delay=1.0,
+        )
+
+    def api_send_message(self, body, user_id='me'):
+        return self._execute_with_retries(
+            self.service.users().messages().send(userId=user_id, body=body),
+            max_retries=5,
+            base_delay=1.0,
+        )
     
     def setup_gmail_api(self):
         """Setup Gmail API authentication"""
@@ -107,8 +239,11 @@ class GmailAIAgent:
                 os.environ['no_proxy'] = merged_no_proxy
 
                 # Apply basic retry configuration
-                import requests
-                requests.adapters.DEFAULT_RETRIES = 3
+                try:
+                    import requests
+                    requests.adapters.DEFAULT_RETRIES = 3
+                except Exception:
+                    pass
 
                 self.service = build('gmail', 'v1', credentials=creds)
             except Exception:
@@ -129,84 +264,56 @@ class GmailAIAgent:
     
     def list_recent_emails(self, max_results=None, page_token=None):
         """List recent emails with pagination support"""
-        max_retries = 5
-        retry_delay = 1
-        
-        for attempt in range(max_retries):
-            try:
-                if max_results is None:
-                    max_results = self.default_max_results
-                kwargs = {"userId": 'me', "maxResults": max_results, "fields": 'messages/id,nextPageToken'}
-                if page_token:
-                    kwargs["pageToken"] = page_token
-                results = self.service.users().messages().list(**kwargs).execute()
-                messages = results.get('messages', [])
-                next_token = results.get('nextPageToken')
-                email_list = []
-                total_emails = len(messages)
+        try:
+            if max_results is None:
+                max_results = self.default_max_results
+            kwargs = {"userId": 'me', "maxResults": max_results, "fields": 'messages/id,nextPageToken'}
+            if page_token:
+                kwargs["pageToken"] = page_token
+            results = self.api_list_messages(**kwargs)
+            messages = results.get('messages', [])
+            next_token = results.get('nextPageToken')
+            email_list = []
+            total_emails = len(messages)
+            
+            # Update progress with total emails
+            if hasattr(self, 'command_id') and self.command_id:
+                from agent.views import update_email_progress
+                update_email_progress(self.command_id, 0, total_emails)
+            
+            for i, message in enumerate(messages):
+                msg = self.api_get_message(
+                    message['id'],
+                    format='metadata', metadataHeaders=['From','Subject'],
+                    fields='payload/headers,id,internalDate'
+                )
+                headers = msg['payload']['headers']
                 
-                # Update progress with total emails
+                # Update progress
                 if hasattr(self, 'command_id') and self.command_id:
-                    from agent.views import update_email_progress
-                    update_email_progress(self.command_id, 0, total_emails)
+                    update_email_progress(self.command_id, i + 1, total_emails)
+                subject = next((h['value'] for h in headers if h['name'] == 'Subject'), 'No Subject')
+                sender = next((h['value'] for h in headers if h['name'] == 'From'), 'Unknown Sender')
                 
-                for i, message in enumerate(messages):
-                    # Add per-message retry
-                    inner_retries = 3
-                    for inner_attempt in range(inner_retries):
-                        try:
-                            msg = self.service.users().messages().get(
-                                userId='me', id=message['id'], format='metadata', metadataHeaders=['From','Subject'],
-                                fields='payload/headers,id,internalDate').execute()
-                            break
-                        except Exception as e:
-                            err = str(e).lower()
-                            if ("ssl" in err or "connection" in err or "wrong_version_number" in err) and inner_attempt < inner_retries - 1:
-                                time.sleep(1.5 * (inner_attempt + 1))
-                                continue
-                            else:
-                                raise e
-                    headers = msg['payload']['headers']
-                    
-                    # Update progress
-                    if hasattr(self, 'command_id') and self.command_id:
-                        update_email_progress(self.command_id, i + 1, total_emails)
-                    subject = next((h['value'] for h in headers if h['name'] == 'Subject'), 'No Subject')
-                    sender = next((h['value'] for h in headers if h['name'] == 'From'), 'Unknown Sender')
-                    
-                    # Add date information like in other list functions
+                # Add date information like in other list functions
+                date_str = ''
+                try:
+                    ts_ms = int(msg.get('internalDate', '0') or '0')
+                    if ts_ms:
+                        date_str = datetime.fromtimestamp(ts_ms/1000).strftime('%Y-%m-%d %H:%M')
+                except Exception:
                     date_str = ''
-                    try:
-                        ts_ms = int(msg.get('internalDate', '0') or '0')
-                        if ts_ms:
-                            date_str = datetime.fromtimestamp(ts_ms/1000).strftime('%Y-%m-%d %H:%M')
-                    except Exception:
-                        date_str = ''
-                    
-                    email_list.append({
-                        'id': message['id'],
-                        'subject': subject,
-                        'sender': sender,
-                        'date': date_str,
-                        'snippet': ''
-                    })
-                return {"emails": email_list, "next_page_token": next_token}
-            except Exception as e:
-                error_msg = str(e)
-                print(f"Error in list_recent_emails (attempt {attempt + 1}): {error_msg}")
                 
-                # Check if it's an SSL error or connection issue
-                if "SSL" in error_msg or "WRONG_VERSION_NUMBER" in error_msg or "timeout" in error_msg.lower():
-                    if attempt < max_retries - 1:
-                        print(f"Retrying in {retry_delay} seconds...")
-                        time.sleep(retry_delay)
-                        retry_delay *= 2  # Exponential backoff
-                        continue
-                
-                # If it's not a retryable error or we've exhausted retries
-                return {"emails": [], "next_page_token": None, "error": error_msg}
-        
-        return {"emails": [], "next_page_token": None, "error": "Max retries exceeded"}
+                email_list.append({
+                    'id': message['id'],
+                    'subject': subject,
+                    'sender': sender,
+                    'date': date_str,
+                    'snippet': ''
+                })
+            return {"emails": email_list, "next_page_token": next_token}
+        except Exception as e:
+            return {"emails": [], "next_page_token": None, "error": str(e)}
     
     def list_emails_by_category(self, category_id, max_results=None, older_than_days=None, page_token=None):
         """List emails from a specific Gmail category (e.g., CATEGORY_PROMOTIONS) with pagination."""
@@ -223,15 +330,17 @@ class GmailAIAgent:
             kwargs = {"userId": 'me', "q": query, "maxResults": max_results, "fields": 'messages/id,nextPageToken'}
             if page_token:
                 kwargs["pageToken"] = page_token
-            results = self.service.users().messages().list(**kwargs).execute()
+            results = self.api_list_messages(**kwargs)
             messages = results.get('messages', [])
             next_token = results.get('nextPageToken')
 
             email_list = []
             for message in messages:
-                msg = self.service.users().messages().get(
-                    userId='me', id=message['id'], format='metadata', metadataHeaders=['From','Subject'],
-                    fields='payload/headers,id').execute()
+                msg = self.api_get_message(
+                    message['id'],
+                    format='metadata', metadataHeaders=['From','Subject'],
+                    fields='payload/headers,id'
+                )
                 headers = msg['payload']['headers']
                 subject = next((h['value'] for h in headers if h['name'] == 'Subject'), 'No Subject')
                 sender = next((h['value'] for h in headers if h['name'] == 'From'), 'Unknown Sender')
@@ -250,201 +359,158 @@ class GmailAIAgent:
 
     def list_emails_by_domain(self, domain, max_results=None, page_token=None, older_than_days=None, date_range=None):
         """List emails from a specific domain with pagination"""
-        import ssl
-        import time
-        
         print(f"DEBUG: list_emails_by_domain called with domain={domain}, command_id={getattr(self, 'command_id', None)}")
         print(f"DEBUG: hasattr command_id: {hasattr(self, 'command_id')}")
         print(f"DEBUG: self.command_id value: {getattr(self, 'command_id', 'NOT_SET')}")
         
-        max_retries = 5
-        for attempt in range(max_retries):
-            try:
-                print(f"DEBUG: Attempt {attempt + 1}/{max_retries}")
-                if max_results is None: 
-                    max_results = self.default_max_results
-                # Use Gmail domain search with wildcard to match any local part
-                query = f"from:*@{domain}"
-                if older_than_days:
-                    cutoff_date = (datetime.utcnow() - timedelta(days=int(older_than_days))).strftime('%Y/%m/%d')
-                    query = f"{query} before:{cutoff_date}"
-                if date_range:
-                    try:
-                        # Use precise calendar window logic for "from [duration] ago" commands
-                        start_date, end_date = self._compute_precise_date_range_window(date_range)
-                        if start_date and end_date:
-                            query = f"{query} after:{start_date.strftime('%Y/%m/%d')} before:{end_date.strftime('%Y/%m/%d')}"
-                    except Exception:
-                        pass
-                kwargs = {"userId": 'me', "q": query, "maxResults": max_results, "fields": 'messages/id,nextPageToken'}
-                if page_token:
-                    kwargs["pageToken"] = page_token
-                results = self.service.users().messages().list(**kwargs).execute()
-                messages = results.get('messages', [])
-                next_token = results.get('nextPageToken')
-                email_list = []
-                total_emails = len(messages)
-                
-                # Update progress with total emails
-                if hasattr(self, 'command_id') and self.command_id:
-                    from agent.views import update_email_progress
-                    update_email_progress(self.command_id, 0, total_emails)
-                
-                for i, message in enumerate(messages):
-                    msg = self.service.users().messages().get(
-                        userId='me', id=message['id'], format='metadata', metadataHeaders=['From','Subject'],
-                        fields='payload/headers,id,internalDate').execute()
-                    headers = msg['payload']['headers']
-                    subject = next((h['value'] for h in headers if h['name'] == 'Subject'), 'No Subject')
-                    sender = next((h['value'] for h in headers if h['name'] == 'From'), 'Unknown Sender')
-                    
-                    # Add date information
+        try:
+            if max_results is None: 
+                max_results = self.default_max_results
+            # Use Gmail domain search with wildcard to match any local part
+            query = f"from:*@{domain}"
+            if older_than_days:
+                cutoff_date = (datetime.utcnow() - timedelta(days=int(older_than_days))).strftime('%Y/%m/%d')
+                query = f"{query} before:{cutoff_date}"
+            if date_range:
+                try:
+                    # Use precise calendar window logic for "from [duration] ago" commands
+                    start_date, end_date = self._compute_precise_date_range_window(date_range)
+                    if start_date and end_date:
+                        query = f"{query} after:{start_date.strftime('%Y/%m/%d')} before:{end_date.strftime('%Y/%m/%d')}"
+                except Exception:
+                    pass
+            kwargs = {"userId": 'me', "q": query, "maxResults": max_results, "fields": 'messages/id,nextPageToken'}
+            if page_token:
+                kwargs["pageToken"] = page_token
+            results = self.api_list_messages(**kwargs)
+            messages = results.get('messages', [])
+            next_token = results.get('nextPageToken')
+            email_list = []
+            total_emails = len(messages)
+            
+            # Update progress with total emails
+            if hasattr(self, 'command_id') and self.command_id:
+                from agent.views import update_email_progress
+                update_email_progress(self.command_id, 0, total_emails)
+            
+            for i, message in enumerate(messages):
+                msg = self.api_get_message(
+                    message['id'],
+                    format='metadata', metadataHeaders=['From','Subject'],
+                    fields='payload/headers,id,internalDate'
+                )
+                headers = msg['payload']['headers']
+                subject = next((h['value'] for h in headers if h['name'] == 'Subject'), 'No Subject')
+                sender = next((h['value'] for h in headers if h['name'] == 'From'), 'Unknown Sender')
+
+                # Add date information
+                date_str = ''
+                try:
+                    ts_ms = int(msg.get('internalDate', '0') or '0')
+                    if ts_ms:
+                        date_str = datetime.fromtimestamp(ts_ms/1000).strftime('%Y-%m-%d %H:%M')
+                except Exception:
                     date_str = ''
-                    try:
-                        ts_ms = int(msg.get('internalDate', '0') or '0')
-                        if ts_ms:
-                            date_str = datetime.fromtimestamp(ts_ms/1000).strftime('%Y-%m-%d %H:%M')
-                    except Exception:
-                        date_str = ''
-                    
-                    email_list.append({
-                        'id': message['id'],
-                        'subject': subject,
-                        'sender': sender,
-                        'date': date_str,
-                        'snippet': ''
-                    })
-                    
-                    # Update progress
-                    if hasattr(self, 'command_id') and self.command_id:
-                        update_email_progress(self.command_id, i + 1, total_emails)
                 
-                return {"emails": email_list, "next_page_token": next_token}
+                email_list.append({
+                    'id': message['id'],
+                    'subject': subject,
+                    'sender': sender,
+                    'date': date_str,
+                    'snippet': ''
+                })
                 
-            except Exception as e:
-                error_str = str(e).lower()
-                if 'ssl' in error_str or 'connection' in error_str or 'wrong_version_number' in error_str:
-                    print(f"DEBUG: SSL/Connection error on attempt {attempt + 1}: {e}")
-                    if attempt < max_retries - 1:
-                        wait_time = 2 ** attempt
-                        print(f"SSL/Connection error, retrying in {wait_time} seconds... (attempt {attempt + 1}/{max_retries})")
-                        time.sleep(wait_time)
-                        continue
-                    else:
-                        print(f"❌ SSL/Connection error after {max_retries} attempts: {e}")
-                        return {"emails": [], "next_page_token": None}
-                else:
-                    print(f"❌ Other error: {e}")
-                    return {"emails": [], "next_page_token": None}
-            except HttpError as error:
-                return {"emails": [], "next_page_token": None}
+                # Update progress
+                if hasattr(self, 'command_id') and self.command_id:
+                    update_email_progress(self.command_id, i + 1, total_emails)
+            
+            return {"emails": email_list, "next_page_token": next_token}
+        except Exception as e:
+            print(f"❌ Error in list_emails_by_domain: {e}")
+            return {"emails": [], "next_page_token": None}
 
     def list_emails_by_sender(self, sender_keyword, max_results=None, page_token=None, older_than_days=None, date_range=None):
         """List emails from a sender containing specific keyword with pagination."""
-        import time
-        max_retries = 5
-        for attempt in range(max_retries):
-            try:
-                if max_results is None:
-                    max_results = self.default_max_results
-                # Quote multi-word senders for exact match within 'from:' operator
-                sender_term = f'"{sender_keyword}"' if ' ' in str(sender_keyword).strip() else sender_keyword
-                query = f"from:{sender_term}"
-                if older_than_days:
-                    cutoff_date = (datetime.utcnow() - timedelta(days=int(older_than_days))).strftime('%Y/%m/%d')
-                    query = f"{query} before:{cutoff_date}"
-                if date_range:
-                    try:
-                        # Use precise calendar window logic for "from [duration] ago" commands
-                        start_date, end_date = self._compute_precise_date_range_window(date_range)
-                        if start_date and end_date:
-                            query = f"{query} after:{start_date.strftime('%Y/%m/%d')} before:{end_date.strftime('%Y/%m/%d')}"
-                    except Exception:
-                        pass
-                kwargs = {"userId": 'me', "q": query, "maxResults": max_results, "fields": 'messages/id,nextPageToken'}
-                if page_token:
-                    kwargs["pageToken"] = page_token
-                results = self.service.users().messages().list(**kwargs).execute()
-                messages = results.get('messages', [])
-                next_token = results.get('nextPageToken')
-                email_list = []
+        try:
+            if max_results is None:
+                max_results = self.default_max_results
+            # Quote multi-word senders for exact match within 'from:' operator
+            sender_term = f'"{sender_keyword}"' if ' ' in str(sender_keyword).strip() else sender_keyword
+            query = f"from:{sender_term}"
+            if older_than_days:
+                cutoff_date = (datetime.utcnow() - timedelta(days=int(older_than_days))).strftime('%Y/%m/%d')
+                query = f"{query} before:{cutoff_date}"
+            if date_range:
+                try:
+                    # Use precise calendar window logic for "from [duration] ago" commands
+                    start_date, end_date = self._compute_precise_date_range_window(date_range)
+                    if start_date and end_date:
+                        query = f"{query} after:{start_date.strftime('%Y/%m/%d')} before:{end_date.strftime('%Y/%m/%d')}"
+                except Exception:
+                    pass
+            kwargs = {"userId": 'me', "q": query, "maxResults": max_results, "fields": 'messages/id,nextPageToken'}
+            if page_token:
+                kwargs["pageToken"] = page_token
+            results = self.api_list_messages(**kwargs)
+            messages = results.get('messages', [])
+            next_token = results.get('nextPageToken')
+            email_list = []
 
-                # Initialize progress with total emails
-                total_emails = len(messages)
-                if hasattr(self, 'command_id') and self.command_id:
-                    from agent.views import update_email_progress
-                    update_email_progress(self.command_id, 0, total_emails)
+            # Initialize progress with total emails
+            total_emails = len(messages)
+            if hasattr(self, 'command_id') and self.command_id:
+                from agent.views import update_email_progress
+                update_email_progress(self.command_id, 0, total_emails)
 
-                for i, message in enumerate(messages):
-                    # Add per-message retry
-                    inner_retries = 3
-                    for inner_attempt in range(inner_retries):
-                        try:
-                            msg = self.service.users().messages().get(
-                                userId='me', id=message['id'], format='metadata', metadataHeaders=['From','Subject'],
-                                fields='payload/headers,id,internalDate').execute()
-                            break
-                        except Exception as e:
-                            err = str(e).lower()
-                            if ("ssl" in err or "connection" in err or "wrong_version_number" in err) and inner_attempt < inner_retries - 1:
-                                time.sleep(1.5 * (inner_attempt + 1))
-                                continue
-                            else:
-                                raise e
-                    headers = msg['payload']['headers']
-                    subject = next((h['value'] for h in headers if h['name'] == 'Subject'), 'No Subject')
-                    sender = next((h['value'] for h in headers if h['name'] == 'From'), 'Unknown Sender')
-                    
-                    # Add date information
+            for i, message in enumerate(messages):
+                msg = self.api_get_message(
+                    message['id'],
+                    format='metadata', metadataHeaders=['From','Subject'],
+                    fields='payload/headers,id,internalDate'
+                )
+                headers = msg['payload']['headers']
+                subject = next((h['value'] for h in headers if h['name'] == 'Subject'), 'No Subject')
+                sender = next((h['value'] for h in headers if h['name'] == 'From'), 'Unknown Sender')
+
+                # Add date information
+                date_str = ''
+                try:
+                    ts_ms = int(msg.get('internalDate', '0') or '0')
+                    if ts_ms:
+                        date_str = datetime.fromtimestamp(ts_ms/1000).strftime('%Y-%m-%d %H:%M')
+                except Exception:
                     date_str = ''
-                    try:
-                        ts_ms = int(msg.get('internalDate', '0') or '0')
-                        if ts_ms:
-                            date_str = datetime.fromtimestamp(ts_ms/1000).strftime('%Y-%m-%d %H:%M')
-                    except Exception:
-                        date_str = ''
-                    
-                    email_list.append({
-                        'id': message['id'],
-                        'subject': subject,
-                        'sender': sender,
-                        'date': date_str,
-                        'snippet': ''
-                    })
+                
+                email_list.append({
+                    'id': message['id'],
+                    'subject': subject,
+                    'sender': sender,
+                    'date': date_str,
+                    'snippet': ''
+                })
 
-                    # Update progress after processing each message
-                    if hasattr(self, 'command_id') and self.command_id:
-                        update_email_progress(self.command_id, i + 1, total_emails)
+                # Update progress after processing each message
+                if hasattr(self, 'command_id') and self.command_id:
+                    update_email_progress(self.command_id, i + 1, total_emails)
 
-                # Build snackbar message with details (older_than/date_range)
-                extra_parts = []
-                if older_than_days:
-                    try:
-                        extra_parts.append(_("older than %(days)d days") % {"days": int(older_than_days)})
-                    except Exception:
-                        extra_parts.append(_("older than %(text)s") % {"text": str(older_than_days)})
-                if date_range:
-                    try:
-                        extra_parts.append(_("in %(range)s") % {"range": str(date_range)})
-                    except Exception:
-                        pass
-                extra_text = (" " + " and ".join(extra_parts)) if extra_parts else ""
-                message_text = _("Found %(count)d emails from %(who)s%(extra)s.") % {"count": len(messages), "who": sender_keyword, "extra": extra_text}
+            # Build snackbar message with details (older_than/date_range)
+            extra_parts = []
+            if older_than_days:
+                try:
+                    extra_parts.append(_("older than %(days)d days") % {"days": int(older_than_days)})
+                except Exception:
+                    extra_parts.append(_("older than %(text)s") % {"text": str(older_than_days)})
+            if date_range:
+                try:
+                    extra_parts.append(_("in %(range)s") % {"range": str(date_range)})
+                except Exception:
+                    pass
+            extra_text = (" " + " and ".join(extra_parts)) if extra_parts else ""
+            message_text = _("Found %(count)d emails from %(who)s%(extra)s.") % {"count": len(messages), "who": sender_keyword, "extra": extra_text}
 
-                return {"message": message_text, "emails": email_list, "next_page_token": next_token}
-            except Exception as e:
-                error_str = str(e).lower()
-                if 'ssl' in error_str or 'connection' in error_str or 'wrong_version_number' in error_str:
-                    if attempt < max_retries - 1:
-                        wait_time = 2 ** attempt
-                        time.sleep(wait_time)
-                        continue
-                    else:
-                        return {"emails": [], "next_page_token": None}
-                else:
-                    return {"emails": [], "next_page_token": None}
-            except HttpError as error:
-                return {"emails": [], "next_page_token": None}
+            return {"message": message_text, "emails": email_list, "next_page_token": next_token}
+        except Exception:
+            return {"emails": [], "next_page_token": None}
 
     def delete_emails_by_age_only(self, older_than_days, confirm=False):
         """Delete all emails older than specified days (bulk cleanup)."""
@@ -462,11 +528,9 @@ class GmailAIAgent:
             
             while True:
                 if next_page_token:
-                    results = self.service.users().messages().list(
-                        userId='me', q=query, pageToken=next_page_token).execute()
+                    results = self.api_list_messages(q=query, pageToken=next_page_token)
                 else:
-                    results = self.service.users().messages().list(
-                        userId='me', q=query).execute()
+                    results = self.api_list_messages(q=query)
                 messages = results.get('messages', [])
                 all_messages.extend(messages)
                 next_page_token = results.get('nextPageToken')
@@ -495,19 +559,12 @@ class GmailAIAgent:
                 batch = all_messages[i:i + batch_size]
                 message_ids_batch = [m['id'] for m in batch]
                 try:
-                    self.service.users().messages().batchModify(
-                        userId='me',
-                        body={
-                            'ids': message_ids_batch,
-                            'addLabelIds': ['TRASH'],
-                            'removeLabelIds': ['INBOX']
-                        }
-                    ).execute()
+                    self.api_batch_modify(message_ids_batch, add_label_ids=['TRASH'], remove_label_ids=['INBOX'])
                     total_processed += len(batch)
                 except HttpError as e:
                     for m in batch:
                         try:
-                            self.service.users().messages().trash(userId='me', id=m['id']).execute()
+                            self.api_trash(m['id'])
                             total_processed += 1
                         except HttpError:
                             continue
@@ -624,9 +681,7 @@ class GmailAIAgent:
                     # Fallback to individual calls for this batch
                     for msg_id in message_ids_batch:
                         try:
-                            self.service.users().messages().modify(
-                                userId='me', id=msg_id, body={'removeLabelIds': ['INBOX']}
-                            ).execute()
+                            self.api_modify(msg_id, remove_label_ids=['INBOX'])
                             total_processed += 1
                             
                             # Update progress
@@ -660,7 +715,7 @@ class GmailAIAgent:
                 max_retries = 5
                 for attempt in range(max_retries):
                     try:
-                        page = self.service.users().messages().list(**kwargs).execute()
+                        page = self.api_list_messages(**kwargs)
                         break
                     except Exception as e:
                         err_text = str(e)
@@ -1184,7 +1239,7 @@ class GmailAIAgent:
 
         if not start_date or not end_date:
             return {"error": f"Could not determine date range for '{date_range_str}'"}
-        
+
         # Build query using EXCLUSIVE end bound (Gmail before: is exclusive at that date)
         query = f"after:{start_date.strftime('%Y/%m/%d')} before:{end_date.strftime('%Y/%m/%d')}"
         
@@ -1453,23 +1508,8 @@ class GmailAIAgent:
                 if page_token:
                     kwargs["pageToken"] = page_token
                 
-                # Retry logic for the Gmail API call
-                while True:
-                    try:
-                        results = self.service.users().messages().list(**kwargs).execute()
-                        break  # Success, break out of inner while loop
-                    except Exception as e:
-                        err_text = str(e)
-                        if (("SSL" in err_text or "WRONG_VERSION_NUMBER" in err_text or "DECRYPTION_FAILED_OR_BAD_RECORD_MAC" in err_text or
-                             "timeout" in err_text.lower() or "connection" in err_text.lower() or
-                             "WinError 10060" in err_text or "failed to respond" in err_text.lower()) 
-                            and attempt < max_retries - 1):
-                            print(f"Connection error in _execute_list_query (attempt {attempt + 1}): {err_text}")
-                            time.sleep(retry_delay)
-                            retry_delay *= 2
-                            break  # Break out of while loop to retry the whole function
-                        else:
-                            raise e  # Re-raise if not connection error or max retries reached
+                # Execute via centralized wrapper
+                results = self.api_list_messages(**kwargs)
                 
                 # If we get here, the operation was successful (inner while loop broke)
                 break  # Break from outer for loop
@@ -1513,9 +1553,10 @@ class GmailAIAgent:
             update_email_progress(self.command_id, 0, total_emails)
         
         for i, message in enumerate(messages):
-            msg = self.service.users().messages().get(
-                userId='me', id=message['id'], format='metadata', metadataHeaders=['From', 'Subject'],
-                fields='id,internalDate,payload/headers').execute()
+            msg = self.api_get_message(
+                message['id'],
+                format='metadata', metadataHeaders=['From', 'Subject'],
+                fields='id,internalDate,payload/headers')
             headers = msg['payload']['headers']
             subject = next((h['value'] for h in headers if h['name'] == 'Subject'), 'No Subject')
             sender = next((h['value'] for h in headers if h['name'] == 'From'), 'Unknown Sender')
@@ -1543,10 +1584,11 @@ class GmailAIAgent:
             subset = messages[:limit] if isinstance(messages, list) else []
             for m in subset:
                 try:
-                    msg = self.service.users().messages().get(
-                        userId='me', id=m['id'], format='metadata', metadataHeaders=['From','Subject'],
+                    msg = self.api_get_message(
+                        m['id'],
+                        format='metadata', metadataHeaders=['From','Subject'],
                         fields='id,internalDate,snippet,payload/headers'
-                    ).execute()
+                    )
                     headers = msg.get('payload', {}).get('headers', [])
                     subject = next((h.get('value') for h in headers if h.get('name') == 'Subject'), 'No Subject')
                     sender = next((h.get('value') for h in headers if h.get('name') == 'From'), 'Unknown Sender')
@@ -1750,20 +1792,20 @@ class GmailAIAgent:
                 if page_token:
                     kwargs["pageToken"] = page_token
                 
-                # Retry logic for the Gmail API call
+                # Retry logic for the Gmail API call (now via wrapper)
                 while True:
                     try:
-                        results = self.service.users().messages().list(**kwargs).execute()
-                        break  # Success, break out of inner while loop
+                        results = self.api_list_messages(**kwargs)
+                        break
                     except Exception as e:
                         err_text = str(e)
                         if ("SSL" in err_text or "WRONG_VERSION_NUMBER" in err_text) and attempt < max_retries - 1:
                             print(f"SSL error in list_emails_by_custom_category (attempt {attempt + 1}): {err_text}")
                             time.sleep(retry_delay)
                             retry_delay *= 2
-                            break  # Break out of while loop to retry the whole function
+                            break
                         else:
-                            raise e  # Re-raise if not SSL error or max retries reached
+                            raise e
                 
                 # If we get here, the operation was successful (inner while loop broke)
                 break  # Break from outer for loop
@@ -1790,22 +1832,12 @@ class GmailAIAgent:
             update_email_progress(self.command_id, 0, total_emails)
         
         for i, message in enumerate(messages):
-            # Add per-message retry for custom category fetch
-            inner_retries = 3
-            for inner_attempt in range(inner_retries):
-                try:
-                    msg = self.service.users().messages().get(
-                        userId='me', id=message['id'], format='metadata', metadataHeaders=['From','Subject'],
-                        fields='payload/headers,id,internalDate,snippet'
-                    ).execute()
-                    break
-                except Exception as e:
-                    err = str(e).lower()
-                    if ("ssl" in err or "connection" in err or "wrong_version_number" in err) and inner_attempt < inner_retries - 1:
-                        time.sleep(1.5 * (inner_attempt + 1))
-                        continue
-                    else:
-                        raise e
+            # Per-message fetch via wrapper with built-in retries
+            msg = self.api_get_message(
+                message['id'],
+                format='metadata', metadataHeaders=['From','Subject'],
+                fields='payload/headers,id,internalDate,snippet'
+            )
             headers = msg.get('payload', {}).get('headers', [])
             subject = next((h.get('value') for h in headers if h.get('name') == 'Subject'), 'No Subject')
             sender = next((h.get('value') for h in headers if h.get('name') == 'From'), 'Unknown Sender')
@@ -1988,8 +2020,7 @@ class GmailAIAgent:
         """Search for emails with a specific term in the subject."""
         try:
             query = f"subject:({search_term})"
-            results = self.service.users().messages().list(
-                userId='me', q=query, maxResults=max_results).execute()
+            results = self.api_list_messages(q=query, maxResults=max_results)
             messages = results.get('messages', [])
 
             if not messages:
@@ -1997,8 +2028,7 @@ class GmailAIAgent:
 
             email_list = []
             for message in messages:
-                msg = self.service.users().messages().get(
-                    userId='me', id=message['id'], format='metadata', metadataHeaders=['From', 'Subject']).execute()
+                msg = self.api_get_message(message['id'], format='metadata', metadataHeaders=['From', 'Subject'])
                 headers = msg['payload']['headers']
                 subject = next((h['value'] for h in headers if h['name'] == 'Subject'), 'No Subject')
                 sender = next((h['value'] for h in headers if h['name'] == 'From'), 'Unknown Sender')
@@ -2022,16 +2052,14 @@ class GmailAIAgent:
                 cutoff_date = (datetime.utcnow() - timedelta(days=older_than_days)).strftime('%Y/%m/%d')
                 query_parts.append(f"before:{cutoff_date}")
             query = " ".join(query_parts)
-            results = self.service.users().messages().list(
-                userId='me', q=query, maxResults=500).execute()
+            results = self.api_list_messages(q=query, maxResults=500)
             messages = results.get('messages', [])
             page_token = results.get('nextPageToken')
             all_messages = []
             if messages:
                 all_messages.extend(messages)
             while page_token:
-                results = self.service.users().messages().list(
-                    userId='me', q=query, maxResults=500, pageToken=page_token).execute()
+                results = self.api_list_messages(q=query, maxResults=500, pageToken=page_token)
                 messages = results.get('messages', [])
                 if messages:
                     all_messages.extend(messages)
@@ -2065,19 +2093,12 @@ class GmailAIAgent:
                 batch = all_messages[i:i + batch_size]
                 message_ids_batch = [m['id'] for m in batch]
                 try:
-                    self.service.users().messages().batchModify(
-                        userId='me',
-                        body={
-                            'ids': message_ids_batch,
-                            'addLabelIds': ['TRASH'],
-                            'removeLabelIds': ['INBOX']
-                        }
-                    ).execute()
+                    self.api_batch_modify(message_ids_batch, add_label_ids=['TRASH'], remove_label_ids=['INBOX'])
                     total_processed += len(batch)
                 except HttpError as e:
                     for message in batch:
                         try:
-                            self.service.users().messages().trash(userId='me', id=message['id']).execute()
+                            self.api_trash(message['id'])
                             total_processed += 1
                         except HttpError:
                             continue
@@ -2099,16 +2120,14 @@ class GmailAIAgent:
                 cutoff_date = (datetime.utcnow() - timedelta(days=older_than_days)).strftime('%Y/%m/%d')
                 query_parts.append(f"before:{cutoff_date}")
             query = " ".join(query_parts)
-            results = self.service.users().messages().list(
-                userId='me', q=query, maxResults=500).execute()
+            results = self.api_list_messages(q=query, maxResults=500)
             messages = results.get('messages', [])
             page_token = results.get('nextPageToken')
             all_messages = []
             if messages:
                 all_messages.extend(messages)
             while page_token:
-                results = self.service.users().messages().list(
-                    userId='me', q=query, maxResults=500, pageToken=page_token).execute()
+                results = self.api_list_messages(q=query, maxResults=500, pageToken=page_token)
                 messages = results.get('messages', [])
                 if messages:
                     all_messages.extend(messages)
@@ -2142,19 +2161,12 @@ class GmailAIAgent:
                 batch = all_messages[i:i + batch_size]
                 message_ids_batch = [m['id'] for m in batch]
                 try:
-                    self.service.users().messages().batchModify(
-                        userId='me',
-                        body={
-                            'ids': message_ids_batch,
-                            'addLabelIds': ['TRASH'],
-                            'removeLabelIds': ['INBOX']
-                        }
-                    ).execute()
+                    self.api_batch_modify(message_ids_batch, add_label_ids=['TRASH'], remove_label_ids=['INBOX'])
                     total_processed += len(batch)
                 except HttpError as e:
                     for message in batch:
                         try:
-                            self.service.users().messages().trash(userId='me', id=message['id']).execute()
+                            self.api_trash(message['id'])
                             total_processed += 1
                         except HttpError:
                             continue
@@ -2176,16 +2188,14 @@ class GmailAIAgent:
                 from datetime import datetime, timedelta
                 cutoff_date = (datetime.utcnow() - timedelta(days=older_than_days)).strftime('%Y/%m/%d')
                 query = f"{query} before:{cutoff_date}"
-            results = self.service.users().messages().list(
-                userId='me', q=query, maxResults=500).execute()
+            results = self.api_list_messages(q=query, maxResults=500)
             messages = results.get('messages', [])
             page_token = results.get('nextPageToken')
             all_messages = []
             if messages:
                 all_messages.extend(messages)
             while page_token:
-                results = self.service.users().messages().list(
-                    userId='me', q=query, maxResults=500, pageToken=page_token).execute()
+                results = self.api_list_messages(q=query, maxResults=500, pageToken=page_token)
                 messages = results.get('messages', [])
                 if messages:
                     all_messages.extend(messages)
@@ -2216,19 +2226,12 @@ class GmailAIAgent:
                 batch = all_messages[i:i + batch_size]
                 message_ids_batch = [m['id'] for m in batch]
                 try:
-                    self.service.users().messages().batchModify(
-                        userId='me',
-                        body={
-                            'ids': message_ids_batch,
-                            'addLabelIds': ['TRASH'],
-                            'removeLabelIds': ['INBOX']
-                        }
-                    ).execute()
+                    self.api_batch_modify(message_ids_batch, add_label_ids=['TRASH'], remove_label_ids=['INBOX'])
                     total_processed += len(batch)
                 except HttpError as e:
                     for message in batch:
                         try:
-                            self.service.users().messages().trash(userId='me', id=message['id']).execute()
+                            self.api_trash(message['id'])
                             total_processed += 1
                         except HttpError:
                             continue
@@ -3124,8 +3127,8 @@ class GmailAIAgent:
                             date_txt = (" " + _hebrew_date_phrase(date_range)) if date_range else ""
                             return {"status": "success", "message": f"לא נמצאו מיילים מ-{target}{date_txt}."}
                         if date_range:
-                            return {"status": "success", "message": _("No emails found from sender: %(sender)s from %(time)s.") % {"sender": target, "time": date_range}}
-                        return {"status": "success", "message": _("No emails found from sender: %(sender)s.") % {"sender": target}}
+                            return {"status": "success", "message": _("No emails found from %(sender)s from %(time)s.") % {"sender": target, "time": date_range}}
+                        return {"status": "success", "message": _("No emails found from %(sender)s.") % {"sender": target}}
                     lc = {"mode": "sender", "target": target}
                     if older_than_days is not None: lc["older_than_days"] = older_than_days
                     if date_range is not None: lc["date_range"] = date_range
@@ -4068,7 +4071,7 @@ class GmailAIAgent:
                     # Fallback to individual requests for this batch
                     for k, message in enumerate(batch_messages):
                         try:
-                            msg = self.service.users().messages().get(
+                            msg = self.api_get_message(
                                 userId='me', id=message['id'], format='metadata', metadataHeaders=['From','Subject'],
                                 fields='payload/headers,id,labelIds,internalDate'
                             ).execute()
@@ -4122,8 +4125,8 @@ class GmailAIAgent:
             
             for i, message in enumerate(messages):
                 try:
-                    msg = self.service.users().messages().get(
-                        userId='me', id=message['id'], format='metadata', metadataHeaders=['From','Subject'],
+                    msg = self.api_get_message(
+                        message['id'], format='metadata', metadataHeaders=['From','Subject'],
                         fields='payload/headers,id,labelIds,internalDate').execute()
                     headers = msg.get('payload', {}).get('headers', [])
                     subject = next((h['value'] for h in headers if h.get('name') == 'Subject'), 'No Subject')
@@ -4541,7 +4544,7 @@ class GmailAIAgent:
         """Create a new Gmail label"""
         try:
             # Check if label already exists
-            labels = self.service.users().labels().list(userId='me').execute()
+            labels = self.api_list_labels()
             existing_labels = [label['name'] for label in labels.get('labels', [])]
             
             if label_name in existing_labels:
@@ -4554,8 +4557,7 @@ class GmailAIAgent:
                 'messageListVisibility': 'show'
             }
             
-            created_label = self.service.users().labels().create(
-                userId='me', body=label_object).execute()
+            created_label = self.api_create_label(label_object)
             
             return label_name
             
@@ -4566,7 +4568,7 @@ class GmailAIAgent:
     def get_label_id(self, label_name):
         """Get the ID of a label by name"""
         try:
-            labels = self.service.users().labels().list(userId='me').execute()
+            labels = self.api_list_labels()
             for label in labels.get('labels', []):
                 if label['name'].lower() == label_name.lower():
                     return label['id']
@@ -4795,10 +4797,7 @@ class GmailAIAgent:
                 # Restore to INBOX
                 for i in range(0, len(msg_ids), 100):
                     batch_ids = msg_ids[i:i+100]
-                    self.service.users().messages().batchModify(
-                        userId='me',
-                        body={'ids': batch_ids, 'addLabelIds': ['INBOX']}
-                    ).execute()
+                    self.api_batch_modify(batch_ids, add_label_ids=['INBOX'])
                 del self._undo_store[action_id]
                 return {"status": "success", "message": _("Undo complete. Restored %(count)d emails to Inbox.") % {"count": len(msg_ids)}, "undone_count": len(msg_ids)}
             elif action_type == 'trash':
@@ -4806,8 +4805,8 @@ class GmailAIAgent:
                 restored = 0
                 for msg_id in msg_ids:
                     try:
-                        self.service.users().messages().untrash(userId='me', id=msg_id).execute()
-                        self.service.users().messages().modify(userId='me', id=msg_id, body={'addLabelIds': ['INBOX']}).execute()
+                        self.api_untrash(msg_id)
+                        self.api_modify(msg_id, add_label_ids=['INBOX'])
                         restored += 1
                     except HttpError:
                         continue
@@ -4820,10 +4819,7 @@ class GmailAIAgent:
                     return {"status": "error", "message": _("Cannot undo labels (missing label id).")}
                 for i in range(0, len(msg_ids), 100):
                     batch_ids = msg_ids[i:i+100]
-                    self.service.users().messages().batchModify(
-                        userId='me',
-                        body={'ids': batch_ids, 'removeLabelIds': [label_id]}
-                    ).execute()
+                    self.api_batch_modify(batch_ids, remove_label_ids=[label_id])
                 del self._undo_store[action_id]
                 return {"status": "success", "message": _("Removed label from %(count)d emails.") % {"count": len(msg_ids)}, "undone_count": len(msg_ids)}
             else:
@@ -4900,7 +4896,7 @@ class GmailAIAgent:
                 }
                 if page_token:
                     kwargs["pageToken"] = page_token
-                res = self.service.users().messages().list(**kwargs).execute()
+                res = self.api_list_messages(**kwargs)
                 msgs = res.get('messages', [])
                 if not msgs:
                     break
@@ -4914,11 +4910,12 @@ class GmailAIAgent:
             email_to_name = {}
             for mid in collected_ids[:max_results]:
                 try:
-                    msg = self.service.users().messages().get(
-                        userId='me', id=mid, format='metadata',
+                    msg = self.api_get_message(
+                        mid,
+                        format='metadata',
                         metadataHeaders=['To', 'Cc', 'Bcc'],
                         fields='payload/headers,id'
-                    ).execute()
+                    )
                     headers = msg.get('payload', {}).get('headers', [])
                     values = []
                     for nm in ['To', 'Cc', 'Bcc']:

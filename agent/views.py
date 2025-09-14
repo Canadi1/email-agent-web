@@ -281,6 +281,11 @@ def process_with_email_listing_progress(agent, command, command_id, start_progre
     
     # Set command_id in agent for progress updates
     agent.command_id = command_id
+    # Mark this command as the active one (guards stale progress)
+    agent.active_command_id = command_id
+    # Initialize last printed counter to throttle console spam
+    progress_data[command_id]['last_printed_current'] = -1
+    progress_data[command_id]['last_sent_progress'] = -1
     
     # Start a progress monitoring thread for email listing
     progress_thread = threading.Thread(target=monitor_real_progress, args=(command_id, start_progress, end_progress, command))
@@ -293,6 +298,12 @@ def process_with_email_listing_progress(agent, command, command_id, start_progre
     # Stop progress monitoring
     if command_id in progress_data:
         progress_data[command_id]['stop_simulation'] = True
+    # Clear active command id if it belongs to this command
+    try:
+        if getattr(agent, 'active_command_id', None) == command_id:
+            agent.active_command_id = None
+    except Exception:
+        pass
     
     return result
 
@@ -311,6 +322,9 @@ def process_with_real_progress(agent, command, command_id, start_progress, end_p
     
     # Set command_id in agent for progress updates
     agent.current_command_id = command_id
+    agent.active_command_id = command_id
+    progress_data[command_id]['last_printed_current'] = -1
+    progress_data[command_id]['last_sent_progress'] = -1
     
     # Start a progress monitoring thread
     progress_thread = threading.Thread(target=monitor_real_progress, args=(command_id, start_progress, end_progress, command))
@@ -326,6 +340,11 @@ def process_with_real_progress(agent, command, command_id, start_progress, end_p
     
     # Clear command_id from agent
     agent.current_command_id = None
+    try:
+        if getattr(agent, 'active_command_id', None) == command_id:
+            agent.active_command_id = None
+    except Exception:
+        pass
     
     return result
 
@@ -349,6 +368,13 @@ def monitor_real_progress(command_id, start_progress, end_progress, command=None
             
         if progress_data[command_id].get('stop_simulation'):
             break
+        
+        # If a different command became active, stop updating this one
+        try:
+            if getattr(agent_instance, 'active_command_id', None) and getattr(agent_instance, 'active_command_id', None) != command_id:
+                break
+        except Exception:
+            pass
             
         # Get current progress data
         current_processed = progress_data[command_id].get('current_processed', 0)
@@ -376,7 +402,10 @@ def monitor_real_progress(command_id, start_progress, end_progress, command=None
             ]) or ('list emails older than' in command.lower() and any(unit in command.lower() for unit in ['day', 'week', 'month', 'year', 'days', 'weeks', 'months', 'years'])) or ('list emails before' in command.lower()))
             
             if is_email_listing:
-                print(f"Processing {current_processed}/{total_emails} emails...")
+                last_printed = progress_data[command_id].get('last_printed_current', -1)
+                if current_processed != last_printed:
+                    print(f"Processing {current_processed}/{total_emails} emails...")
+                    progress_data[command_id]['last_printed_current'] = current_processed
             
             # Show fun facts that change every 2.5 seconds
             current_time = time.time()
@@ -387,7 +416,12 @@ def monitor_real_progress(command_id, start_progress, end_progress, command=None
                 current_fun_fact = get_random_fun_fact(language_code)
                 last_fun_fact_time = current_time
             
-            update_progress(command_id, int(final_progress), current_fun_fact)
+            # Throttle progress events to only when percent changes
+            pct = int(final_progress)
+            last_sent = progress_data[command_id].get('last_sent_progress', -1)
+            if pct != last_sent:
+                update_progress(command_id, pct, current_fun_fact)
+                progress_data[command_id]['last_sent_progress'] = pct
         
         # Slightly less frequent to reduce overhead while staying smooth
         time.sleep(0.3)
@@ -1202,12 +1236,22 @@ def progress_stream(request, command_id):
                 # Debug logging removed for cleaner terminal output
                 if data.get('complete'):
                     # Send final update and clean up
-                    yield f"data: {json.dumps(data)}\n\n"
-                    del progress_data[command_id]
-                    # Progress tracking completed and cleaned up
+                    try:
+                        yield f"data: {json.dumps(data)}\n\n"
+                    except Exception:
+                        pass
+                    finally:
+                        try:
+                            del progress_data[command_id]
+                        except Exception:
+                            pass
                     break
                 else:
-                    yield f"data: {json.dumps(data)}\n\n"
+                    try:
+                        yield f"data: {json.dumps(data)}\n\n"
+                    except Exception:
+                        # Client disconnected (Broken pipe). Stop streaming for this command.
+                        break
             time.sleep(0.1)  # Check every 100ms
     
     response = StreamingHttpResponse(event_stream(), content_type='text/event-stream')
