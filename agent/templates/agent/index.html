@@ -2095,6 +2095,30 @@
             });
             for (let k = 0; k < includeMatches.length; k++) if (!seen.has(includeMatches[k].cmd)) { merged.push(includeMatches[k]); seen.add(includeMatches[k].cmd); }
 
+            // PRIORITY: If user typed a numeric duration after 'from', surface 'list emails from [duration] ago'
+            try {
+                const numDurCue = /\blist\s+emails\s+from\s+\d+/i.test(q);
+                if (numDurCue) {
+                    const target = commands.find(c => /\blist\s+emails\s+from\s+\[duration\]\s+ago\b/i.test(c));
+                    if (target && !seen.has(target)) {
+                        merged.unshift({ cmd: target, score: 9.8, type: 'duration_time' });
+                        seen.add(target);
+                    }
+                }
+            } catch (e) {}
+
+            // PRIORITY: If pattern is 'list emails from <sender> from <number>', prefer sender+duration-ago template
+            try {
+                const mSenderNum = q.match(/\blist\s+emails\s+from\s+([^\s].*?)\s+from\s+\d+/i);
+                if (mSenderNum) {
+                    const senderDurAgo = commands.find(c => /\blist\s+emails\s+from\s+\[sender\][^\n]*\s+from\s+\[duration\]\s+ago\b/i.test(c));
+                    if (senderDurAgo && !seen.has(senderDurAgo)) {
+                        merged.unshift({ cmd: senderDurAgo, score: 9.85, type: 'sender_duration_num' });
+                        seen.add(senderDurAgo);
+                    }
+                }
+            } catch (e) {}
+
             // Add placeholder-aware matches (kept separate earlier as 'scored')
             // Boost 'last'/'this' variants when the user starts typing them
             const wantLast = /\bfrom\s+[^\s]+\s+from\s+l/i.test(q) || /\blast\b/i.test(q);
@@ -2131,6 +2155,20 @@
                     }
                     // Insert prioritized items right after any aligned best match
                     prioritized.forEach(item => { if (!seen.has(item.cmd)) { merged.splice(merged.length > 0 ? 1 : 0, 0, item); seen.add(item.cmd); } });
+                }
+            } catch (e) {}
+
+            // ENSURE VISIBILITY: When user types exactly 'list emails from' (with or without partial sender),
+            // include the sender+duration-ago template near the top so it doesn't disappear
+            try {
+                const baseSenderCue = /\blist\s+emails\s+from\b/i.test(q);
+                if (baseSenderCue) {
+                    const senderDurAgo = commands.find(c => /\blist\s+emails\s+from\s+\[sender\][^\n]*\s+from\s+\[duration\]\s+ago\b/i.test(c));
+                    if (senderDurAgo && !seen.has(senderDurAgo)) {
+                        // place after any aligned item but before general includes
+                        merged.splice(merged.length > 0 ? 1 : 0, 0, { cmd: senderDurAgo, score: 8.9, type: 'sender_duration_seed' });
+                        seen.add(senderDurAgo);
+                    }
                 }
             } catch (e) {}
             // Fuzzy fallback independent of direct includes, so templates with placeholders appear
@@ -2308,6 +2346,18 @@
             const afterStart = tokenIdx + tokenText.length;
             const nextPlaceholderIdx = cmd.indexOf('[', afterStart);
             const afterFixed = nextPlaceholderIdx === -1 ? cmd.substring(afterStart) : cmd.substring(afterStart, nextPlaceholderIdx);
+            // If there is a next placeholder (e.g., [duration]), capture it and the fixed text after it (e.g., ' ago')
+            let nextTokenText = '';
+            let afterNextFixed = '';
+            if (nextPlaceholderIdx !== -1) {
+                const closeIdx = cmd.indexOf(']', nextPlaceholderIdx);
+                if (closeIdx !== -1) {
+                    nextTokenText = cmd.substring(nextPlaceholderIdx, closeIdx + 1);
+                    const afterNextStart = closeIdx + 1;
+                    const next2Idx = cmd.indexOf('[', afterNextStart);
+                    afterNextFixed = next2Idx === -1 ? cmd.substring(afterNextStart) : cmd.substring(afterNextStart, next2Idx);
+                }
+            }
 
             const beforeLc = before.toLowerCase();
             const q = (input || '').toLowerCase();
@@ -2323,13 +2373,41 @@
             }
 
             const typedAfterPrefix = q.length > beforeLc.length ? q.slice(beforeLc.length) : '';
-            // Determine how much of the next fixed segment the user already typed (k)
+            // Determine how much of the next fixed segment (e.g., ' from ') the user already typed (k)
             const afterFixedLc = (afterFixed || '').toLowerCase();
             let k = 0;
             if (afterFixedLc && typedAfterPrefix) {
-                const maxPref = Math.min(afterFixedLc.length, typedAfterPrefix.length);
-                for (let i2 = maxPref; i2 >= 1; i2--) {
-                    if (typedAfterPrefix.endsWith(afterFixedLc.substring(0, i2))) { k = i2; break; }
+                if (typedAfterPrefix.indexOf(afterFixedLc) !== -1) {
+                    k = afterFixedLc.length;
+                } else {
+                    const maxPref = Math.min(afterFixedLc.length, typedAfterPrefix.length);
+                    for (let i2 = maxPref; i2 >= 1; i2--) {
+                        if (typedAfterPrefix.endsWith(afterFixedLc.substring(0, i2))) { k = i2; break; }
+                    }
+                }
+            }
+
+            // Special handling: if next token is [duration], bold through it as soon as any characters are typed after ' from '
+            if (nextTokenText) {
+                const idxFixed = typedAfterPrefix.indexOf(afterFixedLc);
+                if (idxFixed !== -1) {
+                    const afterAfterFixedTyped = typedAfterPrefix.slice(idxFixed + afterFixedLc.length);
+                    if (afterAfterFixedTyped.length > 0) {
+                        // Bold up to and including [sender], ' from ', and the [duration] token
+                        const afterNextFixedLc = (afterNextFixed || '').toLowerCase();
+                        let k2 = 0;
+                        if (afterNextFixedLc) {
+                            const max2 = Math.min(afterNextFixedLc.length, afterAfterFixedTyped.length);
+                            for (let j = max2; j >= 1; j--) {
+                                if (afterAfterFixedTyped.endsWith(afterNextFixedLc.substring(0, j))) { k2 = j; break; }
+                            }
+                        }
+                        const strongEnd = before.length + tokenText.length + afterFixed.length + nextTokenText.length + k2;
+                        const bold = escapeHtml(cmd.substring(0, strongEnd));
+                        const rest = escapeHtml(cmd.substring(strongEnd));
+                        div.innerHTML = `<strong>${bold}</strong>${rest}`;
+                        return true;
+                    }
                 }
             }
             const typedInsidePlaceholderLen = Math.max(0, typedAfterPrefix.length - k);
