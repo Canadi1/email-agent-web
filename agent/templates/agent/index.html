@@ -1883,7 +1883,7 @@
             }
         } catch (e) {}
 
-        const commands = (() => {
+        let commands = (() => {
             console.log('Raw autocomplete_commands_json:', '{{ autocomplete_commands_json|escapejs }}');
             try {
                 const parsed = JSON.parse('{{ autocomplete_commands_json|escapejs }}');
@@ -1918,6 +1918,18 @@
             ];
         })();
 
+        // Remove generic timeframe placeholder list-commands from autocomplete
+        // Keep specific phrases (today/yesterday/last week/etc.) and sender+timeframe templates
+        try {
+            const timeframePlaceholderRe = /\[(time\s*frame|time\s*period)\]/i;
+            commands = (Array.isArray(commands) ? commands : []).filter(function(c){
+                const lc = (c || '').toLowerCase();
+                if (!/^list\b/.test(lc)) return true;
+                if (timeframePlaceholderRe.test(lc) && !/\[sender\]/i.test(lc)) return false;
+                return true;
+            });
+        } catch (e) {}
+
         // Fuzzy helpers
         function levenshtein(a, b) {
             a = a || ''; b = b || '';
@@ -1951,57 +1963,518 @@
             const q = (input || '').toLowerCase().trim();
             const scored = [];
             const includeMatches = [];
+
+            // Helper to escape regex special chars
+            function escapeRegex(s) {
+                return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            }
+
             for (let i = 0; i < commands.length; i++) {
                 const cmd = commands[i];
                 const lc = cmd.toLowerCase();
-                if (lc.includes(q) && q.length > 0) {
-                    // Base score for position and length
-                    const pos = lc.indexOf(q);
-                    let score = 1.0 - (pos / Math.max(1, lc.length)) - (lc.length - q.length) * 0.001;
-                    
-                    // Bonus for common/relevant commands
-                    if (cmd.includes('recent') || cmd.includes('send') || cmd.includes('delete') || 
+
+                // 1) Prefix match only (avoid mid-string bolding of unrelated commands)
+                if (q.length > 0 && lc.startsWith(q)) {
+                    const pos = 0;
+                    let score = 1.0 - (lc.length - q.length) * 0.001;
+                    if (cmd.includes('recent') || cmd.includes('send') || cmd.includes('delete') ||
                         cmd.includes('archive') || cmd.includes('stats') || cmd.includes('list')) {
                         score += 0.2;
                     }
-                    
-                    // Extra bonus for very common commands
-                    if (cmd === 'list recent emails' || cmd === 'send email' || 
+                    if (cmd === 'list recent emails' || cmd === 'send email' ||
                         cmd === 'show email stats' || cmd === 'delete all promotions') {
                         score += 0.3;
                     }
-                    
-                    // Bonus for commands that start with the input
-                    if (lc.startsWith(q)) {
-                        score += 0.1;
-                    }
-                    
+                    score += 0.1; // starts-with bonus
                     includeMatches.push({ cmd, score, type: 'include', pos });
+                    continue; // we already included this via direct match
                 }
-            }
-            includeMatches.sort((a, b) => b.score - a.score);
-            for (let k = 0; k < includeMatches.length; k++) scored.push(includeMatches[k]);
-            if (scored.length < maxShow) {
-                // Fuzzy fill
-                for (let i = 0; i < commands.length; i++) {
-                    const cmd = commands[i];
-                    const lc = cmd.toLowerCase();
-                    if (lc.includes(q)) continue; // already included
-                    const sim = similarity(q, lc);
-                    if (sim >= 0.45 || q.length >= 3) {
-                        scored.push({ cmd, score: sim, type: 'fuzzy' });
+
+                // 2) Placeholder-aware prefix match so suggestions persist after filling slots
+                // Detect templates with placeholders like [sender], [domain.com], [duration], [time period] (including Hebrew labels)
+                if (/\[[^\]]+\]/.test(lc)) {
+                    const parts = lc.split(/\[[^\]]+\]/); // fixed text chunks around placeholders
+                    const fixedPrefix = parts[0] || '';
+                    if (fixedPrefix && q.startsWith(fixedPrefix)) {
+                        // Base score for prefix-only match (keep; will be outranked by deeper matches)
+                        const fixedSegmentsCount = parts.filter(p => p.length > 0).length;
+                        let score = 0.50 + Math.min(0.05, fixedPrefix.length / Math.max(1, lc.length)) + fixedSegmentsCount * 0.005;
+                        // Early mismatch guard: if user typed a different next fixed word (e.g., 'older' vs template 'before'), drop it
+                        const nextFixed = parts[1] || '';
+                        const nextWord = (nextFixed.trim().match(/^[a-z\u0590-\u05FF]+/i) || [''])[0].toLowerCase();
+                        const typedAfter = q.slice(fixedPrefix.length).trimLeft();
+                        const typedWord = (typedAfter.match(/^[a-z0-9\u0590-\u05FF]+/i) || [''])[0].toLowerCase();
+                        const earlyMismatch = typedWord.length >= 2 && nextWord && !nextWord.startsWith(typedWord);
+                        if (!earlyMismatch) {
+                            scored.push({ cmd, score, type: 'placeholder', prefixLen: fixedPrefix.length });
+                        }
+                    }
+
+                    // Also allow ordered-match across multiple fixed parts, anchored at start
+                    // Build a loose regex that treats placeholders as wildcards, but requires '^'
+                    try {
+                        const pattern = '^' + parts.map(p => escapeRegex(p)).join('.*');
+                        const re = new RegExp(pattern);
+                        if (re.test(q)) {
+                            // Prefer more specific templates (more/larger fixed segments)
+                            const fixedSegmentsCount = parts.filter(p => p.length > 0).length;
+                            const fixedChars = parts.reduce((s, p) => s + p.length, 0);
+                            // Heuristic boost if the user's input contains words hinting at specific templates
+                            const inputHasDuration = /(\d+\s*(day|week|month|year|יום|שבוע|חודש|שנה)s?\b|ago|לפני)/.test(q);
+                            const inputHasFromTime = /\bfrom\b|\bמה(יום|שבוע|חודש|שנה)/.test(q);
+                            let score = 0.82 + Math.min(0.12, fixedChars / Math.max(1, lc.length)) + fixedSegmentsCount * 0.05;
+                            if (inputHasDuration && lc.includes('[duration]')) score += 0.12;
+                            if (inputHasFromTime && lc.includes('[time')) score += 0.06;
+                            // Early mismatch guard on the next fixed word
+                            const fixedPrefix = parts[0] || '';
+                            const nextFixed = parts[1] || '';
+                            const nextWord = (nextFixed.trim().match(/^[a-z\u0590-\u05FF]+/i) || [''])[0].toLowerCase();
+                            const typedAfter = q.slice(fixedPrefix.length).trimLeft();
+                            const typedWord = (typedAfter.match(/^[a-z0-9\u0590-\u05FF]+/i) || [''])[0].toLowerCase();
+                            const earlyMismatch = typedWord.length >= 2 && nextWord && !nextWord.startsWith(typedWord);
+                            if (!earlyMismatch) {
+                                scored.push({ cmd, score, type: 'placeholder', prefixLen: (parts[0] || '').length });
+                            }
+                            continue;
+                        }
+                    } catch (e) {
+                        // ignore regex build errors and fall through
                     }
                 }
-                // sort fuzzy tail by score
-                scored.sort((a, b) => b.score - a.score);
             }
-            const unique = [];
+
+            // Alignment-based ranking (sender-first): only engage after a clear sender cue
+            // (e.g., typing "from" in EN or "מ-"/" מ" in HE). Prevents sender templates
+            // from outranking unrelated commands like "list recent emails".
+            function alignedMatchLength(cmd, q) {
+                const hasSender = /\[(sender|domain\.com|שולח|דומיין)\]/i.test(cmd);
+                if (!hasSender || !q) return 0;
+                const partialFromCue = /\blist\s+emails\s+f(?:r|ro)?$/i.test(q);
+                const hasSenderCue = /\bfrom\b|\bמ(?:-|\s)/i.test(q) || partialFromCue;
+                if (!hasSenderCue) return 0;
+                // Suppress sender ranking only when the token after "from" is a real timeframe prefix
+                let hasTimeCue = false;
+                try {
+                    const m = q.match(/\bfrom\s+([a-z0-9\.\-]+)/i);
+                    if (m && m[1]) {
+                        const tok = m[1];
+                        // Domain heuristic: if token looks like a domain or ends with .com, prefer sender
+                        if (/\.|\.com$/i.test(tok)) {
+                            hasTimeCue = false;
+                        } else 
+                        if (/^\d/.test(tok)) {
+                            hasTimeCue = true; // numeric start (e.g., 5 days ...)
+                        } else {
+                            const timePrefixes = ['today','yesterday','last','this'];
+                            hasTimeCue = timePrefixes.some(w => w.startsWith(tok));
+                        }
+                    }
+                } catch (e) { hasTimeCue = false; }
+                if (hasTimeCue) return 0;
+                return computeSenderBoldLength(cmd, q);
+            }
+
+            const aligned = commands
+                .map(c => ({ cmd: c, score: alignedMatchLength(c, q) || 0 }))
+                .filter(x => x.score > 0);
+
+            // Merge: take the best aligned match to the front, then others by previous scoring
+            aligned.sort((a, b) => b.score - a.score);
+            const bestAligned = aligned.length ? aligned[0].cmd : null;
+            const merged = [];
             const seen = new Set();
-            for (let i = 0; i < scored.length && unique.length < maxShow; i++) {
-                const c = scored[i].cmd;
-                if (!seen.has(c)) { seen.add(c); unique.push(scored[i]); }
+            if (bestAligned) { merged.push({ cmd: bestAligned, score: 10, type: 'aligned' }); seen.add(bestAligned); }
+
+            // Prioritize starts-with and exact includes first, then others
+            includeMatches.sort((a, b) => {
+                const aStart = commands.indexOf(a.cmd) >= 0 && a.cmd.toLowerCase().startsWith(q);
+                const bStart = commands.indexOf(b.cmd) >= 0 && b.cmd.toLowerCase().startsWith(q);
+                if (aStart && !bStart) return -1;
+                if (!aStart && bStart) return 1;
+                return b.score - a.score;
+            });
+            for (let k = 0; k < includeMatches.length; k++) if (!seen.has(includeMatches[k].cmd)) { merged.push(includeMatches[k]); seen.add(includeMatches[k].cmd); }
+
+            // Add placeholder-aware matches (kept separate earlier as 'scored')
+            // Boost 'last'/'this' variants when the user starts typing them
+            const wantLast = /\bfrom\s+[^\s]+\s+from\s+l/i.test(q) || /\blast\b/i.test(q);
+            const wantThis = /\bfrom\s+[^\s]+\s+from\s+t/i.test(q) || /\bthis\b/i.test(q);
+            scored.sort((a, b) => {
+                const la = a.cmd.toLowerCase();
+                const lb = b.cmd.toLowerCase();
+                let sa = a.score, sb = b.score;
+                if (wantLast) { if (la.includes(' last ')) sa += 0.8; if (lb.includes(' last ')) sb += 0.8; }
+                if (wantThis) { if (la.includes(' this ')) sa += 0.8; if (lb.includes(' this ')) sb += 0.8; }
+                return sb - sa;
+            });
+            for (let k = 0; k < scored.length; k++) if (!seen.has(scored[k].cmd)) { merged.push(scored[k]); seen.add(scored[k].cmd); }
+
+            // PRIORITY GROUP: When typing "list emails from <sender> from l|t...",
+            // float sender+timeframe templates (with both [sender] and ' last '/' this ') to the top block
+            try {
+                const senderTimeCue = q.match(/\blist\s+emails\s+from\s+([^\s]+)\s+from\s+([lt])/i);
+                if (senderTimeCue) {
+                    const letter = senderTimeCue[2].toLowerCase();
+                    const preferLast = letter === 'l';
+                    const preferThis = letter === 't';
+                    const prioritized = [];
+                    for (let i = 0; i < commands.length; i++) {
+                        const c = commands[i];
+                        const lcC = c.toLowerCase();
+                        const hasSender = /\[sender\]|\[domain\.com\]|\[שולח\]|\[דומיין\]/i.test(c);
+                        const hasLast = lcC.includes(' from last ');
+                        const hasThis = lcC.includes(' from this ');
+                        if (!hasSender) continue;
+                        if ((preferLast && hasLast) || (preferThis && hasThis)) {
+                            prioritized.push({ cmd: c, score: 9.5, type: 'sender_time' });
+                        }
+                    }
+                    // Insert prioritized items right after any aligned best match
+                    prioritized.forEach(item => { if (!seen.has(item.cmd)) { merged.splice(merged.length > 0 ? 1 : 0, 0, item); seen.add(item.cmd); } });
+                }
+            } catch (e) {}
+            // Fuzzy fallback independent of direct includes, so templates with placeholders appear
+            const fuzzyList = [];
+            for (let i = 0; i < commands.length; i++) {
+                const cmd = commands[i];
+                if (seen.has(cmd)) continue;
+                const lc = cmd.toLowerCase();
+                const sim = similarity(q, lc);
+                if (sim >= 0.42 || q.length >= 3) {
+                    fuzzyList.push({ cmd, score: sim, type: 'fuzzy' });
+                }
+            }
+            fuzzyList.sort((a, b) => b.score - a.score);
+            for (let k = 0; k < fuzzyList.length; k++) if (!seen.has(fuzzyList[k].cmd)) { merged.push(fuzzyList[k]); seen.add(fuzzyList[k].cmd); }
+
+            // Unique and truncate (simple, proven ordering)
+            const unique = [];
+            const seen2 = new Set();
+            for (let i = 0; i < merged.length && unique.length < maxShow; i++) {
+                const c = merged[i].cmd;
+                if (!seen2.has(c)) { seen2.add(c); unique.push(merged[i]); }
             }
             return unique;
+        }
+
+        // Compute how much of a placeholder template should be bolded based on user input
+        // Example: cmd = 'list emails from [sender] older than [duration]'
+        // If input = 'list emails from google older', bold covers up to 'list emails from [sender] older'
+        function computePlaceholderBoldLength(cmd, input) {
+            try {
+                const q = (input || '').toLowerCase();
+                const fixedSegments = cmd.split(/\[[^\]]+\]/); // fixed pieces
+                const placeholderTokens = cmd.match(/\[[^\]]+\]/g) || []; // tokens like [sender]
+                let pos = 0;     // pointer in user input
+                let coverage = 0; // number of chars in template to bold
+
+                for (let i = 0; i < fixedSegments.length; i++) {
+                    const fixed = fixedSegments[i] || '';
+                    const fixedLc = fixed.toLowerCase();
+
+                    // Match current fixed segment as far as typed
+                    if (fixedLc.length) {
+                        let j = 0;
+                        while (j < fixedLc.length && pos + j < q.length && q.charAt(pos + j) === fixedLc.charAt(j)) {
+                            j++;
+                        }
+                        coverage += j;
+                        pos += j;
+                        if (j < fixedLc.length) {
+                            // user stopped mid-fixed
+                            return Math.min(coverage, cmd.length);
+                        }
+                    }
+
+                    // Handle placeholder following this fixed (except after the last fixed piece)
+                    if (i < placeholderTokens.length) {
+                        const token = placeholderTokens[i] || '';
+                        const nextFixedLc = (fixedSegments[i + 1] || '').toLowerCase();
+                        if (!nextFixedLc) {
+                            // trailing placeholder; user typed anything beyond pos -> count placeholder
+                            if (pos < q.length) coverage += token.length;
+                        } else {
+                            // Look for next fixed segment in the remaining input
+                            const idxNext = q.indexOf(nextFixedLc, pos);
+                            // Compute how many chars of next fixed the user has typed (prefix match)
+                            const remaining = q.slice(pos);
+                            let prefixMatch = 0;
+                            while (prefixMatch < nextFixedLc.length && prefixMatch < remaining.length && remaining.charAt(prefixMatch) === nextFixedLc.charAt(prefixMatch)) {
+                                prefixMatch++;
+                            }
+
+                            if (idxNext > pos) {
+                                // There is placeholder content before the next fixed
+                                coverage += token.length;
+                                // Add per-letter bold for the beginning of the next fixed that is already typed
+                                coverage += prefixMatch;
+                                return Math.min(coverage, cmd.length);
+                            } else if (idxNext === pos) {
+                                // No placeholder content yet; still allow per-letter bold on the next fixed as user types it
+                                coverage += prefixMatch;
+                                if (prefixMatch < nextFixedLc.length) {
+                                    return Math.min(coverage, cmd.length);
+                                }
+                                // Full next fixed typed; continue to next loop iteration to process more
+                            } else if (idxNext === -1) {
+                                // Next fixed not fully present. If the user typed anything, consider placeholder in progress
+                                if (pos < q.length) {
+                                    coverage += token.length;
+                                    coverage += prefixMatch; // and any partial of next fixed typed
+                                    return Math.min(coverage, cmd.length);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                return Math.min(coverage, cmd.length);
+            } catch (e) {
+                return 0;
+            }
+        }
+
+        // Sender-focused bolding: while user types a sender/domain between fixed parts,
+        // bold the entire [sender]-like token as soon as they type any character into it.
+        function computeSenderBoldLength(cmd, input) {
+            try {
+                const tokenMatch = cmd.match(/\[(sender|domain\.com|שולח|דומיין)\]/i);
+                if (!tokenMatch) return -1;
+                const tokenStart = tokenMatch.index || 0;
+                const token = tokenMatch[0];
+                const parts = cmd.split(/\[[^\]]+\]/);
+                // Find index of the sender placeholder among placeholders
+                const placeholderList = (cmd.toLowerCase().match(/\[[^\]]+\]/g) || []);
+                const senderIdx = placeholderList.findIndex(p => /\[(sender|domain\.com|שולח|דומיין)\]/i.test(p));
+                const before = parts[senderIdx] || '';
+                const after = parts[senderIdx + 1] || '';
+
+                const q = (input || '').toLowerCase();
+                const beforeLc = before.toLowerCase();
+                const afterLc = after.toLowerCase();
+
+                // Match the fixed prefix per letter
+                let matched = 0;
+                while (matched < beforeLc.length && matched < q.length && q.charAt(matched) === beforeLc.charAt(matched)) matched++;
+                if (matched < beforeLc.length) return matched; // still typing prefix
+
+                // Inside or past the sender slot -> bold through the token
+                let coverage = before.length + token.length;
+
+                // Extend bold into the next fixed word per letter, regardless of how long the sender is
+                if (afterLc && q.length > matched) {
+                    // Typed content inside placeholder
+                    const typedInside = q.slice(matched);
+                    // We want the longest prefix of 'afterLc' that is a SUFFIX of typedInside
+                    // so bold progresses smoothly into the next fixed word as the user types it
+                    let best = 0;
+                    const maxPref = Math.min(afterLc.length, typedInside.length);
+                    for (let k = maxPref; k >= 1; k--) {
+                        if (typedInside.endsWith(afterLc.substring(0, k))) { best = k; break; }
+                    }
+                    coverage += best;
+                }
+                return Math.min(coverage, cmd.length);
+            } catch (e) {
+                return -1;
+            }
+        }
+
+        function escapeHtml(s) {
+            if (!s) return '';
+            return s
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+        }
+
+        function longestCommonPrefixLen(a, b) {
+            const m = Math.min(a.length, b.length);
+            let i = 0;
+            while (i < m && a.charAt(i) === b.charAt(i)) i++;
+            return i;
+        }
+
+        // Materialize the [sender] token with what the user typed and compute bold
+        function renderSenderMaterialized(div, cmd, input) {
+            const tokenRegex = /\[(sender(?:\/domain)?|domain(?:\.com)?|שולח(?:\/דומיין)?|דומיין)\]/i;
+            const lcCmd = cmd.toLowerCase();
+            const tokenM = lcCmd.match(tokenRegex);
+            if (!tokenM) return false;
+
+            const tokenIdx = tokenM.index || 0;
+            const tokenText = cmd.substr(tokenIdx, tokenM[0].length);
+            const before = cmd.substring(0, tokenIdx);
+            const afterStart = tokenIdx + tokenText.length;
+            const nextPlaceholderIdx = cmd.indexOf('[', afterStart);
+            const afterFixed = nextPlaceholderIdx === -1 ? cmd.substring(afterStart) : cmd.substring(afterStart, nextPlaceholderIdx);
+
+            const beforeLc = before.toLowerCase();
+            const q = (input || '').toLowerCase();
+
+            // If user hasn't matched the fixed prefix fully yet, bold ONLY within the fixed prefix per letter
+            const startsWithBefore = q.startsWith(beforeLc);
+            if (!startsWithBefore) {
+                const cutoff = Math.min(q.length, before.length);
+                const bold = escapeHtml(cmd.substring(0, cutoff));
+                const rest = escapeHtml(cmd.substring(cutoff));
+                div.innerHTML = `<strong>${bold}</strong>${rest}`;
+                return true;
+            }
+
+            const typedAfterPrefix = q.length > beforeLc.length ? q.slice(beforeLc.length) : '';
+            // Determine how much of the next fixed segment the user already typed (k)
+            const afterFixedLc = (afterFixed || '').toLowerCase();
+            let k = 0;
+            if (afterFixedLc && typedAfterPrefix) {
+                const maxPref = Math.min(afterFixedLc.length, typedAfterPrefix.length);
+                for (let i2 = maxPref; i2 >= 1; i2--) {
+                    if (typedAfterPrefix.endsWith(afterFixedLc.substring(0, i2))) { k = i2; break; }
+                }
+            }
+            const typedInsidePlaceholderLen = Math.max(0, typedAfterPrefix.length - k);
+            const materialized = (before + typedAfterPrefix + afterFixed).toLowerCase();
+            const cutoffMat = longestCommonPrefixLen(materialized, q);
+
+            // Map materialized cutoff back to template cutoff
+            let cutoffTpl;
+            if (cutoffMat <= before.length) {
+                cutoffTpl = cutoffMat;
+            } else if (cutoffMat <= before.length + typedInsidePlaceholderLen) {
+                cutoffTpl = before.length + tokenText.length; // bold full [sender]
+            } else {
+                const extra = cutoffMat - (before.length + typedInsidePlaceholderLen);
+                cutoffTpl = before.length + tokenText.length + extra;
+            }
+            cutoffTpl = Math.max(0, Math.min(cutoffTpl, cmd.length));
+
+            const bold = escapeHtml(cmd.substring(0, cutoffTpl));
+            const rest = escapeHtml(cmd.substring(cutoffTpl));
+            div.innerHTML = `<strong>${bold}</strong>${rest}`;
+            return true;
+        }
+
+        // Materialize [duration]/[timeframe]/[time period] tokens and compute bold continuation
+        function renderDurationMaterialized(div, cmd, input) {
+            const tokenRegex = /\[(duration|time\s*frame|time\s*period|משך(?:\s*זמן)?|טווח(?:\s*זמן)?|פרק(?:\s*זמן)?)\]/i;
+            const lcCmd = cmd.toLowerCase();
+            const tokenM = lcCmd.match(tokenRegex);
+            if (!tokenM) return false;
+
+            const tokenIdx = tokenM.index || 0;
+            const tokenEnd = lcCmd.indexOf(']', tokenIdx) + 1;
+            const tokenText = cmd.substring(tokenIdx, tokenEnd);
+
+            // Fixed text immediately before the duration-like token
+            let lastClose = cmd.lastIndexOf(']', tokenIdx - 1);
+            if (lastClose < 0) lastClose = 0;
+            const beforeFixed = lastClose > 0 ? cmd.substring(lastClose + 1, tokenIdx) : (cmd.substring(0, tokenIdx).split(/\[[^\]]+\]/).pop() || '');
+            const beforeFixedLc = beforeFixed.toLowerCase();
+
+            const q = (input || '').toLowerCase();
+            const anchorPos = beforeFixedLc ? q.lastIndexOf(beforeFixedLc) : -1;
+            if (beforeFixedLc && anchorPos === -1) return false;
+
+            // Characters typed after the anchor (fixed text before the token)
+            const afterAnchor = beforeFixedLc ? q.slice(anchorPos + beforeFixedLc.length) : q;
+
+            // Fixed text after the duration-like token up to the next placeholder (if any)
+            const afterStart = tokenEnd;
+            const nextPlaceholderIdx = cmd.indexOf('[', afterStart);
+            const afterFixed = nextPlaceholderIdx === -1 ? cmd.substring(afterStart) : cmd.substring(afterStart, nextPlaceholderIdx);
+            const afterFixedLc = (afterFixed || '').toLowerCase();
+
+            // How much of the following fixed text is already typed at the end
+            let k = 0;
+            if (afterFixedLc && afterAnchor) {
+                const maxPref = Math.min(afterFixedLc.length, afterAnchor.length);
+                for (let i2 = maxPref; i2 >= 1; i2--) {
+                    if (afterAnchor.endsWith(afterFixedLc.substring(0, i2))) { k = i2; break; }
+                }
+            }
+
+            const strongEnd = afterStart + k; // include token fully and k chars of next fixed
+            const bold = escapeHtml(cmd.substring(0, tokenIdx + tokenText.length + (k > 0 ? k : 0)));
+            const rest = escapeHtml(cmd.substring(tokenIdx + tokenText.length + (k > 0 ? k : 0)));
+            div.innerHTML = `<strong>${bold}</strong>${rest}`;
+            return true;
+        }
+
+        // Compute-only variants to get the same visual bold cutoff used by renderers
+        function computeMaterializedSenderCutoff(cmd, input) {
+            try {
+                const tokenRegex = /\[(sender(?:\/domain)?|domain(?:\.com)?|שולח(?:\/דומיין)?|דומיין)\]/i;
+                const lcCmd = cmd.toLowerCase();
+                const tokenM = lcCmd.match(tokenRegex);
+                if (!tokenM) return 0;
+                const tokenIdx = tokenM.index || 0;
+                const tokenText = cmd.substr(tokenIdx, tokenM[0].length);
+                const before = cmd.substring(0, tokenIdx);
+                const afterStart = tokenIdx + tokenText.length;
+                const nextPlaceholderIdx = cmd.indexOf('[', afterStart);
+                const afterFixed = nextPlaceholderIdx === -1 ? cmd.substring(afterStart) : cmd.substring(afterStart, nextPlaceholderIdx);
+
+                const beforeLc = before.toLowerCase();
+                const q = (input || '').toLowerCase();
+                if (!q.startsWith(beforeLc)) {
+                    return longestCommonPrefixLen(lcCmd, q);
+                }
+                const typedAfterPrefix = q.length > beforeLc.length ? q.slice(beforeLc.length) : '';
+                const afterFixedLc = (afterFixed || '').toLowerCase();
+                let k = 0;
+                if (afterFixedLc && typedAfterPrefix) {
+                    const maxPref = Math.min(afterFixedLc.length, typedAfterPrefix.length);
+                    for (let i2 = maxPref; i2 >= 1; i2--) {
+                        if (typedAfterPrefix.endsWith(afterFixedLc.substring(0, i2))) { k = i2; break; }
+                    }
+                }
+                const typedInsidePlaceholderLen = Math.max(0, typedAfterPrefix.length - k);
+                const materialized = (before + typedAfterPrefix + afterFixed).toLowerCase();
+                const cutoffMat = longestCommonPrefixLen(materialized, q);
+                let cutoffTpl;
+                if (cutoffMat <= before.length) {
+                    cutoffTpl = cutoffMat;
+                } else if (cutoffMat <= before.length + typedInsidePlaceholderLen) {
+                    cutoffTpl = before.length + tokenText.length;
+                } else {
+                    const extra = cutoffMat - (before.length + typedInsidePlaceholderLen);
+                    cutoffTpl = before.length + tokenText.length + extra;
+                }
+                return Math.max(0, Math.min(cutoffTpl, cmd.length));
+            } catch (e) { return 0; }
+        }
+
+        function computeMaterializedDurationCutoff(cmd, input) {
+            try {
+                const tokenRegex = /\[(duration|time\s*frame|time\s*period|משך(?:\s*זמן)?|טווח(?:\s*זמן)?|פרק(?:\s*זמן)?)\]/i;
+                const lcCmd = cmd.toLowerCase();
+                const tokenM = lcCmd.match(tokenRegex);
+                if (!tokenM) return 0;
+                const tokenIdx = tokenM.index || 0;
+                const tokenEnd = lcCmd.indexOf(']', tokenIdx) + 1;
+                const tokenText = cmd.substring(tokenIdx, tokenEnd);
+                let lastClose = cmd.lastIndexOf(']', tokenIdx - 1);
+                if (lastClose < 0) lastClose = 0;
+                const beforeFixed = lastClose > 0 ? cmd.substring(lastClose + 1, tokenIdx) : (cmd.substring(0, tokenIdx).split(/\[[^\]]+\]/).pop() || '');
+                const beforeFixedLc = beforeFixed.toLowerCase();
+                const q = (input || '').toLowerCase();
+                const anchorPos = beforeFixedLc ? q.lastIndexOf(beforeFixedLc) : -1;
+                if (beforeFixedLc && anchorPos === -1) return 0;
+                const afterAnchor = beforeFixedLc ? q.slice(anchorPos + beforeFixedLc.length) : q;
+                const afterStart = tokenEnd;
+                const nextPlaceholderIdx = cmd.indexOf('[', afterStart);
+                const afterFixed = nextPlaceholderIdx === -1 ? cmd.substring(afterStart) : cmd.substring(afterStart, nextPlaceholderIdx);
+                const afterFixedLc = (afterFixed || '').toLowerCase();
+                let k = 0;
+                if (afterFixedLc && afterAnchor) {
+                    const maxPref = Math.min(afterFixedLc.length, afterAnchor.length);
+                    for (let i2 = maxPref; i2 >= 1; i2--) {
+                        if (afterAnchor.endsWith(afterFixedLc.substring(0, i2))) { k = i2; break; }
+                    }
+                }
+                const strongEnd = tokenIdx + tokenText.length + (k > 0 ? k : 0);
+                return Math.max(0, Math.min(strongEnd, cmd.length));
+            } catch (e) { return 0; }
         }
 
         // Prevent duplicate submissions and show overlay
@@ -2212,10 +2685,181 @@
                 div.style.cursor = 'pointer';
                 const lc = cmd.toLowerCase();
                 const pos = lc.indexOf(input.toLowerCase());
-                if (type === 'include' && pos >= 0) {
-                    const bold = cmd.substring(0, pos + input.length);
-                    const rest = cmd.substring(pos + input.length);
+
+                // Force placeholder-aware bolding for sender and duration/timeframe tokens
+                const hasSenderToken = /\[(sender(?:\/domain)?|domain(?:\.com)?|שולח(?:\/דומיין)?|דומיין)\]/i.test(cmd);
+                const hasDurationToken = /\[(duration|time\s*frame|time\s*period|משך(?:\s*זמן)?|טווח(?:\s*זמן)?|פרק(?:\s*זמן)?)\]/i.test(cmd);
+                if (hasSenderToken) {
+                    // Only apply sender-aware bolding if user typed a sender cue (e.g., "from"/"מ-")
+                    const qlAll = (input || '').toLowerCase();
+                    const partialFromCue = /\blist\s+emails\s+f(?:r|ro)?$/i.test(qlAll);
+                    let hasSenderCue = /\bfrom\b|\bמ(?:-|\s)/i.test(qlAll) || partialFromCue;
+                    // If a timeframe token follows a full 'from', suppress sender cue
+                    try {
+                        const mTok = qlAll.match(/\bfrom\s+([a-z0-9\.\-]+)/i);
+                        if (mTok && mTok[1]) {
+                            const tok = mTok[1];
+                            if (!/[.]/.test(tok)) {
+                                const timePrefixes = ['today','yesterday','last','this'];
+                                if (/^\d/.test(tok) || timePrefixes.some(w => w.startsWith(tok))) {
+                                    hasSenderCue = false;
+                                }
+                            }
+                        }
+                    } catch (e) {}
+                    if (!hasSenderCue) {
+                        // Allow simple per-letter bold for the fixed prefix when there's no sender cue
+                        const qlPrefix = (input || '').toLowerCase();
+                        const lcCmdPrefix = cmd.toLowerCase();
+                        if (lcCmdPrefix.startsWith(qlPrefix)) {
+                            const bold = escapeHtml(cmd.substring(0, qlPrefix.length));
+                            const rest = escapeHtml(cmd.substring(qlPrefix.length));
+                            div.innerHTML = `<strong>${bold}</strong>${rest}`;
+                        } else {
+                            div.textContent = cmd;
+                        }
+                    } else {
+                    // Try materialized rendering first; if it succeeds, we're done for this item
+                    if (renderSenderMaterialized(div, cmd, input)) {
+                        // keep click/select handlers below
+                    } else {
+                    const ql = (input || '').toLowerCase();
+                    const lcCmd2 = cmd.toLowerCase();
+                    const tokenRegex = /\[(sender(?:\/domain)?|domain(?:\.com)?|שולח(?:\/דומיין)?|דומיין)\]/i;
+                    const tokenMatch = lcCmd2.match(tokenRegex);
+                    const tokenIdx = tokenMatch ? tokenMatch.index : -1;
+                    let boldLen;
+                    if (tokenIdx >= 0) {
+                        // Determine fixed parts around sender token using indices to avoid ambiguity
+                        const before = cmd.substring(0, tokenIdx);
+                        const beforeLc = before.toLowerCase();
+                        const afterStart = tokenIdx + tokenMatch[0].length;
+                        const nextPlaceholderIdx = cmd.indexOf('[', afterStart);
+                        const afterFixed = nextPlaceholderIdx === -1 ? cmd.substring(afterStart) : cmd.substring(afterStart, nextPlaceholderIdx);
+                        const afterFixedLc = afterFixed.toLowerCase();
+
+                        // 1) If still typing the fixed prefix (including partial 'from'), bold only that much
+                        let matched = 0;
+                        while (matched < beforeLc.length && matched < ql.length && ql.charAt(matched) === beforeLc.charAt(matched)) matched++;
+                        if (matched < beforeLc.length) {
+                            const bold = escapeHtml(cmd.substring(0, matched));
+                            const rest = escapeHtml(cmd.substring(matched));
+                            div.innerHTML = `<strong>${bold}</strong>${rest}`;
+                        } else {
+                            // 2) Inside/after sender: compute how much of the next fixed segment is typed
+                            const typedInside = ql.slice(beforeLc.length); // from start of placeholder
+                            let k = 0;
+                            const maxPref = Math.min(afterFixedLc.length, typedInside.length);
+                            for (let i2 = maxPref; i2 >= 1; i2--) {
+                                if (typedInside.endsWith(afterFixedLc.substring(0, i2))) { k = i2; break; }
+                            }
+                            const strongEnd = afterStart + k; // include [sender] and k chars of next fixed
+                            const bold = escapeHtml(cmd.substring(0, strongEnd));
+                            const rest = escapeHtml(cmd.substring(strongEnd));
+                            div.innerHTML = `<strong>${bold}</strong>${rest}`;
+                        }
+                        
+                    } else {
+                        boldLen = item.prefixLen || 0;
+                    }
+                    const safeBoldLen = Math.max(0, Math.min(boldLen, cmd.length));
+                    const bold = escapeHtml(cmd.substring(0, safeBoldLen));
+                    const rest = escapeHtml(cmd.substring(safeBoldLen));
                     div.innerHTML = `<strong>${bold}</strong>${rest}`;
+                    }
+                    // Additionally extend into duration/timeframe ONLY after user types beyond the next fixed word
+                    if (/\[(duration|time\s*frame|time\s*period|משך(?:\s*זמן)?|טווח(?:\s*זמן)?|פרק(?:\s*זמן)?)\]/i.test(cmd)) {
+                        try {
+                            const ql2 = (input || '').toLowerCase();
+                            const lcCmd3 = cmd.toLowerCase();
+                            const senderRe = /\[(sender(?:\/domain)?|domain(?:\.com)?|שולח(?:\/דומיין)?|דומיין)\]/i;
+                            const m = lcCmd3.match(senderRe);
+                            if (m) {
+                                const tokenIdx2 = m.index || 0;
+                                const before2 = cmd.substring(0, tokenIdx2).toLowerCase();
+                                const afterStart2 = tokenIdx2 + m[0].length;
+                                const nextPH2 = cmd.indexOf('[', afterStart2);
+                                const afterFixed2 = (nextPH2 === -1 ? cmd.substring(afterStart2) : cmd.substring(afterStart2, nextPH2)).toLowerCase();
+                                const typedInside2 = ql2.length > before2.length ? ql2.slice(before2.length) : '';
+                                let k2 = 0; const max2 = Math.min(afterFixed2.length, typedInside2.length);
+                                for (let i2 = max2; i2 >= 1; i2--) { if (typedInside2.endsWith(afterFixed2.substring(0, i2))) { k2 = i2; break; } }
+                                const fullyMatchedNextFixed = afterFixed2.length > 0 && k2 >= afterFixed2.length;
+                                const hasTypedBeyondNextFixed = fullyMatchedNextFixed && (typedInside2.length > k2);
+                                if (hasTypedBeyondNextFixed) {
+                                    renderDurationMaterialized(div, cmd, input);
+                                }
+                            }
+                        } catch (e) { /* ignore */ }
+                    }
+                    }
+                } else if (hasDurationToken) {
+                    // Mirror behavior for duration/timeframe tokens
+                    if (renderDurationMaterialized(div, cmd, input)) {
+                        // done
+                    } else {
+                        // Only bold if input is a strict prefix of the command
+                        const ql = (input || '').toLowerCase();
+                        const lcCmd2 = cmd.toLowerCase();
+                        if (lcCmd2.startsWith(ql)) {
+                            const bold = escapeHtml(cmd.substring(0, ql.length));
+                            const rest = escapeHtml(cmd.substring(ql.length));
+                            div.innerHTML = `<strong>${bold}</strong>${rest}`;
+                        } else {
+                            div.textContent = cmd;
+                        }
+                    }
+                } else if (type === 'include' && pos >= 0) {
+                    // Only bold includes when it's a true prefix match
+                    if (pos === 0) {
+                        const bold = escapeHtml(cmd.substring(0, input.length));
+                        const rest = escapeHtml(cmd.substring(input.length));
+                        div.innerHTML = `<strong>${bold}</strong>${rest}`;
+                    } else {
+                        div.textContent = cmd;
+                    }
+                } else if (type === 'placeholder') {
+                    // Sender-first experience: explicitly bold through the sender/domain token as user types into it
+                    const ql = (input || '').toLowerCase();
+                    const lcCmd = cmd.toLowerCase();
+                    const senderTokens = ['[sender]', '[domain.com]', '[שולח]', '[דומיין]'];
+                    let tokenIdx = -1;
+                    let tokenText = '';
+                    for (let t of senderTokens) {
+                        const idx = lcCmd.indexOf(t);
+                        if (idx !== -1 && (tokenIdx === -1 || idx < tokenIdx)) { tokenIdx = idx; tokenText = cmd.substr(idx, t.length); }
+                    }
+                    let boldLen;
+                    if (tokenIdx >= 0) {
+                        const before = cmd.substring(0, tokenIdx);
+                        const beforeLc = before.toLowerCase();
+                        // Guard: if next fixed word diverges from typed word (>=2 chars), avoid bold
+                        const parts = lcCmd.split(/\[[^\]]+\]/);
+                        const nextFixed = parts[1] || '';
+                        const nextWord = (nextFixed.trim().match(/^[a-z\u0590-\u05FF]+/i) || [''])[0].toLowerCase();
+                        const typedAfter = ql.slice(beforeLc.length).trimLeft();
+                        const typedWord = (typedAfter.match(/^[a-z0-9\u0590-\u05FF]+/i) || [''])[0].toLowerCase();
+                        const earlyMismatch = typedWord.length >= 2 && nextWord && !nextWord.startsWith(typedWord);
+                        let matched = 0;
+                        while (matched < beforeLc.length && matched < ql.length && ql.charAt(matched) === beforeLc.charAt(matched)) matched++;
+                        if (earlyMismatch) {
+                            boldLen = 0;
+                        } else {
+                            // If user has started typing beyond the fixed prefix, include the whole token in bold
+                            if (ql.length > beforeLc.length) boldLen = before.length + tokenText.length;
+                            else boldLen = matched;
+                        }
+                    } else {
+                        // Fallback to generic placeholder-aware bolding
+                        boldLen = computePlaceholderBoldLength(cmd, input);
+                    }
+                    const safeBoldLen = Math.max(0, Math.min((boldLen != null ? boldLen : (item.prefixLen || 0)), cmd.length));
+                    if (safeBoldLen > 0) {
+                        const bold = cmd.substring(0, safeBoldLen);
+                        const rest = cmd.substring(safeBoldLen);
+                        div.innerHTML = `<strong>${bold}</strong>${rest}`;
+                    } else {
+                        div.textContent = cmd;
+                    }
                 } else {
                     div.textContent = cmd;
                 }
