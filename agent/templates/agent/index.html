@@ -1909,7 +1909,7 @@
                 'delete all emails older than [duration]',
                 'archive emails older than [duration]',
                 'archive emails from [sender] older than [duration]',
-                'archive emails from [sender] from [time period]',
+                // removed generic archive sender time period placeholder (we keep specific fixed-time variants via backend list)
                 '• label emails from [sender] as "[label]"',
                 'list labels',
                 'show label "[label]"',
@@ -1993,8 +1993,8 @@
                         const mTok = lastFrom.match(/\bfrom\s+([a-z]+)/i);
                         if (mTok && mTok[1]) token = mTok[1];
                     } else {
-                        // Base pattern: 'list emails from <token>'
-                        const mBase = q.match(/\blist\s+emails\s+from\s+([a-z]+)/i);
+                        // Base patterns: 'list|archive emails from <token>'
+                        const mBase = q.match(/\b(?:list|archive)\s+emails\s+from\s+([a-z]+)/i);
                         if (mBase && mBase[1]) token = mBase[1];
                     }
                     if (token) {
@@ -2109,7 +2109,7 @@
                     const inSameCategory = (cmd.toLowerCase().indexOf(categoryKey) !== -1);
                     if (!inSameCategory) return 0;
                 }
-                const partialFromCue = /\blist\s+emails\s+f(?:r|ro)?$/i.test(q);
+                const partialFromCue = /\b(?:list|archive)\s+emails\s+f(?:r|ro)?$/i.test(q);
                 const hasSenderCue = /\bfrom\b|\bמ(?:-|\s)/i.test(q) || partialFromCue;
                 if (!hasSenderCue) return 0;
                 // Suppress sender ranking only when the token after "from" is a real timeframe prefix
@@ -2209,6 +2209,38 @@
                 }
             } catch (e) {}
 
+            // PRIORITY: If pattern is 'archive emails from <sender> from <number>',
+            // prefer ARCHIVE sender+duration-ago template and demote 'older than'
+            try {
+                const mArchSenderNum = q.match(/\barchive\s+emails\s+from\s+([^\s].*?)\s+from\s+\d+/i);
+                if (mArchSenderNum) {
+                    const archSenderDurAgo = commands.find(c => /\barchive\s+emails\s+from\s+\[sender\][^\n]*\s+from\s+\[duration\]\s+ago\b/i.test(c));
+                    if (archSenderDurAgo) {
+                        // Remove existing instance if already present so we can place it first
+                        for (let i = merged.length - 1; i >= 0; i--) {
+                            if (merged[i] && merged[i].cmd === archSenderDurAgo) {
+                                merged.splice(i, 1);
+                            }
+                        }
+                        if (!seen.has(archSenderDurAgo)) {
+                            merged.unshift({ cmd: archSenderDurAgo, score: 9.9, type: 'archive_sender_duration_num' });
+                            seen.add(archSenderDurAgo);
+                        } else {
+                            merged.unshift({ cmd: archSenderDurAgo, score: 9.9, type: 'archive_sender_duration_num' });
+                        }
+                    }
+                    // Demote 'archive ... older than [duration]' if present in this state
+                    const idxOlderArch = merged.findIndex(function(it){
+                        const s = (it && it.cmd ? String(it.cmd).toLowerCase() : '');
+                        return /\barchive\s+emails\s+from\s+\[sender\][^\n]*\s+older\s+than\s+\[duration\]\b/i.test(s);
+                    });
+                    if (idxOlderArch > -1) {
+                        const item = merged.splice(idxOlderArch, 1)[0];
+                        merged.push(item);
+                    }
+                }
+            } catch (e) {}
+
             // PRIORITY: If pattern is 'list emails from <sender> older than <...>', prefer sender+older-than template
             try {
                 const senderOlderTyped = /\blist\s+emails\s+from\s+([^\s].*?)\s+older\s+than\b/i.test(q);
@@ -2242,6 +2274,23 @@
                         }
                     }
                     // Insert right after any aligned match
+                    prioritized.forEach(item => { merged.splice(merged.length > 0 ? 1 : 0, 0, item); });
+                }
+            } catch (e) {}
+
+            // ARCHIVE variant: If typing 'archive emails from <sender> f|fr|fro|from', seed archive sender+timeframe near the top
+            try {
+                const archSenderFromPartial = /\barchive\s+emails\s+from\s+([^\s].*?)\s+f(?:|r|ro|rom)\s*$/i.test(q);
+                if (archSenderFromPartial) {
+                    const reArchSenderTime = /^archive\s+emails\s+from\s+\[sender\][^\n]*\s+from\s+(?:today|yesterday|this\s+(?:week|month|year)|last\s+(?:week|month|year))\b/i;
+                    const prioritized = [];
+                    for (let i = 0; i < commands.length; i++) {
+                        const c = commands[i];
+                        if (reArchSenderTime.test(c) && !seen.has(c)) {
+                            prioritized.push({ cmd: c, score: 9.6, type: 'archive_sender_time_seed' });
+                            seen.add(c);
+                        }
+                    }
                     prioritized.forEach(item => { merged.splice(merged.length > 0 ? 1 : 0, 0, item); });
                 }
             } catch (e) {}
@@ -2288,7 +2337,7 @@
             // ENSURE VISIBILITY (guarded): keep 'sender from [duration] ago' only when not on fixed timeframe flow
             if (!hasFixedTimeCue) {
                 try {
-                    const baseSenderCue = /\blist\s+emails\s+from\b/i.test(q);
+                    const baseSenderCue = /\b(?:list|archive)\s+emails\s+from\b/i.test(q);
                     if (baseSenderCue) {
                         const senderDurAgo = commands.find(c => /\blist\s+emails\s+from\s+\[sender\][^\n]*\s+from\s+\[duration\]\s+ago\b/i.test(c));
                         if (senderDurAgo && !seen.has(senderDurAgo)) {
@@ -2299,6 +2348,21 @@
                     }
                 } catch (e) {}
             }
+
+            // When input starts with 'archive', prefer ARCHIVE commands above LIST ones
+            try {
+                if (/^\s*archive\b/i.test(q)) {
+                    merged.sort((a, b) => {
+                        const sa = (a && a.cmd ? String(a.cmd).toLowerCase() : '');
+                        const sb = (b && b.cmd ? String(b.cmd).toLowerCase() : '');
+                        const aArch = /^archive\b/.test(sa);
+                        const bArch = /^archive\b/.test(sb);
+                        if (aArch && !bArch) return -1;
+                        if (!aArch && bArch) return 1;
+                        return 0;
+                    });
+                }
+            } catch (e) {}
             // Fuzzy fallback independent of direct includes, so templates with placeholders appear
             const fuzzyList = [];
             for (let i = 0; i < commands.length; i++) {
@@ -2371,6 +2435,16 @@
                 const c = merged[i].cmd;
                 if (!seen2.has(c)) { seen2.add(c); unique.push(merged[i]); }
             }
+            // ARCHIVE CONTEXT FILTER: if user is typing an 'archive' command, remove stray 'list' suggestions
+            try {
+                if (/^\s*archive\b/i.test(q)) {
+                    const filteredArchive = unique.filter(function(item){
+                        const s = (item && item.cmd ? String(item.cmd).toLowerCase() : '');
+                        return !/^\s*list\b/.test(s);
+                    });
+                    if (filteredArchive.length) return filteredArchive;
+                }
+            } catch (e) {}
             // Sender-focused post-filter: when user typed a specific token after 'list emails from',
             // prefer only sender/domain templates and hide unrelated actions/timeframes.
             try {
@@ -2386,7 +2460,7 @@
                     if (filtered.length) return filtered;
                 }
                 // If typing timeframe letter after sender (from l|t...), hide generic no-sender timeframe suggestions
-                const senderTimePrefix = /\blist\s+emails\s+from\s+([^\s].*?)\s+from\s+[lt]/i.test(q);
+                const senderTimePrefix = /\b(?:list|archive)\s+emails\s+from\s+([^\s].*?)\s+from\s+[lt]/i.test(q);
                 if (senderTimePrefix) {
                     const filtered2 = unique.filter(function(item){
                         const s = (item && item.cmd ? String(item.cmd).toLowerCase() : '');
@@ -2408,6 +2482,22 @@
                     });
                     if (idxOlder > -1 && idxPlain > -1 && idxOlder > idxPlain) {
                         const item = unique.splice(idxOlder, 1)[0];
+                        unique.unshift(item);
+                        return unique;
+                    }
+                }
+                // ARCHIVE: Ensure 'archive sender older than [duration]' stays above plain 'archive sender' while typing 'older than'
+                if (/\barchive\s+emails\s+from\s+([^\s].*?)\s+older\s+than\s+[0-9]+\s+[a-z]+/i.test(q)) {
+                    const idxOlderA = unique.findIndex(function(it){
+                        const s = (it && it.cmd ? String(it.cmd).toLowerCase() : '');
+                        return /\barchive\s+emails\s+from\s+\[sender\][^\n]*\s+older\s+than\s+\[duration\]\b/i.test(s);
+                    });
+                    const idxPlainA = unique.findIndex(function(it){
+                        const s = (it && it.cmd ? String(it.cmd).toLowerCase() : '');
+                        return /^archive\s+emails\s+from\s+\[sender\]\b/i.test(s);
+                    });
+                    if (idxOlderA > -1 && idxPlainA > -1 && idxOlderA > idxPlainA) {
+                        const item = unique.splice(idxOlderA, 1)[0];
                         unique.unshift(item);
                         return unique;
                     }
