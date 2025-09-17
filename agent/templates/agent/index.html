@@ -1964,6 +1964,33 @@
             const scored = [];
             const includeMatches = [];
 
+            // Detect fixed timeframe cues so we can suppress '[duration] ago' templates
+            const hasFixedTimeCue = (() => {
+                try {
+                    // Direct full-word cues anywhere
+                    if (/\b(today|yesterday)\b/i.test(q)) return true;
+                    if (/\bfrom\s+(last|this)\b/i.test(q)) return true;
+                    // Extract the token immediately following the LAST 'from '
+                    let token = '';
+                    let m = q.match(/\bfrom\s+([^\s]+)/ig);
+                    if (m && m.length) {
+                        const lastFrom = m[m.length - 1];
+                        const mTok = lastFrom.match(/\bfrom\s+([a-z]+)/i);
+                        if (mTok && mTok[1]) token = mTok[1];
+                    } else {
+                        // Base pattern: 'list emails from <token>'
+                        const mBase = q.match(/\blist\s+emails\s+from\s+([a-z]+)/i);
+                        if (mBase && mBase[1]) token = mBase[1];
+                    }
+                    if (token) {
+                        const timeWords = ['today','yesterday','last','this'];
+                        const isTimePrefix = timeWords.some(w => w.startsWith(token));
+                        if (isTimePrefix) return true;
+                    }
+                    return false;
+                } catch (e) { return false; }
+            })();
+
             // Helper to escape regex special chars
             function escapeRegex(s) {
                 return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -2158,19 +2185,20 @@
                 }
             } catch (e) {}
 
-            // ENSURE VISIBILITY: When user types exactly 'list emails from' (with or without partial sender),
-            // include the sender+duration-ago template near the top so it doesn't disappear
-            try {
-                const baseSenderCue = /\blist\s+emails\s+from\b/i.test(q);
-                if (baseSenderCue) {
-                    const senderDurAgo = commands.find(c => /\blist\s+emails\s+from\s+\[sender\][^\n]*\s+from\s+\[duration\]\s+ago\b/i.test(c));
-                    if (senderDurAgo && !seen.has(senderDurAgo)) {
-                        // place after any aligned item but before general includes
-                        merged.splice(merged.length > 0 ? 1 : 0, 0, { cmd: senderDurAgo, score: 8.9, type: 'sender_duration_seed' });
-                        seen.add(senderDurAgo);
+            // ENSURE VISIBILITY (guarded): keep 'sender from [duration] ago' only when not on fixed timeframe flow
+            if (!hasFixedTimeCue) {
+                try {
+                    const baseSenderCue = /\blist\s+emails\s+from\b/i.test(q);
+                    if (baseSenderCue) {
+                        const senderDurAgo = commands.find(c => /\blist\s+emails\s+from\s+\[sender\][^\n]*\s+from\s+\[duration\]\s+ago\b/i.test(c));
+                        if (senderDurAgo && !seen.has(senderDurAgo)) {
+                            // place after any aligned item but before general includes
+                            merged.splice(merged.length > 0 ? 1 : 0, 0, { cmd: senderDurAgo, score: 8.9, type: 'sender_duration_seed' });
+                            seen.add(senderDurAgo);
+                        }
                     }
-                }
-            } catch (e) {}
+                } catch (e) {}
+            }
             // Fuzzy fallback independent of direct includes, so templates with placeholders appear
             const fuzzyList = [];
             for (let i = 0; i < commands.length; i++) {
@@ -2184,6 +2212,27 @@
             }
             fuzzyList.sort((a, b) => b.score - a.score);
             for (let k = 0; k < fuzzyList.length; k++) if (!seen.has(fuzzyList[k].cmd)) { merged.push(fuzzyList[k]); seen.add(fuzzyList[k].cmd); }
+
+            // If typing fixed timeframe (today/this/last/yesterday), demote or drop '[duration] ago' variants
+            if (hasFixedTimeCue) {
+                const durAgoRe = /\bfrom\s+\[duration\]\s+ago\b/i;
+                // First, lower their scores so fixed-time suggestions stay above
+                for (let i = 0; i < merged.length; i++) {
+                    if (merged[i] && merged[i].cmd && durAgoRe.test(merged[i].cmd)) {
+                        // reduce effective score substantially
+                        merged[i].score = (merged[i].score || 0) - 5;
+                    }
+                }
+                // Move duration-ago items to the end while preserving order otherwise
+                merged.sort((a, b) => {
+                    const aDur = a && a.cmd && durAgoRe.test(a.cmd);
+                    const bDur = b && b.cmd && durAgoRe.test(b.cmd);
+                    if (aDur && !bDur) return 1;
+                    if (!aDur && bDur) return -1;
+                    // keep previous ordering between same class
+                    return 0;
+                });
+            }
 
             // Unique and truncate (simple, proven ordering)
             const unique = [];
