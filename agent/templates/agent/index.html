@@ -1919,13 +1919,17 @@
         })();
 
         // Remove generic timeframe placeholder list-commands from autocomplete
-        // Keep specific phrases (today/yesterday/last week/etc.) and sender+timeframe templates
+        // Keep specific phrases (today/yesterday/last week/etc.), sender+timeframe templates,
+        // and category-timeframe templates (e.g., 'list shipping emails from [timeframe]').
         try {
             const timeframePlaceholderRe = /\[(time\s*frame|time\s*period)\]/i;
             commands = (Array.isArray(commands) ? commands : []).filter(function(c){
                 const lc = (c || '').toLowerCase();
                 if (!/^list\b/.test(lc)) return true;
-                if (timeframePlaceholderRe.test(lc) && !/\[sender\]/i.test(lc)) return false;
+                if (timeframePlaceholderRe.test(lc) && !/\[sender\]/i.test(lc)) {
+                    const isCategoryTemplate = /(shipping emails|verification codes|account security emails)/i.test(lc);
+                    if (!isCategoryTemplate) return false; // drop only the truly generic ones
+                }
                 return true;
             });
         } catch (e) {}
@@ -1963,6 +1967,17 @@
             const q = (input || '').toLowerCase().trim();
             const scored = [];
             const includeMatches = [];
+
+            // Detect custom category cue so category templates outrank generic ones
+            function detectCategoryKey(qs) {
+                try {
+                    if (/\blist\s+shipping\s+emails\b/i.test(qs)) return 'shipping emails';
+                    if (/\blist\s+verification\s+codes\b/i.test(qs)) return 'verification codes';
+                    if (/\blist\s+account\s+security\s+emails\b/i.test(qs)) return 'account security emails';
+                } catch (e) {}
+                return '';
+            }
+            const categoryKey = detectCategoryKey(q);
 
             // Detect fixed timeframe cues so we can suppress '[duration] ago' templates
             const hasFixedTimeCue = (() => {
@@ -2020,6 +2035,14 @@
                 // 2) Placeholder-aware prefix match so suggestions persist after filling slots
                 // Detect templates with placeholders like [sender], [domain.com], [duration], [time period] (including Hebrew labels)
                 if (/\[[^\]]+\]/.test(lc)) {
+                    // If in a category flow, ignore generic list-commands that don't include that category
+                    if (categoryKey) {
+                        const isListCmd = /^list\b/.test(lc);
+                        const hasCategoryInCmd = lc.includes(categoryKey);
+                        if (isListCmd && !hasCategoryInCmd) {
+                            continue;
+                        }
+                    }
                     const parts = lc.split(/\[[^\]]+\]/); // fixed text chunks around placeholders
                     const fixedPrefix = parts[0] || '';
                     if (fixedPrefix && q.startsWith(fixedPrefix)) {
@@ -2076,6 +2099,11 @@
             function alignedMatchLength(cmd, q) {
                 const hasSender = /\[(sender|domain\.com|שולח|דומיין)\]/i.test(cmd);
                 if (!hasSender || !q) return 0;
+                // Restrict sender alignment to same category when a category cue exists
+                if (categoryKey) {
+                    const inSameCategory = (cmd.toLowerCase().indexOf(categoryKey) !== -1);
+                    if (!inSameCategory) return 0;
+                }
                 const partialFromCue = /\blist\s+emails\s+f(?:r|ro)?$/i.test(q);
                 const hasSenderCue = /\bfrom\b|\bמ(?:-|\s)/i.test(q) || partialFromCue;
                 if (!hasSenderCue) return 0;
@@ -2111,6 +2139,21 @@
             const merged = [];
             const seen = new Set();
             if (bestAligned) { merged.push({ cmd: bestAligned, score: 10, type: 'aligned' }); seen.add(bestAligned); }
+
+            // CATEGORY PRIORITY: lift category-specific sender template near the top when typing within that category
+            try {
+                if (categoryKey) {
+                    const wantSender = /\bfrom\b\s*$/i.test(q) || /\bfrom\s+[a-z0-9\.\-]*$/i.test(q);
+                    if (wantSender) {
+                        const reSender = new RegExp('^list\\s+' + escapeRegex(categoryKey) + '\\s+from\\s+\\[(sender|domain\\.com|שולח|דומיין)\\]', 'i');
+                        const catSender = commands.find(c => reSender.test(c.toLowerCase())) || null;
+                        if (catSender && !seen.has(catSender)) {
+                            merged.splice(merged.length > 0 ? 1 : 0, 0, { cmd: catSender, score: 9.7, type: 'category_sender' });
+                            seen.add(catSender);
+                        }
+                    }
+                }
+            } catch (e) {}
 
             // Prioritize starts-with and exact includes first, then others
             includeMatches.sort((a, b) => {
@@ -2205,6 +2248,13 @@
                 const cmd = commands[i];
                 if (seen.has(cmd)) continue;
                 const lc = cmd.toLowerCase();
+                if (categoryKey) {
+                    const isListCmd = /^list\b/.test(lc);
+                    if (isListCmd && lc.indexOf(categoryKey) === -1) {
+                        // Keep fuzzy from polluting category flows
+                        continue;
+                    }
+                }
                 const sim = similarity(q, lc);
                 if (sim >= 0.42 || q.length >= 3) {
                     fuzzyList.push({ cmd, score: sim, type: 'fuzzy' });
