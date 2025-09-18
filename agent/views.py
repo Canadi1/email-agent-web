@@ -939,7 +939,6 @@ def index(request):
         _("list archived emails"),
         _("list all mail"),
         _("list emails from [sender] older than [duration]"),
-        _("list emails from [sender] from [timeframe]"),
         _("list emails from [sender] from today"),
         _("list emails from [sender] from yesterday"),
         _("list emails from [sender] from this week"),

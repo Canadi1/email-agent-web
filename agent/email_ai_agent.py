@@ -2736,7 +2736,7 @@ class GmailAIAgent:
             # Detect time window or domain/sender after 'from'
             if "from" in command_lower:
                 # Check for "from [sender] from [time period]" pattern (English)
-                sender_from_time_match = re.search(r'from\s+([a-zA-Z0-9._\-+@\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff ]+?)\s+from\s+(today|yesterday|last\s+week|last\s+month|last\s+year|this\s+week|this\s+month|this\s+year|\d+\s+(?:day|days|week|weeks|month|months|year|years)\s+ago)', command_lower)
+                sender_from_time_match = re.search(r'from\s+([a-zA-Z0-9._\-+@\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff ]+?)\s+from\s+(today|yesterday|last\s+week|last\s+month|last\s+year|this\s+week|this\s+month|this\s+year|(a|\d+)\s+(?:day|days|week|weeks|month|months|year|years)\s+ago)', command_lower)
                 if sender_from_time_match:
                     sender_keyword = sender_from_time_match.group(1).strip()
                     time_period = sender_from_time_match.group(2)
@@ -2760,7 +2760,7 @@ class GmailAIAgent:
                         return {"action": "list", "target_type": "sender", "target": sender_keyword, "date_range": time_period, "confirmation_required": False}
                 
                 # Then: explicit time window after 'from' (only if no sender was found)
-                time_after_from = re.search(r'from\s+(today|yesterday|last\s+week|last\s+month|last\s+year|this\s+week|this\s+month|this\s+year|\d+\s+(?:day|days|week|weeks|month|months|year|years)\s+ago)', command_lower)
+                time_after_from = re.search(r'from\s+(today|yesterday|last\s+week|last\s+month|last\s+year|this\s+week|this\s+month|this\s+year|(a|\d+)\s+(?:day|days|week|weeks|month|months|year|years)\s+ago)', command_lower)
                 if time_after_from:
                     date_phrase = time_after_from.group(1)
                     return {"action": "list", "target_type": "date_range", "target": date_phrase, "confirmation_required": False}
@@ -2889,7 +2889,7 @@ class GmailAIAgent:
             if domain_match:
                 return {"action": "archive", "target_type": "domain", "target": domain_match.group(1), "confirmation_required": True, "older_than_days": older_than_days}
             # Archive emails from sender from specific time periods (today/yesterday/this X/last X/N ago)
-            from_time_match = re.search(r'from\s+([a-zA-Z0-9._\-+@\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff ]+?)\s+from\s+(today|yesterday|last\s+week|last\s+month|last\s+year|this\s+week|this\s+month|this\s+year|\d+\s+(?:day|days|week|weeks|month|months|year|years)\s+ago)', command_lower)
+            from_time_match = re.search(r'from\s+([a-zA-Z0-9._\-+@\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff ]+?)\s+from\s+(today|yesterday|last\s+week|last\s+month|last\s+year|this\s+week|this\s+month|this\s+year|(a|\d+)\s+(?:day|days|week|weeks|month|months|year|years)\s+ago)', command_lower)
             if from_time_match:
                 sender_keyword = from_time_match.group(1).strip()
                 time_period = from_time_match.group(2)

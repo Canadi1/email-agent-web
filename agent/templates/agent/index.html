@@ -2130,14 +2130,23 @@
                 // Suppress sender ranking only when the token after "from" is a real timeframe prefix
                 let hasTimeCue = false;
                 try {
-                    const m = q.match(/\bfrom\s+([a-z0-9\.\-]+)/i);
-                    if (m && m[1]) {
-                        const tok = m[1];
+                    // Look at the last 'from <token>' occurrence to detect timeframe intent after a sender
+                    let tok = '';
+                    let fm = q.match(/\bfrom\s+([^\s]+)/ig);
+                    if (fm && fm.length) {
+                        const lastFrom = fm[fm.length - 1];
+                        const mLast = lastFrom.match(/\bfrom\s+([a-z0-9\.\-]+)/i);
+                        if (mLast && mLast[1]) tok = mLast[1];
+                    } else {
+                        const m = q.match(/\bfrom\s+([a-z0-9\.\-]+)/i);
+                        if (m && m[1]) tok = m[1];
+                    }
+                    if (tok) {
                         // Domain heuristic: if token looks like a domain or ends with .com, prefer sender
                         if (/\.|\.com$/i.test(tok)) {
                             hasTimeCue = false;
                         } else 
-                        if (/^\d/.test(tok)) {
+                        if (/^\d/.test(tok) || tok === 'a') {
                             hasTimeCue = true; // numeric start (e.g., 5 days ...)
                         } else {
                             const timePrefixes = ['today','yesterday','last','this'];
@@ -2202,7 +2211,7 @@
 
             // PRIORITY: If user typed a numeric duration after 'from', surface 'list emails from [duration] ago'
             try {
-                const numDurCue = /\blist\s+emails\s+from\s+\d+/i.test(q);
+                const numDurCue = /\blist\s+emails\s+from\s+(?:a\s+(?:day|week|month|year)|\d+)/i.test(q);
                 if (numDurCue) {
                     const target = commands.find(c => /\blist\s+emails\s+from\s+\[duration\]\s+ago\b/i.test(c));
                     if (target && !seen.has(target)) {
@@ -2214,7 +2223,7 @@
 
             // PRIORITY: If pattern is 'list emails from <sender> from <number>', prefer sender+duration-ago template
             try {
-                const mSenderNum = q.match(/\blist\s+emails\s+from\s+([^\s].*?)\s+from\s+\d+/i);
+                const mSenderNum = q.match(/\blist\s+emails\s+from\s+([^\s].*?)\s+from\s+(?:a\s+(?:day|week|month|year)|\d+)/i);
                 if (mSenderNum) {
                     const senderDurAgo = commands.find(c => /\blist\s+emails\s+from\s+\[sender\][^\n]*\s+from\s+\[duration\]\s+ago\b/i.test(c));
                     if (senderDurAgo && !seen.has(senderDurAgo)) {
@@ -2227,7 +2236,7 @@
             // PRIORITY: If pattern is 'archive emails from <sender> from <number>',
             // prefer ARCHIVE sender+duration-ago template and demote 'older than'
             try {
-                const mArchSenderNum = q.match(/\barchive\s+emails\s+from\s+([^\s].*?)\s+from\s+\d+/i);
+                const mArchSenderNum = q.match(/\barchive\s+emails\s+from\s+([^\s].*?)\s+from\s+(?:a\s+(?:day|week|month|year)|\d+)/i);
                 if (mArchSenderNum) {
                     const archSenderDurAgo = commands.find(c => /\barchive\s+emails\s+from\s+\[sender\][^\n]*\s+from\s+\[duration\]\s+ago\b/i.test(c));
                     if (archSenderDurAgo) {
@@ -2450,6 +2459,48 @@
                 const c = merged[i].cmd;
                 if (!seen2.has(c)) { seen2.add(c); unique.push(merged[i]); }
             }
+            // Special ordering: when typing 'list emails from a' (token 'a' only), prefer duration-ago over sender
+            try {
+                const fromAOnly = /\blist\s+emails\s+from\s+a(?:\b|$)/i.test(q);
+                if (fromAOnly) {
+                    let durationIdx = -1, senderIdx = -1;
+                    let durationItem = null, senderItem = null;
+                    for (let i = 0; i < unique.length; i++) {
+                        const s = (unique[i] && unique[i].cmd ? String(unique[i].cmd).toLowerCase() : '');
+                        if (durationIdx === -1 && /\blist\s+emails\s+from\s+\[duration\]\s+ago\b/i.test(s)) { durationIdx = i; durationItem = unique[i]; }
+                        if (senderIdx === -1 && /^list\s+emails\s+from\s+\[sender\]\b/i.test(s)) { senderIdx = i; senderItem = unique[i]; }
+                        if (durationItem && senderItem) break;
+                    }
+                    if (durationItem || senderItem) {
+                        const rest = unique.filter((_, idx) => idx !== durationIdx && idx !== senderIdx);
+                        const newFront = [];
+                        if (durationItem) newFront.push(durationItem);
+                        if (senderItem) newFront.push(senderItem);
+                        return newFront.concat(rest);
+                    }
+                }
+            } catch (e) {}
+            // Special ordering for sender context: 'list emails from <sender> from a' => prefer 'sender from [duration] ago'
+            try {
+                const senderFromAOnly = /\blist\s+emails\s+from\s+([^\s].*?)\s+from\s+a(?:\b|$)/i.test(q);
+                if (senderFromAOnly) {
+                    let senderDurIdx = -1, senderIdx = -1;
+                    let senderDurItem = null, senderItem = null;
+                    for (let i = 0; i < unique.length; i++) {
+                        const s = (unique[i] && unique[i].cmd ? String(unique[i].cmd).toLowerCase() : '');
+                        if (senderDurIdx === -1 && /\blist\s+emails\s+from\s+\[sender\][^\n]*\s+from\s+\[duration\]\s+ago\b/i.test(s)) { senderDurIdx = i; senderDurItem = unique[i]; }
+                        if (senderIdx === -1 && /^list\s+emails\s+from\s+\[sender\]\b/i.test(s)) { senderIdx = i; senderItem = unique[i]; }
+                        if (senderDurItem && senderItem) break;
+                    }
+                    if (senderDurItem || senderItem) {
+                        const rest = unique.filter((_, idx) => idx !== senderDurIdx && idx !== senderIdx);
+                        const newFront = [];
+                        if (senderDurItem) newFront.push(senderDurItem);
+                        if (senderItem) newFront.push(senderItem);
+                        return newFront.concat(rest);
+                    }
+                }
+            } catch (e) {}
             // ACTION CONTEXT FILTER: if user is typing a specific action, keep only suggestions of that action
             try {
                 if (actionKey) {
