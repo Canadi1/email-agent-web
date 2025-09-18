@@ -1616,17 +1616,30 @@ class GmailAIAgent:
         """Return a Gmail search query string for a custom category key."""
         category_key = (category_key or '').lower()
         if category_key == 'verification_codes':
-            base = 'in:anywhere -category:promotions -category:social -category:forums'
+            # Search across All Mail, but avoid Promotions/Social/Forums and Spam/Trash.
+            base = 'in:anywhere -in:spam -in:trash -category:promotions -category:social -category:forums'
+            # Strong subject phrases across locales
             subject_terms = [
-                '"verification code"', '"one time code"', '"one-time code"', 'OTP', '"2FA"', '"two-factor"',
-                '"2-step"', '"security code"', '"login code"', 'passcode', '"authentication code"',
-                '"sign-in code"', '"sign in code"', '"your verification code"',
+                '"verification code"', '"security code"', '"authentication code"', '"auth code"',
+                '"one time code"', '"one-time code"', '"one-time passcode"', 'passcode',
+                'OTP', '"2FA"', '"two-factor"', '"two step"', '"two-step"',
+                '"login code"', '"sign-in code"', '"sign in code"', '"your code"', '"your verification code"',
+                '"login verification"', '"sign-in verification"', '"sign in verification"',
+                'subject:(verification login)', 'subject:(verification "sign-in")', 'subject:(verification "sign in")',
                 # Hebrew and other locales
-                '"קוד אימות"', '"סיסמה חד-פעמית"', '验证码', '"код подтверждения"', '"code de vérification"', '"código de verificación"'
+                '"קוד אימות"', '"סיסמה חד-פעמית"', '"קוד חד פעמי"', '"קוד כניסה"', '"קוד אבטחה"', '"אימות דו שלבי"', '"אימות דו-שלבי"',
+                '验证码', '"код подтверждения"', '"code de vérification"', '"código de verificación"'
             ]
-            positive = 'subject:(' + ' OR '.join(subject_terms) + ')'
-            negative = '-subject:(promo OR promotion OR promotional OR coupon OR discount OR voucher OR offer OR sale)'
-            q = f"{base} ( {positive} ) {negative}"
+            # Common content phrases (searches body/subject when not prefixed with subject:)
+            content_phrases = [
+                '"your code is"', '"use this code"', '"enter this code"', '"is your verification code"',
+                '"login verification"', '"sign-in verification"', '"sign in verification"'
+            ]
+            positive = 'subject:(' + ' OR '.join(subject_terms) + ')' + ' OR (' + ' OR '.join(content_phrases) + ')'
+            # Exclude obvious marketing/discount code noise in both subject and body
+            negative_subject = '-subject:("promo code" OR "discount code" OR "coupon code" OR "voucher code" OR promo OR promotion OR promotional OR coupon OR discount OR voucher OR offer OR sale)'
+            negative_body = '-("promo code" OR "discount code" OR "coupon code" OR "voucher code")'
+            q = f"{base} ( {positive} ) {negative_subject} {negative_body}"
         elif category_key == 'shipping_delivery':
             # Search across All Mail (exclude obvious ad categories)
             base = 'in:anywhere -category:promotions -category:social -category:forums'
@@ -1647,19 +1660,29 @@ class GmailAIAgent:
             negative = '-subject:(sale OR discount OR coupon OR promo OR promotional OR offer OR deal OR wishlist OR cart OR recommendations OR recommendation)'
             q = f"{base} ( {subject_core} OR {arrive_clause} OR {delivered_clause} OR {update_clause} OR {carriers_clause} OR {marketplaces_clause} ) {negative}"
         elif category_key == 'account_security':
-            # Security/account alerts across All Mail; match strict subject phrases and exclude common noise
-            base = 'in:anywhere -category:promotions -category:social -category:forums'
+            # Security/account alerts across All Mail; match strict subject/body phrases and exclude common noise
+            base = 'in:anywhere -in:spam -in:trash -category:promotions -category:social -category:forums'
             subjects = [
                 '"security alert"', '"security notification"', '"account security"',
-                '"new sign in"', '"new sign-in"', '"new login"', '"sign-in attempt"', '"login attempt"',
+                '"new sign in"', '"new sign-in"', '"new signin"', '"new login"',
+                '"sign-in attempt"', '"login attempt"', '"sign in attempt"',
                 '"suspicious activity"', '"unusual activity"', '"verify it\'s you"', '"verify your identity"',
-                '"password changed"', '"password reset"', '"reset your password"',
-                '"2-step verification"', '"two-step verification"', '"two-factor authentication"'
+                '"password changed"', '"password was changed"', '"reset your password"', '"password reset"',
+                '"two-step verification"', '"2-step verification"', '"two-factor authentication"',
+                '"new device"', '"new device sign-in"', '"new device login"', '"your account was accessed"',
+                '"login verification"', '"sign-in verification"', '"sign in verification"'
             ]
             subject_clause = 'subject:(' + ' OR '.join(subjects) + ')'
-            # Exclude purchases and school-related subjects that can cause false positives
-            negative = '-subject:(sale OR discount OR coupon OR promo OR promotional OR offer OR deal OR newsletter OR receipt OR order OR purchase OR invoice OR payment OR transaction OR confirmation OR classroom OR course OR class OR assignment OR homework OR grade OR exam OR university OR school OR student OR tuition)'
-            q = f"{base} {subject_clause} {negative}"
+            # Also match common body phrases seen in security alerts
+            content_phrases = [
+                '"we detected a new sign-in"', '"we noticed a new sign-in"', '"if this wasn\'t you"',
+                '"your account was accessed"', '"sign-in attempt prevented"', '"we blocked a sign-in attempt"'
+            ]
+            content_clause = '(' + ' OR '.join(content_phrases) + ')'
+            # Exclude purchases/newsletters/school noise; avoid removing legitimate "confirmation" by scoping
+            negative_subject = '-subject:(sale OR discount OR coupon OR promo OR promotional OR offer OR deal OR newsletter OR receipt OR order OR purchase OR invoice OR payment OR transaction OR classroom OR course OR class OR assignment OR homework OR grade OR exam OR university OR school OR student OR tuition OR "order confirmation" OR "purchase confirmation" OR "subscription confirmation")'
+            negative_body = '-("order confirmation" OR "purchase confirmation" OR "subscription confirmation")'
+            q = f"{base} ( {subject_clause} OR {content_clause} ) {negative_subject} {negative_body}"
         else:
             q = ''
         if older_than_days:
