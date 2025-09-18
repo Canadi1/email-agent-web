@@ -2691,12 +2691,14 @@ class GmailAIAgent:
             except Exception:
                 pass
             # Custom category listing should be checked early so it doesn't get overridden by generic date parsing
-            # Detect optional age filter
+            # Detect optional age filter (support 'a' -> 1)
             custom_older_days = None
-            age_m = re.search(r'older\s+(?:than|then)\s+(\d+)\s*(day|days|d|week|weeks|w|month|months|m|year|years|y)', command_lower)
+            age_m = re.search(r'older\s+(?:than|then)\s+(a|\d+)\s*(day|days|d|week|weeks|w|month|months|m|year|years|y)', command_lower)
             if age_m:
                 try:
-                    qty = int(age_m.group(1)); unit = age_m.group(2)
+                    qty_raw = age_m.group(1)
+                    qty = 1 if qty_raw == 'a' else int(qty_raw)
+                    unit = age_m.group(2)
                     if unit in ["day","days","d"]: custom_older_days = qty
                     elif unit in ["week","weeks","w"]: custom_older_days = qty*7
                     elif unit in ["month","months","m"]: custom_older_days = qty*30
@@ -2751,6 +2753,24 @@ class GmailAIAgent:
                     if qty == 'a': qty = '1'
                     if sender_keyword not in ['emails','all','the','my','any','this','that','these','those']:
                         return {"action": "list", "target_type": "sender", "target": sender_keyword, "date_range": f"{qty} {unit} ago", "confirmation_required": False}
+                # Alt: "from [sender] older than a|N <unit>" (attach age filter to sender)
+                sender_older_list = re.search(r'from\s+([a-zA-Z0-9._\-+@\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff ]+?)\s+older\s+(?:than|then)\s+(a|\d+)\s*(day|days|d|week|weeks|w|month|months|m|year|years|y)\b', command_lower)
+                if sender_older_list:
+                    sender_keyword = sender_older_list.group(1).strip()
+                    qty_raw = sender_older_list.group(2)
+                    unit = sender_older_list.group(3).lower()
+                    qty = 1 if qty_raw == 'a' else int(qty_raw)
+                    if sender_keyword not in ['emails','all','the','my','any','this','that','these','those']:
+                        if unit in ['week','weeks','w']:
+                            older_than_days = qty * 7
+                        elif unit in ['month','months','m']:
+                            older_than_days = qty * 30
+                        elif unit in ['year','years','y']:
+                            older_than_days = qty * 365
+                        else:  # days
+                            older_than_days = qty
+                        return {"action": "list", "target_type": "sender", "target": sender_keyword, "confirmation_required": False, "older_than_days": older_than_days}
+
                 # Alt: "from [sender] (today|yesterday|this X|last X)"
                 sender_simple_time_match = re.search(r'from\s+([a-zA-Z0-9._\-+@\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff ]+?)\s+(today|yesterday|this\s+week|this\s+month|this\s+year|last\s+week|last\s+month|last\s+year)', command_lower)
                 if sender_simple_time_match:
