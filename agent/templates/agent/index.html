@@ -1908,6 +1908,7 @@
                 'delete emails from [sender] older than [duration]',
                 'delete all emails older than [duration]',
                 'archive emails older than [duration]',
+                'archive emails from [sender]',
                 'archive emails from [sender] older than [duration]',
                 // removed generic archive sender time period placeholder (we keep specific fixed-time variants via backend list)
                 '• label emails from [sender] as "[label]"',
@@ -1917,6 +1918,14 @@
                 'send email'
             ];
         })();
+
+        // Normalize commands: ensure plain 'archive emails from [sender]' exists even if backend JSON parsing failed
+        try {
+            const hasPlainArchiveSender = (commands || []).some(c => /^archive\s+emails\s+from\s+\[sender\]\b/i.test(String(c)));
+            if (!hasPlainArchiveSender) {
+                commands.push('archive emails from [sender]');
+            }
+        } catch (e) {}
 
         // Remove generic timeframe placeholder list-commands from autocomplete
         // Keep specific phrases (today/yesterday/last week/etc.), sender+timeframe templates,
@@ -2155,6 +2164,19 @@
                     }
                 } catch (e) { hasTimeCue = false; }
                 if (hasTimeCue) return 0;
+                // Hard preference: in 'archive emails from ...' flows without 'older than',
+                // strongly favor the plain sender template and suppress the older-than sender template
+                try {
+                    const isArchiveFromFlow = /^\s*archive\s+emails\s+from\b/i.test(q);
+                    const typedOlder = /\bolder\s+than\b/i.test(q);
+                    if (isArchiveFromFlow && !typedOlder) {
+                        const isPlainArchSender = /^archive\s+emails\s+from\s+\[sender\]\b/i.test(cmd);
+                        const isArchSenderOlder = /\barchive\s+emails\s+from\s+\[sender\][^\n]*\s+older\s+than\s+\[duration\]\b/i.test(cmd);
+                        if (isPlainArchSender) return 2000 + computeSenderBoldLength(cmd, q);
+                        if (isArchSenderOlder) return 0; // do not allow it to top-align in this state
+                    }
+                } catch (e) {}
+
                 let base = computeSenderBoldLength(cmd, q);
                 // Strongly prefer templates that match the typed structure (e.g., 'older than')
                 try {
@@ -2318,6 +2340,26 @@
                     prioritized.forEach(item => { merged.splice(merged.length > 0 ? 1 : 0, 0, item); });
                 }
             } catch (e) {}
+            // PRIORITY: In 'archive emails from <sender> f|fr|fro|from' state without 'older than',
+            // ensure plain 'archive emails from [sender]' stays on top and demote 'older than'
+            try {
+                const archSenderFromPartial2 = /\barchive\s+emails\s+from\s+([^\s].*?)\s+f(?:|r|ro|rom)\s*$/i.test(q);
+                const hasOlderCue = /\bolder\s+than\b/i.test(q);
+                if (archSenderFromPartial2 && !hasOlderCue) {
+                    const plainArchSenderTpl = commands.find(c => /^archive\s+emails\s+from\s+\[sender\]\b/i.test(c));
+                    if (plainArchSenderTpl && !seen.has(plainArchSenderTpl)) {
+                        merged.unshift({ cmd: plainArchSenderTpl, score: 9.85, type: 'archive_sender_plain_seed' });
+                        seen.add(plainArchSenderTpl);
+                    }
+                    for (let i = merged.length - 1; i >= 0; i--) {
+                        const s = (merged[i] && merged[i].cmd ? String(merged[i].cmd).toLowerCase() : '');
+                        if (/\barchive\s+emails\s+from\s+\[sender\][^\n]*\s+older\s+than\s+\[duration\]\b/i.test(s)) {
+                            const it = merged.splice(i, 1)[0];
+                            merged.push(it);
+                        }
+                    }
+                }
+            } catch (e) {}
 
             // Add placeholder-aware matches (kept separate earlier as 'scored')
             // Boost 'last'/'this' variants when the user starts typing them
@@ -2385,6 +2427,52 @@
                         if (!aArch && bArch) return 1;
                         return 0;
                     });
+                }
+            } catch (e) {}
+            // HARD PRIORITY INJECTION: While typing 'archive emails f|fr|ro|from' (no sender yet),
+            // surface plain 'archive emails from [sender]' and demote 'older than' variants
+            try {
+                const archFromTyping = /^\s*archive\s+emails\s+f(?:|r|ro|rom)\s*$/i.test(q) || /^\s*archive\s+emails\s+from\s*$/i.test(q);
+                if (archFromTyping) {
+                    const plainTpl = commands.find(c => /^archive\s+emails\s+from\s+\[sender\]\s*$/i.test(c));
+                    if (plainTpl && !seen.has(plainTpl)) {
+                        merged.unshift({ cmd: plainTpl, score: 10.0, type: 'arch_sender_plain_typing' });
+                        seen.add(plainTpl);
+                    }
+                    // Demote both sender-older-than and generic older-than
+                    for (let i = merged.length - 1; i >= 0; i--) {
+                        const s = (merged[i] && merged[i].cmd ? String(merged[i].cmd).toLowerCase() : '');
+                        if (/^archive\s+emails\s+from\s+\[sender\].*\bolder\s+than\s+\[duration\]\b/i.test(s) ||
+                            /^archive\s+emails\s+older\s+than\s+\[duration\]\b/i.test(s)) {
+                            const it = merged.splice(i, 1)[0];
+                            merged.push(it);
+                        }
+                    }
+                }
+            } catch (e) {}
+
+            // HARD PRIORITY INJECTION: For exact 'archive emails from <sender>' (no 'older than' or fixed timeframe),
+            // inject plain 'archive emails from [sender]' at the very front before uniqueness so it survives later steps
+            try {
+                const isExactArchSender = /^archive\s+emails\s+from\s+[^\s].*$/i.test(q)
+                    && !/\bolder\s+than\b/i.test(q)
+                    && !/\bfrom\s+(?:today|yesterday|this\b|last\b)/i.test(q)
+                    && !/\bfrom\s+\d+\s+(?:day|days|week|weeks|month|months|year|years)\s+ago\b/i.test(q);
+                if (isExactArchSender) {
+                    const plainTpl = commands.find(c => /^archive\s+emails\s+from\s+\[sender\]\s*$/i.test(c));
+                    if (plainTpl && !seen.has(plainTpl)) {
+                        merged.unshift({ cmd: plainTpl, score: 10.0, type: 'arch_sender_plain_inject' });
+                        seen.add(plainTpl);
+                    }
+                    // Push older-than down inside merged so it tends not to take slot 0
+                    for (let i = 0; i < merged.length; i++) {
+                        const s = (merged[i] && merged[i].cmd ? String(merged[i].cmd).toLowerCase() : '');
+                        if (/^archive\s+emails\s+from\s+\[sender\].*\bolder\s+than\s+\[duration\]\b/i.test(s)) {
+                            const it = merged.splice(i, 1)[0];
+                            merged.push(it);
+                            break;
+                        }
+                    }
                 }
             } catch (e) {}
             // Fuzzy fallback independent of direct includes, so templates with placeholders appear
@@ -2459,6 +2547,58 @@
                 const c = merged[i].cmd;
                 if (!seen2.has(c)) { seen2.add(c); unique.push(merged[i]); }
             }
+            // HARD GATE (PARTIAL FROM): If typing 'archive emails f|fr|fro|from' (no older than yet),
+            // drop any 'older than' suggestions so they cannot appear at the top prematurely
+            try {
+                const isArchiveFromPartial = /^\s*archive\s+emails\s+f(?:|r|ro|rom)\s*$/i.test(q) || /^\s*archive\s+emails\s+from\s*$/i.test(q);
+                if (isArchiveFromPartial && !/\bolder\s+than\b/i.test(q)) {
+                    const filtered = unique.filter(function(item){
+                        const s = (item && item.cmd ? String(item.cmd).toLowerCase() : '');
+                        const isGenericOlder = /^archive\s+emails\s+older\s+than\s+\[duration\]\b/i.test(s);
+                        const isSenderOlder = /\barchive\s+emails\s+from\s+\[sender\][^\n]*\s+older\s+than\s+\[duration\]\b/i.test(s);
+                        return !(isGenericOlder || isSenderOlder);
+                    });
+                    if (filtered.length) return filtered;
+                }
+            } catch (e) {}
+            // HARD GATE: In 'archive emails' flows without 'older than', drop any 'older than' suggestions
+            try {
+                const isArchiveNoOlder = /^\s*archive\s+emails\b/i.test(q)
+                    && !/\bolder\s+than\b/i.test(q);
+                if (isArchiveNoOlder) {
+                    const filtered = unique.filter(function(item){
+                        const s = (item && item.cmd ? String(item.cmd).toLowerCase() : '');
+                        const isGenericOlder = /^archive\s+emails\s+older\s+than\s+\[duration\]\b/i.test(s);
+                        const isSenderOlder = /\barchive\s+emails\s+from\s+\[sender\][^\n]*\s+older\s+than\s+\[duration\]\b/i.test(s);
+                        return !(isGenericOlder || isSenderOlder);
+                    });
+                    if (filtered.length) return filtered;
+                }
+            } catch (e) {}
+            // EARLY ORDER FIX: If user typed exact 'archive emails from <sender>' (no extra token),
+            // bubble plain 'archive emails from [sender]' to the top and demote 'older than' BEFORE other filters
+            try {
+                const exactArchiveSenderEarly = /^\s*archive\s+emails\s+from\s+([^\s].*?)\s*$/i.exec(q);
+                if (exactArchiveSenderEarly) {
+                    const idxPlainEarly = unique.findIndex(function(it){
+                        const s = (it && it.cmd ? String(it.cmd).toLowerCase() : '');
+                        return /^archive\s+emails\s+from\s+\[sender\]\b/i.test(s);
+                    });
+                    if (idxPlainEarly > 0) {
+                        const item = unique.splice(idxPlainEarly, 1)[0];
+                        unique.unshift(item);
+                    }
+                    // Soft-demote older-than in this exact state
+                    for (let i = 0; i < unique.length; i++) {
+                        const s = (unique[i] && unique[i].cmd ? String(unique[i].cmd).toLowerCase() : '');
+                        if (/\barchive\s+emails\s+from\s+\[sender\][^\n]*\s+older\s+than\s+\[duration\]\b/i.test(s)) {
+                            const it = unique.splice(i, 1)[0];
+                            unique.push(it);
+                            break;
+                        }
+                    }
+                }
+            } catch (e) {}
             // Special ordering: when typing 'list emails from a' (token 'a' only), prefer duration-ago over sender
             try {
                 const fromAOnly = /\blist\s+emails\s+from\s+a(?:\b|$)/i.test(q);
@@ -2534,6 +2674,70 @@
                         return isListFrom && hasSenderToken;
                     });
                     if (filtered.length) return filtered;
+                }
+                // ARCHIVE exact-sender state: keep plain 'archive emails from [sender]' on top and demote 'older than'
+                const exactArchiveSenderState = /^\s*archive\s+emails\s+from\s+([^\s].*?)\s*$/i.exec(q);
+                if (exactArchiveSenderState) {
+                    const idxPlainA = unique.findIndex(function(it){
+                        const s = (it && it.cmd ? String(it.cmd).toLowerCase() : '');
+                        return /^archive\s+emails\s+from\s+\[sender\]\b/i.test(s);
+                    });
+                    if (idxPlainA > 0) {
+                        const item = unique.splice(idxPlainA, 1)[0];
+                        unique.unshift(item);
+                    }
+                    const idxOlderA2 = unique.findIndex(function(it){
+                        const s = (it && it.cmd ? String(it.cmd).toLowerCase() : '');
+                        return /\barchive\s+emails\s+from\s+\[sender\][^\n]*\s+older\s+than\s+\[duration\]\b/i.test(s);
+                    });
+                    if (idxOlderA2 > -1) {
+                        const item = unique.splice(idxOlderA2, 1)[0];
+                        unique.push(item);
+                    }
+                    return unique;
+                }
+                // ARCHIVE 'from' typing without sender yet: keep plain 'archive emails from [sender]' first and demote any 'older than'
+                const archFromPartialNoSender = /^\s*archive\s+emails\s+f(?:|r|ro|rom)\s*$/i.test(q) || /^\s*archive\s+emails\s+from\s*$/i.test(q);
+                if (archFromPartialNoSender) {
+                    const idxPlain = unique.findIndex(function(it){
+                        const s = (it && it.cmd ? String(it.cmd).toLowerCase() : '');
+                        return /^archive\s+emails\s+from\s+\[sender\]\s*$/i.test(s);
+                    });
+                    if (idxPlain > 0) {
+                        const item = unique.splice(idxPlain, 1)[0];
+                        unique.unshift(item);
+                    }
+                    for (let i = unique.length - 1; i >= 0; i--) {
+                        const s = (unique[i] && unique[i].cmd ? String(unique[i].cmd).toLowerCase() : '');
+                        if (/^archive\s+emails\s+older\s+than\s+\[duration\]\b/i.test(s) || /\barchive\s+emails\s+from\s+\[sender\][^\n]*\s+older\s+than\s+\[duration\]\b/i.test(s)) {
+                            const it = unique.splice(i, 1)[0];
+                            unique.push(it);
+                        }
+                    }
+                    return unique;
+                }
+                // ARCHIVE 'from <sender>' typed but no 'older than' or fixed timeframe yet: plain sender first
+                const archFromWithSenderNoOlder = /^\s*archive\s+emails\s+from\s+[^\s].*$/i.test(q)
+                    && !/\bolder\s+than\b/i.test(q)
+                    && !/\bfrom\s+(?:today|yesterday|this\b|last\b)/i.test(q)
+                    && !/\bfrom\s+(?:a|\d+)\s+(?:day|days|week|weeks|month|months|year|years)\s+ago\b/i.test(q);
+                if (archFromWithSenderNoOlder) {
+                    const idxPlain = unique.findIndex(function(it){
+                        const s = (it && it.cmd ? String(it.cmd).toLowerCase() : '');
+                        return /^archive\s+emails\s+from\s+\[sender\]\s*$/i.test(s);
+                    });
+                    if (idxPlain > 0) {
+                        const item = unique.splice(idxPlain, 1)[0];
+                        unique.unshift(item);
+                    }
+                    for (let i = unique.length - 1; i >= 0; i--) {
+                        const s = (unique[i] && unique[i].cmd ? String(unique[i].cmd).toLowerCase() : '');
+                        if (/^archive\s+emails\s+older\s+than\s+\[duration\]\b/i.test(s) || /\barchive\s+emails\s+from\s+\[sender\][^\n]*\s+older\s+than\s+\[duration\]\b/i.test(s)) {
+                            const it = unique.splice(i, 1)[0];
+                            unique.push(it);
+                        }
+                    }
+                    return unique;
                 }
                 // If typing timeframe letter after sender (from l|t...), hide generic no-sender timeframe suggestions
                 const senderTimePrefix = /\b(?:list|archive|delete)\s+emails\s+from\s+([^\s].*?)\s+from\s+[lt]/i.test(q);

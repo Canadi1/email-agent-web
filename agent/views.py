@@ -948,6 +948,7 @@ def index(request):
         _("list emails from [sender] from last month"),
         _("list emails from [sender] from last year"),
         _("list emails from [sender] from [duration] ago"),
+        _("archive emails from [sender]"),
         _("archive emails older than [duration]"),
         _("archive emails from [sender] older than [duration]"),
         _("delete promotions older than [duration]"),
