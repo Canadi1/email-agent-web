@@ -2580,10 +2580,11 @@ class GmailAIAgent:
 
         # Archive emails from sender older than duration (check this BEFORE bulk cleanup)
         if best_match_action == "archive" and "from" in command_lower and "older" in command_lower:
-            sender_older_match = re.search(r'from\s+([a-zA-Z0-9._\-+@\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff ]+?)\s+older\s+(?:than|then)\s+(\d+)\s*(day|days|d|week|weeks|w|month|months|m|year|years|y)', command_lower)
+            sender_older_match = re.search(r'from\s+([a-zA-Z0-9._\-+@\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff ]+?)\s+older\s+(?:than|then)\s+(a|\d+)\s*(day|days|d|week|weeks|w|month|months|m|year|years|y)', command_lower)
             if sender_older_match:
                 sender_keyword = sender_older_match.group(1).strip()
-                qty = int(sender_older_match.group(2))
+                qty_raw = sender_older_match.group(2)
+                qty = 1 if qty_raw == 'a' else int(qty_raw)
                 unit = sender_older_match.group(3).lower()
                 if sender_keyword not in ['emails','all','the','my','any','this','that','these','those']:
                     # Convert to days
@@ -2616,7 +2617,7 @@ class GmailAIAgent:
                     return {"action": "delete", "target_type": "sender", "target": sender_keyword, "confirmation_required": True, "older_than_days": older_than_days}
 
         # Bulk cleanup by age only (skip if a category/custom-category is mentioned and if 'from' is present)
-        if (best_match_action in ["delete", "archive"]) and ("all" in command_lower or "emails" in command_lower) and "older" in command_lower and (" from " not in command_lower):
+        if (best_match_action in ["delete", "archive"]) and ("all" in command_lower or "emails" in command_lower or " email" in command_lower) and "older" in command_lower and (" from " not in command_lower):
             category_tokens_present = any(tok in command_lower for tok in [
                 "promotion","promotions","social","updates","forums","personal",
                 "verification","code","shipping","delivery","shipped","משלוח",
@@ -2647,6 +2648,29 @@ class GmailAIAgent:
                         }
                     except ValueError:
                         pass
+
+        # Archive generic 'older than a|N <unit>' without explicitly saying 'emails'
+        if best_match_action == "archive" and "older" in command_lower and (" from " not in command_lower):
+            age_match = re.search(r'older\s+(?:than|then)\s+(a|\d+)\s*(day|days|d|week|weeks|w|month|months|m|year|years|y)', command_lower)
+            if age_match:
+                qty_raw = age_match.group(1)
+                qty = 1 if qty_raw == 'a' else int(qty_raw)
+                unit = age_match.group(2).lower()
+                if unit in ['week','weeks','w']:
+                    older_than_days = qty * 7
+                elif unit in ['month','months','m']:
+                    older_than_days = qty * 30
+                elif unit in ['year','years','y']:
+                    older_than_days = qty * 365
+                else:
+                    older_than_days = qty
+                return {
+                    "action": "archive",
+                    "target_type": "bulk_age",
+                    "target": "all_emails",
+                    "confirmation_required": True,
+                    "older_than_days": older_than_days
+                }
         
         # Stats
         if best_match_action == "stats":
@@ -2807,19 +2831,21 @@ class GmailAIAgent:
         from_ago_match = re.search(r'from\s+(a|\d+)\s+(day|week|month|year)s?\s+ago', command_lower)
         simple_date_match = re.search(r'from\s+(today|yesterday|last week|last month|last year|this week|this month|this year)', command_lower)
 
-        if older_than_match:
-            quantity = older_than_match.group(2)
-            unit = older_than_match.group(3)
-            if quantity == 'a': quantity = '1'
-            return {"action": "list", "target_type": "older_than", "target": f"{quantity} {unit}", "confirmation_required": False}
-        elif from_ago_match:
-            quantity = from_ago_match.group(1)
-            unit = from_ago_match.group(2)
-            if quantity == 'a': quantity = '1'
-            return {"action": "list", "target_type": "date_range", "target": f"{quantity} {unit}", "confirmation_required": False}
-        elif simple_date_match:
-            date_range = simple_date_match.group(1)
-            return {"action": "list", "target_type": "date_range", "target": date_range, "confirmation_required": False}
+        # Only treat these generic time cues as list-intent when the best action is list
+        if best_match_action == "list":
+            if older_than_match:
+                quantity = older_than_match.group(2)
+                unit = older_than_match.group(3)
+                if quantity == 'a': quantity = '1'
+                return {"action": "list", "target_type": "older_than", "target": f"{quantity} {unit}", "confirmation_required": False}
+            elif from_ago_match:
+                quantity = from_ago_match.group(1)
+                unit = from_ago_match.group(2)
+                if quantity == 'a': quantity = '1'
+                return {"action": "list", "target_type": "date_range", "target": f"{quantity} {unit}", "confirmation_required": False}
+            elif simple_date_match:
+                date_range = simple_date_match.group(1)
+                return {"action": "list", "target_type": "date_range", "target": date_range, "confirmation_required": False}
 
         # Fallbacks: detect common time phrases anywhere, even without 'from'
         for key in ["today", "yesterday", "last week", "last month", "last year", "this week", "this month", "this year"]:
@@ -2858,10 +2884,11 @@ class GmailAIAgent:
         # Delete parsing
         if best_match_action == "delete":
             older_than_days = None
-            age_match = re.search(r'older\s+(?:than|then)\s+(\d+)\s*(day|days|d|week|weeks|w|month|months|m|year|years|y)', command_lower)
+            age_match = re.search(r'older\s+(?:than|then)\s+(a|\d+)\s*(day|days|d|week|weeks|w|month|months|m|year|years|y)', command_lower)
             if age_match:
                 try:
-                    qty = int(age_match.group(1))
+                    qty_raw = age_match.group(1)
+                    qty = 1 if qty_raw == 'a' else int(qty_raw)
                     unit = age_match.group(2)
                     if unit in ["day", "days", "d"]: older_than_days = qty
                     elif unit in ["week", "weeks", "w"]: older_than_days = qty * 7
@@ -2891,10 +2918,11 @@ class GmailAIAgent:
         if best_match_action == "archive":
             # Optional age filter: "older than N (days|weeks|months|years)"
             older_than_days = None
-            age_match = re.search(r'older\s+(?:than|then)\s+(\d+)\s*(day|days|d|week|weeks|w|month|months|m|year|years|y)', command_lower)
+            age_match = re.search(r'older\s+(?:than|then)\s+(a|\d+)\s*(day|days|d|week|weeks|w|month|months|m|year|years|y)', command_lower)
             if age_match:
                 try:
-                    qty = int(age_match.group(1))
+                    qty_raw = age_match.group(1)
+                    qty = 1 if qty_raw == 'a' else int(qty_raw)
                     unit = age_match.group(2)
                     if unit in ["day", "days", "d"]: older_than_days = qty
                     elif unit in ["week", "weeks", "w"]: older_than_days = qty * 7

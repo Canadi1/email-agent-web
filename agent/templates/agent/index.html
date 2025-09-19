@@ -2751,7 +2751,7 @@
                     return filtered2;
                 }
                 // Ensure 'sender older than [duration]' stays above plain 'sender' while typing the duration
-                if (/\blist\s+emails\s+from\s+([^\s].*?)\s+older\s+than\s+[0-9]+\s+[a-z]+/i.test(q)) {
+                if (/\blist\s+emails\s+from\s+([^\s].*?)\s+older\s+than\s+(?:a|[0-9]+)\s+[a-z]+/i.test(q)) {
                     const idxOlder = unique.findIndex(function(it){
                         const s = (it && it.cmd ? String(it.cmd).toLowerCase() : '');
                         return /\blist\s+emails\s+from\s+\[sender\][^\n]*\s+older\s+than\s+\[duration\]\b/i.test(s);
@@ -2767,7 +2767,7 @@
                     }
                 }
                 // ARCHIVE: Ensure 'archive sender older than [duration]' stays above plain 'archive sender' while typing 'older than'
-                if (/\barchive\s+emails\s+from\s+([^\s].*?)\s+older\s+than\s+[0-9]+\s+[a-z]+/i.test(q)) {
+                if (/\barchive\s+emails\s+from\s+([^\s].*?)\s+older\s+than\s+(?:a|[0-9]+)\s+[a-z]+/i.test(q)) {
                     const idxOlderA = unique.findIndex(function(it){
                         const s = (it && it.cmd ? String(it.cmd).toLowerCase() : '');
                         return /\barchive\s+emails\s+from\s+\[sender\][^\n]*\s+older\s+than\s+\[duration\]\b/i.test(s);
