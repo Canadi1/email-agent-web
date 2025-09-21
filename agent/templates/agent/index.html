@@ -2862,9 +2862,10 @@
                             
                             // Check if this is an archive sender+timeframe suggestion
                             if (cmd.includes('archive emails from [sender] from ')) {
-                                const timeframeMatch = cmd.match(/from\s+(today|yesterday|this week|this month|this year|last week|last month|last year)$/);
-                                if (timeframeMatch) {
-                                    const suggestionTimeframe = timeframeMatch[1];
+                                // Check for fixed timeframes (today, yesterday, this/last week/month/year)
+                                const fixedTimeframeMatch = cmd.match(/from\s+(today|yesterday|this week|this month|this year|last week|last month|last year)$/);
+                                if (fixedTimeframeMatch) {
+                                    const suggestionTimeframe = fixedTimeframeMatch[1];
                                     let score = 0;
                                     
                                     // Exact match gets highest score
@@ -2887,6 +2888,40 @@
                                     if (score > bestScore) {
                                         bestScore = score;
                                         bestMatch = i;
+                                    }
+                                }
+                                // Check for duration-based timeframes (X days/weeks/months/years ago)
+                                else if (cmd.includes(' from ') && (cmd.includes(' ago') || cmd.includes(' older than'))) {
+                                    // Duration-based suggestions get priority when typing duration phrases
+                                    if (typedTimeframe.includes(' ago') || typedTimeframe.includes(' older than') || 
+                                        typedTimeframe.includes(' day') || typedTimeframe.includes(' week') || 
+                                        typedTimeframe.includes(' month') || typedTimeframe.includes(' year') ||
+                                        /^\d+$/.test(typedTimeframe) || /^\d+\s*$/.test(typedTimeframe) ||
+                                        /^\d+\s*[a-z]/.test(typedTimeframe) || /^\d+\s*[a-z]+$/.test(typedTimeframe) ||
+                                        typedTimeframe === 'a' || typedTimeframe.startsWith('a ') ||
+                                        /^a\s+(day|week|month|year)/.test(typedTimeframe) ||
+                                        /^a\s+(d|w|m|y)/.test(typedTimeframe)) {
+                                        let score = 90; // High score for duration-based matches
+                                        
+                                        // Boost score if the typed timeframe matches the suggestion pattern
+                                        if (cmd.includes(typedTimeframe) || 
+                                            (typedTimeframe.includes(' ago') && cmd.includes(' ago')) ||
+                                            (typedTimeframe.includes(' older than') && cmd.includes(' older than'))) {
+                                            score = 100;
+                                        }
+                                        // Extra boost for pure numbers (like "5" when typing "5 months ago")
+                                        else if (/^\d+$/.test(typedTimeframe)) {
+                                            score = 95;
+                                        }
+                                        // Extra boost for number + partial unit (like "2 m" when typing "2 months ago")
+                                        else if (/^\d+\s*[a-z]/.test(typedTimeframe)) {
+                                            score = 92;
+                                        }
+                                        
+                                        if (score > bestScore) {
+                                            bestScore = score;
+                                            bestMatch = i;
+                                        }
                                     }
                                 }
                             }
@@ -2952,7 +2987,10 @@
                                         typedTimeframe.includes(' day') || typedTimeframe.includes(' week') || 
                                         typedTimeframe.includes(' month') || typedTimeframe.includes(' year') ||
                                         /^\d+$/.test(typedTimeframe) || /^\d+\s*$/.test(typedTimeframe) ||
-                                        /^\d+\s*[a-z]/.test(typedTimeframe) || /^\d+\s*[a-z]+$/.test(typedTimeframe)) {
+                                        /^\d+\s*[a-z]/.test(typedTimeframe) || /^\d+\s*[a-z]+$/.test(typedTimeframe) ||
+                                        typedTimeframe === 'a' || typedTimeframe.startsWith('a ') ||
+                                        /^a\s+(day|week|month|year)/.test(typedTimeframe) ||
+                                        /^a\s+(d|w|m|y)/.test(typedTimeframe)) {
                                         let score = 90; // High score for duration-based matches
                                         
                                         // Boost score if the typed timeframe matches the suggestion pattern
@@ -3003,14 +3041,20 @@
                     });
                     // After filtering, if a sender+timeframe is typed, move the BEST MATCHING one to top
                     const partialMatch2 = q.match(/\barchive\s+emails\s+from\s+[^\s].*?\s+from\s+(this\s+(?:week|month|year)|last\s+(?:week|month|year)|today|yesterday|this|last|thi|th|t|y|l|la|las|las\s+m|las\s+mo|las\s+mon|las\s+mont|las\s+month|las\s+w|las\s+we|las\s+wee|las\s+week|las\s+y|las\s+ye|las\s+yea|las\s+year|last\s+m|last\s+mo|last\s+mon|last\s+mont|last\s+month|last\s+w|last\s+we|last\s+wee|last\s+week|last\s+y|last\s+ye|last\s+yea|last\s+year|this\s+t|this\s+th|this\s+thi|this\s+this|this\s+w|this\s+we|this\s+wee|this\s+week|this\s+m|this\s+mo|this\s+mon|this\s+mont|this\s+month|this\s+y|this\s+ye|this\s+yea|this\s+year)\b/i);
+                    // Also check for duration patterns (e.g., "3 weeks ago", "2 months ago")
+                    const durationMatch = q.match(/\barchive\s+emails\s+from\s+[^\s].*?\s+from\s+(\d+\s+(?:day|days|week|weeks|month|months|year|years)\s+ago|a\s+(?:day|week|month|year)\s+ago|\d+\s+(?:d|w|m|y)\s+ago|a\s+(?:d|w|m|y)\s+ago|\d+\s+(?:day|days|week|weeks|month|months|year|years)|a\s+(?:day|week|month|year)|\d+\s+(?:d|w|m|y)|a\s+(?:d|w|m|y))\b/i);
                     console.log("Archive context filter - partialMatch2:", partialMatch2);
+                    console.log("Archive context filter - durationMatch:", durationMatch);
                     console.log("Archive context filter - filteredArchive.length:", filteredArchive.length);
                     if (partialMatch2) {
                         console.log("Matched text:", partialMatch2[1]);
                         console.log("Full match:", partialMatch2[0]);
                     }
-                    if (filteredArchive.length && partialMatch2) {
-                        const typed = partialMatch2[1].toLowerCase();
+                    if (filteredArchive.length && (partialMatch2 || durationMatch)) {
+                        // Prioritize durationMatch over partialMatch2
+                        const typed = (durationMatch ? durationMatch[1] : partialMatch2[1]).toLowerCase();
+                        console.log("Archive context - Using match type:", durationMatch ? "durationMatch" : "partialMatch2");
+                        console.log("Archive context - Typed text:", typed);
                         
                         // If user typed "this" or "thi", filter out "today" suggestions completely
                         if (typed === 'this' || typed === 'thi') {
@@ -3062,6 +3106,35 @@
                                 else if (typed.startsWith('this m') && s.includes(' from this month')) score = 85;
                                 else if (typed.startsWith('this w') && s.includes(' from this week')) score = 85;
                                 else if (typed.startsWith('this y') && s.includes(' from this year')) score = 85;
+                                // Handle duration patterns (e.g., "3 weeks ago", "2 months ago")
+                                else if (typed.includes(' ago') && s.includes(' from ') && s.includes(' ago')) {
+                                    // Duration-based suggestions get high priority
+                                    score = 95;
+                                }
+                                // Handle partial duration patterns (e.g., "3 w", "2 m")
+                                else if (/^\d+\s*[a-z]/.test(typed) && s.includes(' from ') && s.includes(' ago')) {
+                                    score = 90;
+                                }
+                                // Handle pure numbers (e.g., "3", "2")
+                                else if (/^\d+$/.test(typed) && s.includes(' from ') && s.includes(' ago')) {
+                                    score = 85;
+                                }
+                                // Handle duration patterns without "ago" (e.g., "3 months", "2 weeks")
+                                else if (/^\d+\s+(?:day|days|week|weeks|month|months|year|years)$/.test(typed) && s.includes(' from ') && s.includes(' ago')) {
+                                    score = 90;
+                                }
+                                // Handle just "a" as duration cue (e.g., "a" when typing "a month ago")
+                                else if (typed === 'a' && s.includes(' from ') && s.includes(' ago')) {
+                                    score = 85;
+                                }
+                                // Handle "a [unit]" patterns (e.g., "a month", "a week")
+                                else if (typed.startsWith('a ') && s.includes(' from ') && s.includes(' ago')) {
+                                    score = 90;
+                                }
+                                // Handle partial "a [unit]" patterns (e.g., "a m", "a w")
+                                else if (/^a\s+[a-z]/.test(typed) && s.includes(' from ') && s.includes(' ago')) {
+                                    score = 88;
+                                }
                                 // Exact matches get highest score
                                 else if (s.includes(` from ${typed}`)) {
                                     score = 100;
