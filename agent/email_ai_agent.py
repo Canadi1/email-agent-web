@@ -2419,11 +2419,13 @@ class GmailAIAgent:
 
         # Early routes for custom categories (archive/delete) with optional age filter
         def _parse_age_days(cmd: str):
-            m = re.search(r'older\s+(?:than|then)\s+(\d+)\s*(day|days|d|week|weeks|w|month|months|m|year|years|y)', cmd)
+            m = re.search(r'older\s+(?:than|then)\s+(a|\d+)\s*(day|days|d|week|weeks|w|month|months|m|year|years|y)', cmd)
             if not m:
                 return None
             try:
-                qty = int(m.group(1)); unit = m.group(2).lower()
+                qty_raw = m.group(1)
+                qty = 1 if qty_raw == 'a' else int(qty_raw)
+                unit = m.group(2).lower()
                 if unit in ['day','days','d']: return qty
                 if unit in ['week','weeks','w']: return qty*7
                 if unit in ['month','months','m']: return qty*30
@@ -2432,17 +2434,21 @@ class GmailAIAgent:
                 return None
             return None
 
-        if 'archive' in command_lower and (('verification' in command_lower and 'code' in command_lower) or 'משלוח' in command_lower or 'shipping' in command_lower or 'delivery' in command_lower or 'shipped' in command_lower):
+        if 'archive' in command_lower and (('verification' in command_lower and 'code' in command_lower) or 'משלוח' in command_lower or 'shipping' in command_lower or 'delivery' in command_lower or 'shipped' in command_lower or ('account' in command_lower and 'security' in command_lower)):
             older = _parse_age_days(command_lower)
             if ('verification' in command_lower and 'code' in command_lower):
                 return {"action": "archive", "target_type": "custom_category", "target": "verification_codes", "confirmation_required": True, "older_than_days": older}
+            elif ('account' in command_lower and 'security' in command_lower):
+                return {"action": "archive", "target_type": "custom_category", "target": "account_security", "confirmation_required": True, "older_than_days": older}
             else:
                 return {"action": "archive", "target_type": "custom_category", "target": "shipping_delivery", "confirmation_required": True, "older_than_days": older}
 
-        if 'delete' in command_lower and (('verification' in command_lower and 'code' in command_lower) or 'משלוח' in command_lower or 'shipping' in command_lower or 'delivery' in command_lower or 'shipped' in command_lower):
+        if 'delete' in command_lower and (('verification' in command_lower and 'code' in command_lower) or 'משלוח' in command_lower or 'shipping' in command_lower or 'delivery' in command_lower or 'shipped' in command_lower or ('account' in command_lower and 'security' in command_lower)):
             older = _parse_age_days(command_lower)
             if ('verification' in command_lower and 'code' in command_lower):
                 return {"action": "delete", "target_type": "custom_category", "target": "verification_codes", "confirmation_required": True, "older_than_days": older}
+            elif ('account' in command_lower and 'security' in command_lower):
+                return {"action": "delete", "target_type": "custom_category", "target": "account_security", "confirmation_required": True, "older_than_days": older}
             else:
                 return {"action": "delete", "target_type": "custom_category", "target": "shipping_delivery", "confirmation_required": True, "older_than_days": older}
 
@@ -2624,6 +2630,7 @@ class GmailAIAgent:
                 "security","account"
             ])
             if category_tokens_present:
+                # Skip bulk cleanup - let custom category parsing handle this
                 pass
             else:
                 age_match = re.search(r'older\s+(?:than|then)\s+(\d+)\s*(day|days|d|week|weeks|w|month|months|m|year|years|y)', command_lower)
@@ -2746,7 +2753,7 @@ class GmailAIAgent:
                 return {"action": "list", "target_type": "custom_category", "target": "verification_codes", "older_than_days": custom_older_days, "date_range": custom_date_range, "confirmation_required": False}
             if ("shipping" in command_lower or "delivery" in command_lower or "shipped" in command_lower or "משלוח" in command_lower) and ("list" in command_lower or "show" in command_lower or "view" in command_lower or "get" in command_lower):
                 return {"action": "list", "target_type": "custom_category", "target": "shipping_delivery", "older_than_days": custom_older_days, "date_range": custom_date_range, "confirmation_required": False}
-            if ("security" in command_lower or "account" in command_lower or "sign in" in command_lower or "login" in command_lower) and ("list" in command_lower or "show" in command_lower or "view" in command_lower or "get" in command_lower):
+            if (("account" in command_lower and "security" in command_lower) or ("security" in command_lower and "account" in command_lower) or "sign in" in command_lower or "login" in command_lower) and ("list" in command_lower or "show" in command_lower or "view" in command_lower or "get" in command_lower):
                 return {"action": "list", "target_type": "custom_category", "target": "account_security", "older_than_days": custom_older_days, "date_range": custom_date_range, "confirmation_required": False}
             # Archived
             if "archived" in command_lower or "not in inbox" in command_lower or "hidden" in command_lower:
@@ -2911,7 +2918,7 @@ class GmailAIAgent:
                 return {"action": "delete", "target_type": "custom_category", "target": "verification_codes", "confirmation_required": True, "older_than_days": older_than_days}
             if "shipping" in command_lower or "delivery" in command_lower or "shipped" in command_lower or "משלוח" in command_lower:
                 return {"action": "delete", "target_type": "custom_category", "target": "shipping_delivery", "confirmation_required": True, "older_than_days": older_than_days}
-            if "security" in command_lower or "account" in command_lower:
+            if ("account" in command_lower and "security" in command_lower) or ("security" in command_lower and "account" in command_lower):
                 return {"action": "delete", "target_type": "custom_category", "target": "account_security", "confirmation_required": True, "older_than_days": older_than_days}
 
         # Archive parsing (mirror of delete)
@@ -2955,7 +2962,7 @@ class GmailAIAgent:
                 return {"action": "archive", "target_type": "custom_category", "target": "verification_codes", "confirmation_required": True, "older_than_days": older_than_days}
             if "shipping" in command_lower or "delivery" in command_lower or "shipped" in command_lower or "משלוח" in command_lower:
                 return {"action": "archive", "target_type": "custom_category", "target": "shipping_delivery", "confirmation_required": True, "older_than_days": older_than_days}
-            if "security" in command_lower or "account" in command_lower:
+            if ("account" in command_lower and "security" in command_lower) or ("security" in command_lower and "account" in command_lower):
                 return {"action": "archive", "target_type": "custom_category", "target": "account_security", "confirmation_required": True, "older_than_days": older_than_days}
 
         return {"debug_info": f"Action '{best_match_action}' was recognized, but no specific pattern was matched for the rest of the command."}
