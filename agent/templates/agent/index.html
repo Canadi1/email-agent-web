@@ -1893,37 +1893,68 @@
                 console.error('Autocomplete JSON parse failed', e);
             }
             console.log('Using fallback commands');
-            return [
-                'list recent emails',
-                'list emails from [domain.com]',
-                'list emails from last week',
-                'list emails from last month',
-                'list emails from yesterday',
-                'list emails from [duration] ago',
-                'list emails older than [duration]',
-                'search emails with subject "[keyword]"',
-                'show email stats',
-                'delete emails from [domain.com]',
-                'delete all promotions older than [duration]',
-                'delete emails from [sender] older than [duration]',
-                'delete all emails older than [duration]',
-                'archive emails older than [duration]',
-                'archive emails from [sender]',
-                'archive emails from [sender] older than [duration]',
-                // removed generic archive sender time period placeholder (we keep specific fixed-time variants via backend list)
-                '• label emails from [sender] as "[label]"',
-                'list labels',
-                'show label "[label]"',
-                'restore emails from [sender]',
-                'send email'
-            ];
+            const isHebrew = document.documentElement.lang === 'he';
+            if (isHebrew) {
+                return [
+                    'רשום מיילים אחרונים',
+                    'רשום מיילים מ[דומיין]',
+                    'רשום מיילים מהשבוע שעבר',
+                    'רשום מיילים מהחודש שעבר',
+                    'רשום מיילים מאתמול',
+                    'רשום מיילים מלפני [משך]',
+                    'רשום מיילים ישנים מ[משך]',
+                    'חפש מיילים עם נושא "[מילת מפתח]"',
+                    'הצג סטטיסטיקות דואל',
+                    'מחק מיילים מ[דומיין]',
+                    'מחק כל המיילים ישנים מ[משך]',
+                    'מחק מיילים מ[שולח] ישנים מ[משך]',
+                    'מחק כל המיילים ישנים מ[משך]',
+                    'ארכב מיילים ישנים מ[משך]',
+                    'ארכב מיילים מ[שולח]',
+                    'ארכב מיילים מ[שולח] ישנים מ[משך]',
+                    'תייג מיילים מ[שולח] כ"[תווית]"',
+                    'רשום תוויות',
+                    'רשום מיילים עם תווית "[תווית]"',
+                    'שחזר מיילים מ[שולח]',
+                    'שלח מייל'
+                ];
+            } else {
+                return [
+                    'list recent emails',
+                    'list emails from [domain.com]',
+                    'list emails from last week',
+                    'list emails from last month',
+                    'list emails from yesterday',
+                    'list emails from [duration] ago',
+                    'list emails older than [duration]',
+                    'search emails with subject "[keyword]"',
+                    'show email stats',
+                    'delete emails from [domain.com]',
+                    'delete all promotions older than [duration]',
+                    'delete emails from [sender] older than [duration]',
+                    'delete all emails older than [duration]',
+                    'archive emails older than [duration]',
+                    'archive emails from [sender]',
+                    'archive emails from [sender] older than [duration]',
+                    '• label emails from [sender] as "[label]"',
+                    'list labels',
+                    'show label "[label]"',
+                    'restore emails from [sender]',
+                    'send email'
+                ];
+            }
         })();
 
         // Normalize commands: ensure plain 'archive emails from [sender]' exists even if backend JSON parsing failed
         try {
-            const hasPlainArchiveSender = (commands || []).some(c => /^archive\s+emails\s+from\s+\[sender\]\b/i.test(String(c)));
+            const isHebrew = document.documentElement.lang === 'he';
+            const hasPlainArchiveSender = (commands || []).some(c => 
+                isHebrew ? 
+                    /^ארכב\s+מיילים\s+מ\[שולח\]\b/i.test(String(c)) :
+                    /^archive\s+emails\s+from\s+\[sender\]\b/i.test(String(c))
+            );
             if (!hasPlainArchiveSender) {
-                commands.push('archive emails from [sender]');
+                commands.push(isHebrew ? 'ארכב מיילים מ[שולח]' : 'archive emails from [sender]');
             }
         } catch (e) {}
 
