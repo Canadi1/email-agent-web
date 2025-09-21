@@ -2901,6 +2901,93 @@
                         }
                     }
                     
+                    // Reorder list sender+timeframe suggestions for partial matches
+                    const listSenderTimeframeMatch = q.match(/\blist\s+emails\s+from\s+([^\s].*?)\s+from\s+(.+)$/i);
+                    if (listSenderTimeframeMatch) {
+                        const typedTimeframe = listSenderTimeframeMatch[2].toLowerCase().trim();
+                        console.log(`LIST REORDERING - Typed timeframe: "${typedTimeframe}"`);
+                        
+                        // Find the best matching suggestion and move it to top
+                        let bestMatch = null;
+                        let bestScore = -1;
+                        
+                        for (let i = 0; i < filteredByAction.length; i++) {
+                            const item = filteredByAction[i];
+                            const cmd = (item && item.cmd ? String(item.cmd).toLowerCase() : '');
+                            
+                            // Check if this is a list sender+timeframe suggestion
+                            if (cmd.includes('list emails from [sender] from ')) {
+                                // Check for fixed timeframes (today, yesterday, this/last week/month/year)
+                                const fixedTimeframeMatch = cmd.match(/from\s+(today|yesterday|this week|this month|this year|last week|last month|last year)$/);
+                                if (fixedTimeframeMatch) {
+                                    const suggestionTimeframe = fixedTimeframeMatch[1];
+                                    let score = 0;
+                                    
+                                    // Exact match gets highest score
+                                    if (suggestionTimeframe === typedTimeframe) {
+                                        score = 100;
+                                    }
+                                    // Partial matches get lower scores
+                                    else if (suggestionTimeframe.startsWith(typedTimeframe)) {
+                                        score = 80;
+                                    }
+                                    // "this" matches get priority over "today" when typing "this"
+                                    else if (typedTimeframe.startsWith('this') && suggestionTimeframe.startsWith('this')) {
+                                        score = 70;
+                                    }
+                                    // "last" matches get priority when typing "last"
+                                    else if (typedTimeframe.startsWith('last') && suggestionTimeframe.startsWith('last')) {
+                                        score = 70;
+                                    }
+                                    
+                                    if (score > bestScore) {
+                                        bestScore = score;
+                                        bestMatch = i;
+                                    }
+                                }
+                                // Check for duration-based timeframes (X days/weeks/months/years ago)
+                                else if (cmd.includes(' from ') && (cmd.includes(' ago') || cmd.includes(' older than'))) {
+                                    // Duration-based suggestions get priority when typing duration phrases
+                                    if (typedTimeframe.includes(' ago') || typedTimeframe.includes(' older than') || 
+                                        typedTimeframe.includes(' day') || typedTimeframe.includes(' week') || 
+                                        typedTimeframe.includes(' month') || typedTimeframe.includes(' year') ||
+                                        /^\d+$/.test(typedTimeframe) || /^\d+\s*$/.test(typedTimeframe) ||
+                                        /^\d+\s*[a-z]/.test(typedTimeframe) || /^\d+\s*[a-z]+$/.test(typedTimeframe)) {
+                                        let score = 90; // High score for duration-based matches
+                                        
+                                        // Boost score if the typed timeframe matches the suggestion pattern
+                                        if (cmd.includes(typedTimeframe) || 
+                                            (typedTimeframe.includes(' ago') && cmd.includes(' ago')) ||
+                                            (typedTimeframe.includes(' older than') && cmd.includes(' older than'))) {
+                                            score = 100;
+                                        }
+                                        // Extra boost for pure numbers (like "5" when typing "5 months ago")
+                                        else if (/^\d+$/.test(typedTimeframe)) {
+                                            score = 95;
+                                        }
+                                        // Extra boost for number + partial unit (like "2 m" when typing "2 months ago")
+                                        else if (/^\d+\s*[a-z]/.test(typedTimeframe)) {
+                                            score = 92;
+                                        }
+                                        
+                                        if (score > bestScore) {
+                                            bestScore = score;
+                                            bestMatch = i;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // Move the best match to the top
+                        if (bestMatch !== null && bestMatch > 0) {
+                            const bestItem = filteredByAction[bestMatch];
+                            filteredByAction.splice(bestMatch, 1);
+                            filteredByAction.unshift(bestItem);
+                            console.log(`LIST REORDERING - Moved suggestion to top: "${bestItem.cmd}"`);
+                        }
+                    }
+                    
                     if (filteredByAction.length) return filteredByAction;
                 }
             } catch (e) {}
