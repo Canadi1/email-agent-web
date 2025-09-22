@@ -3135,15 +3135,25 @@ class GmailAIAgent:
                     if "error" in res:
                         return {"status": "error", "message": f"Error fetching emails: {res['error']}"}
                     if not emails: 
-                        return {"status": "success", "message": "No recent emails found."}
-                    return {"status": "success", "data": emails, "type": "email_list", "message": f"Found {len(emails)} recent emails.", "next_page_token": res.get("next_page_token"), "list_context": {"mode": "recent"}}
+                        if hebrew_mode:
+                            return {"status": "success", "message": "לא נמצאו מיילים אחרונים."}
+                        return {"status": "success", "message": _("No recent emails found.")}
+                    if hebrew_mode:
+                        msg = f"נמצאו {len(emails)} מיילים אחרונים."
+                    else:
+                        msg = f"Found {len(emails)} recent emails."
+                    return {"status": "success", "data": emails, "type": "email_list", "message": msg, "next_page_token": res.get("next_page_token"), "list_context": {"mode": "recent"}}
                 elif target_type == "archived":
                     res = self.list_archived_emails()
                     emails = res.get("emails", []) if isinstance(res, dict) else res
                     next_token = res.get("next_page_token") if isinstance(res, dict) else None
                     if not emails: 
                         return {"status": "success", "message": _("No archived emails found.")}
-                    return {"status": "success", "data": emails, "type": "email_list", "message": f"Found {len(emails)} archived emails.", "next_page_token": next_token, "list_context": {"mode": "archived"}}
+                    if hebrew_mode:
+                        msg = f"נמצאו {len(emails)} מיילים בארכיון."
+                    else:
+                        msg = f"Found {len(emails)} archived emails."
+                    return {"status": "success", "data": emails, "type": "email_list", "message": msg, "next_page_token": next_token, "list_context": {"mode": "archived"}}
                 elif target_type == "all_mail":
                     res = self.list_all_emails()
                     # Check if res is valid before calling .get()
@@ -3155,7 +3165,11 @@ class GmailAIAgent:
                     emails = res.get("emails", [])
                     if not emails: 
                         return {"status": "success", "message": _("No emails found in All Mail.")}
-                    return {"status": "success", "data": emails, "type": "email_list", "message": f"Found {len(emails)} emails in All Mail.", "next_page_token": res.get("next_page_token"), "list_context": {"mode": "all_mail"}}
+                    if hebrew_mode:
+                        msg = f"נמצאו {len(emails)} מיילים בתיבת כל הדואר."
+                    else:
+                        msg = f"Found {len(emails)} emails in All Mail."
+                    return {"status": "success", "data": emails, "type": "email_list", "message": msg, "next_page_token": res.get("next_page_token"), "list_context": {"mode": "all_mail"}}
                 elif target_type == "labels" or parsed.get("target") == "labels":
                     labels = self.list_labels()
                     if not labels: return {"status": "success", "message": _("You have no custom labels.")}

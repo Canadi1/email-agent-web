@@ -2007,6 +2007,11 @@
             const q = (input || '').toLowerCase().trim();
             const scored = [];
             const includeMatches = [];
+            // Hebrew cues used throughout ranking adjustments
+            const heListCue = /^\s*רש(?:ו)?ם\s+מיילים/.test(q);
+            const heDurCueStrict = /(מל(?:י)?פני|לפני|ישנים\s*מ)/.test(q);
+            const heDurCuePartial = /\bמל(?:י)?פני\s*[ח]/.test(q);
+            const hebrewDurationActive = heListCue && (heDurCueStrict || heDurCuePartial);
             
 
             // Detect custom category cue so category templates outrank generic ones
@@ -2076,6 +2081,13 @@
                         cmd === 'show email stats' || cmd === 'delete all promotions') {
                         score += 0.3;
                     }
+                    // Hebrew: favor duration-first list when duration cue is active, demote plain sender
+                    try {
+                        const isHeDurationList = /^רשום\s+מיילים\s+(מלפני\s*\[משך\]|ישנים\s*מ\[משך\])$/i.test(cmd);
+                        const isHePlainSender = /^רשום\s+מיילים\s+מ\[שולח\]$/i.test(cmd);
+                        if (hebrewDurationActive && isHeDurationList) score += 5;
+                        if (hebrewDurationActive && isHePlainSender) score -= 5;
+                    } catch (e) {}
                     score += 0.1; // starts-with bonus
                     includeMatches.push({ cmd, score, type: 'include', pos });
                     continue; // we already included this via direct match
@@ -2105,8 +2117,15 @@
                         const typedWord = (typedAfter.match(/^[a-z0-9\u0590-\u05FF]+/i) || [''])[0].toLowerCase();
                         const isSenderTemplate = /\[(sender|domain\.com|שולח|דומיין)\]/i.test(lc);
                         let earlyMismatch = typedWord.length >= 2 && nextWord && !nextWord.startsWith(typedWord);
-                        // Allow sender templates to stay visible while the user is still typing the sender token
-                        if (isSenderTemplate) earlyMismatch = false;
+                        // Do NOT protect sender templates when duration cue is active in Hebrew
+                        if (isSenderTemplate && !hebrewDurationActive) earlyMismatch = false;
+                        // Hebrew: boost/demote scores
+                        try {
+                            const isHeDurationList = /^רשום\s+מיילים\s+(מלפני\s*\[משך\]|ישנים\s*מ\[משך\])$/i.test(cmd);
+                            const isHePlainSender = /^רשום\s+מיילים\s+מ\[שולח\]$/i.test(cmd);
+                            if (hebrewDurationActive && isHeDurationList) score += 0.5;
+                            if (hebrewDurationActive && isHePlainSender) score -= 0.5;
+                        } catch (e) {}
                         if (!earlyMismatch) {
                             scored.push({ cmd, score, type: 'placeholder', prefixLen: fixedPrefix.length });
                         }
@@ -2127,6 +2146,13 @@
                             let score = 0.82 + Math.min(0.12, fixedChars / Math.max(1, lc.length)) + fixedSegmentsCount * 0.05;
                             if (inputHasDuration && lc.includes('[duration]')) score += 0.12;
                             if (inputHasFromTime && lc.includes('[time')) score += 0.06;
+                            // Hebrew: strong preference for duration-first list when active
+                            try {
+                                const isHeDurationList = /^רשום\s+מיילים\s+(מלפני\s*\[משך\]|ישנים\s*מ\[משך\])$/i.test(cmd);
+                                const isHePlainSender = /^רשום\s+מיילים\s+מ\[שולח\]$/i.test(cmd);
+                                if (hebrewDurationActive && isHeDurationList) score += 1.2;
+                                if (hebrewDurationActive && isHePlainSender) score -= 1.0;
+                            } catch (e) {}
                             // Early mismatch guard on the next fixed word
                             const fixedPrefix = parts[0] || '';
                             const nextFixed = parts[1] || '';
@@ -2159,7 +2185,12 @@
                     if (!inSameCategory) return 0;
                 }
                 const partialFromCue = /\b(?:list|archive|delete)\s+emails\s+f(?:r|ro)?$/i.test(q);
-                const hasSenderCue = /\bfrom\b|\bמ(?:-|\s)/i.test(q) || partialFromCue;
+                let hasSenderCue = /\bfrom\b|\bמ(?:-|\s)/i.test(q) || partialFromCue;
+                // Hebrew guard: don't treat 'מ' as sender cue when it's the start of 'מלפני/מליפני/מ לפני'
+                if (hasSenderCue) {
+                    const hebDurationAfterMem = /\bמ\s*לפני\b|\bמל(?:י)?פני\b/.test(q);
+                    if (hebDurationAfterMem) hasSenderCue = false;
+                }
                 if (!hasSenderCue) return 0;
                 // Restrict alignment to same action when an action cue exists
                 try {
@@ -2251,6 +2282,21 @@
                 const bStart = commands.indexOf(b.cmd) >= 0 && b.cmd.toLowerCase().startsWith(q);
                 if (aStart && !bStart) return -1;
                 if (!aStart && bStart) return 1;
+                // Hebrew duration cue: prefer duration templates over sender templates
+                try {
+                    const heDurationCue = /\bמלפני\b|\bלפני\b|ישנים\s*מ/.test(q);
+                    const heListCue = /^\s*רש(?:ו)?ם\s+מיילים/.test(q);
+                    if (heListCue && heDurationCue) {
+                        const aIsDuration = /^רשום\s+מיילים\s+(מלפני\s*\[משך\]|ישנים\s*מ\[משך\])/.test(String(a.cmd).toLowerCase());
+                        const bIsDuration = /^רשום\s+מיילים\s+(מלפני\s*\[משך\]|ישנים\s*מ\[משך\])/.test(String(b.cmd).toLowerCase());
+                        if (aIsDuration && !bIsDuration) return -1;
+                        if (!aIsDuration && bIsDuration) return 1;
+                        const aIsSender = /^רשום\s+מיילים\s+מ\[שולח\]$/.test(String(a.cmd).toLowerCase());
+                        const bIsSender = /^רשום\s+מיילים\s+מ\[שולח\]$/.test(String(b.cmd).toLowerCase());
+                        if (aIsSender && !bIsSender) return 1;
+                        if (!aIsSender && bIsSender) return -1;
+                    }
+                } catch (e) {}
                 // If user typed 'older than', push templates containing it above plain ones
                 const hasOlder = /\bolder\s+than\b/i.test(q);
                 if (hasOlder) {
@@ -2262,6 +2308,38 @@
                 return b.score - a.score;
             });
             for (let k = 0; k < includeMatches.length; k++) if (!seen.has(includeMatches[k].cmd)) { merged.push(includeMatches[k]); seen.add(includeMatches[k].cmd); }
+
+            // HEBREW PRIORITY: when user types a duration cue like "מלפני"/"מליפני"/"לפני" or "ישנים מ",
+            // prefer duration list templates over sender templates.
+            try {
+                // Support early partials: 'מ' followed by h-letter of 'חודש' or any single Hebrew letter
+                const partialMonthCue = /\bמל(?:י)?פני\s*[ח]/.test(q);
+                const hebDurationCue = /\bמל(?:י)?פני\b|\bלפני\b|ישנים\s*מ/.test(q) || partialMonthCue;
+                const hebListCue = /^\s*רש(?:ו)?ם\s+מיילים/.test(q);
+                if (hebListCue && hebDurationCue) {
+                    // Find a duration-focused list template and move it to the very top
+                    let bestIdx = -1;
+                    for (let i = 0; i < merged.length; i++) {
+                        const s = String(merged[i].cmd || '').toLowerCase();
+                        if (/^רשום\s+מיילים\s+(מלפני\s*\[משך\]|ישנים\s*מ\[משך\])/.test(s)) { bestIdx = i; break; }
+                    }
+                    if (bestIdx > 0) {
+                        const it = merged.splice(bestIdx, 1)[0];
+                        merged.unshift(it);
+                    }
+                    // Demote sender templates without duration within the first few spots
+                    for (let scan = 0; scan < Math.min(5, merged.length); scan++) {
+                        const s2 = String(merged[scan].cmd || '').toLowerCase();
+                        const isPlainSender = /^רשום\s+מיילים\s+מ\[שולח\]$/.test(s2);
+                        const isSenderWithDuration = /^רשום\s+מיילים\s+מ\[שולח\].*?(מלפני|לפני|ישנים\s*מ)\s*\[משך\]/.test(s2);
+                        if (isPlainSender && !isSenderWithDuration) {
+                            const it2 = merged.splice(scan, 1)[0];
+                            merged.push(it2);
+                            break;
+                        }
+                    }
+                }
+            } catch (e) {}
 
             // PRIORITY: If user typed a numeric duration after 'from', surface 'list emails from [duration] ago'
             try {
@@ -2753,6 +2831,48 @@
                 if (!seen2.has(c)) { seen2.add(c); unique.push(merged[i]); }
             }
             
+            // HARD OVERRIDE (HEBREW DURATION): Force duration-first list templates to index 0
+            try {
+                const heList = /^\s*רש(?:ו)?ם\s+מיילים/.test(q);
+                const heDur = /(מל(?:י)?פני|לפני|ישנים\s*מ)/.test(q) || /מל(?:י)?פני\s*[ח]/.test(q);
+                console.log('[HE-DUR-OVERRIDE] heList=', heList, ' heDur=', heDur, ' q=', q);
+                if (heList && heDur) {
+                    // Detect category flow
+                    const hasCategory = /קטגוריה\s+מותאמת|"\[[^\]]*\]"|".*?"/.test(q);
+                    let targetIdx = -1;
+                    // Prefer category+duration template when category context is present
+                    if (hasCategory) {
+                        for (let i = 0; i < unique.length; i++) {
+                            const s = String(unique[i].cmd || '').toLowerCase();
+                            if (/^רשום\s+מיילים\s+לקטגוריה\s+מותאמת\s+".*?"\s+מלפני\s*\[משך\]/.test(s)) { targetIdx = i; break; }
+                            if (/^רשום\s+מיילים\s+לקטגוריה\s+מותאמת\s+".*?"\s+ישנים\s*מ\[משך\]/.test(s)) { targetIdx = i; break; }
+                        }
+                    }
+                    // Fallback to general duration-first template
+                    if (targetIdx === -1) {
+                        for (let i = 0; i < unique.length; i++) {
+                            const s = String(unique[i].cmd || '').toLowerCase();
+                            if (/^רשום\s+מיילים\s+מלפני\s*\[משך\]$/.test(s) || /^רשום\s+מיילים\s+ישנים\s*מ\[משך\]$/.test(s)) { targetIdx = i; break; }
+                        }
+                    }
+                    console.log('[HE-DUR-OVERRIDE] targetIdx=', targetIdx, ' uniqueTop3Before=', unique.slice(0,3).map(x=>x.cmd));
+                    if (targetIdx > 0) {
+                        const it = unique.splice(targetIdx, 1)[0];
+                        unique.unshift(it);
+                        console.log('[HE-DUR-OVERRIDE] movedToFront=', it.cmd);
+                        // Move plain sender below the first few items
+                        for (let i = 1; i < Math.min(4, unique.length); i++) {
+                            const s = String(unique[i].cmd || '').toLowerCase();
+                            if (/^רשום\s+מיילים\s+מ\[שולח\]$/.test(s)) {
+                                const sw = unique.splice(i, 1)[0];
+                                unique.push(sw);
+                                break;
+                            }
+                        }
+                        console.log('[HE-DUR-OVERRIDE] uniqueTop3After=', unique.slice(0,3).map(x=>x.cmd));
+                    }
+                }
+            } catch (e) {}
             
             // HARD GATE (PARTIAL FROM): If typing 'archive emails f|fr|fro|from' (no older than yet),
             // drop any 'older than' suggestions so they cannot appear at the top prematurely
@@ -3917,6 +4037,28 @@
 
             const maxShow = 12;
             const items = getSuggestions(input.toLowerCase(), maxShow);
+            // Final client-side hard override (Hebrew duration): ensure duration stays first
+            try {
+                const q = (input || '').toLowerCase();
+                const heList = /^\s*רש(?:ו)?ם\s+מיילים/.test(q);
+                const heDur = /(מל(?:י)?פני|לפני|ישנים\s*מ)/.test(q) || /מל(?:י)?פני\s*[ח]/.test(q);
+                if (heList && heDur && Array.isArray(items) && items.length) {
+                    // Prefer category+duration if present in items
+                    let idx = items.findIndex(s => /^רשום\s+מיילים\s+לקטגוריה\s+מותאמת\s+".*?"\s+(מלפני\s*\[משך\]|ישנים\s*מ\[משך\])$/i.test(String(s)));
+                    if (idx === -1) {
+                        idx = items.findIndex(s => /^רשום\s+מיילים\s+(מלפני\s*\[משך\]|ישנים\s*מ\[משך\])$/i.test(String(s)));
+                    }
+                    if (idx > 0) {
+                        const it = items.splice(idx, 1)[0];
+                        items.unshift(it);
+                    }
+                    // Demote plain sender template if it sits first
+                    if (items.length > 1 && /^רשום\s+מיילים\s+מ\[שולח\]$/i.test(String(items[0]))) {
+                        const sw = items.shift();
+                        items.push(sw);
+                    }
+                }
+            } catch (e) {}
             items.forEach((item, idx) => {
                 const { cmd, type } = item;
                 const div = document.createElement('div');
