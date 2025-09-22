@@ -2106,6 +2106,12 @@
                     }
                     const parts = lc.split(/\[[^\]]+\]/); // fixed text chunks around placeholders
                     const fixedPrefix = parts[0] || '';
+                    // Hebrew duration cue: skip time-period templates entirely
+                    const heDurationCueNow = /(מל(?:י)?פני|לפני|ישנים\s*מ)/.test(q);
+                    const isHeTimePeriodTemplate = /\[תקופה\]/.test(lc);
+                    if (heDurationCueNow && isHeTimePeriodTemplate) {
+                        continue;
+                    }
                     if (fixedPrefix && q.startsWith(fixedPrefix)) {
                         // Base score for prefix-only match (keep; will be outranked by deeper matches)
                         const fixedSegmentsCount = parts.filter(p => p.length > 0).length;
@@ -2146,6 +2152,7 @@
                             let score = 0.82 + Math.min(0.12, fixedChars / Math.max(1, lc.length)) + fixedSegmentsCount * 0.05;
                             if (inputHasDuration && lc.includes('[duration]')) score += 0.12;
                             if (inputHasFromTime && lc.includes('[time')) score += 0.06;
+                            if (heDurationCueNow && isHeTimePeriodTemplate) score -= 5;
                             // Hebrew: strong preference for duration-first list when active
                             try {
                                 const isHeDurationList = /^רשום\s+מיילים\s+(מלפני\s*\[משך\]|ישנים\s*מ\[משך\])$/i.test(cmd);
@@ -2284,13 +2291,30 @@
                 if (!aStart && bStart) return 1;
                 // Hebrew duration cue: prefer duration templates over sender templates
                 try {
-                    const heDurationCue = /\bמלפני\b|\bלפני\b|ישנים\s*מ/.test(q);
+                    const heDurationCue = /(מל(?:י)?פני|לפני|ישנים\s*מ)/.test(q);
                     const heListCue = /^\s*רש(?:ו)?ם\s+מיילים/.test(q);
                     if (heListCue && heDurationCue) {
                         const aIsDuration = /^רשום\s+מיילים\s+(מלפני\s*\[משך\]|ישנים\s*מ\[משך\])/.test(String(a.cmd).toLowerCase());
                         const bIsDuration = /^רשום\s+מיילים\s+(מלפני\s*\[משך\]|ישנים\s*מ\[משך\])/.test(String(b.cmd).toLowerCase());
+                        const aIsTimePeriod = /\[תקופה\]/.test(String(a.cmd));
+                        const bIsTimePeriod = /\[תקופה\]/.test(String(b.cmd));
+                        // Also consider fixed Hebrew category names (קודי אימות|משלוח|אבטחת חשבון)
+                        const heCatDurRe = /^רשום\s+מיילי\s+(קודי\s+אימות|משלוח|אבטחת\s+חשבון)\s+מלפני\s*\[משך\]$/;
+                        const heCatTimeRe = /^רשום\s+מיילי\s+(קודי\s+אימות|משלוח|אבטחת\s+חשבון)\s+מ\[תקופה\]$/;
+                        const aCatDur = heCatDurRe.test(String(a.cmd));
+                        const bCatDur = heCatDurRe.test(String(b.cmd));
+                        const aCatTime = heCatTimeRe.test(String(a.cmd));
+                        const bCatTime = heCatTimeRe.test(String(b.cmd));
                         if (aIsDuration && !bIsDuration) return -1;
                         if (!aIsDuration && bIsDuration) return 1;
+                        // Prefer category+duration over category+[תקופה]
+                        if (aCatDur && !bCatDur) return -1;
+                        if (!aCatDur && bCatDur) return 1;
+                        if (aCatTime && !bCatTime) return 1;
+                        if (!aCatTime && bCatTime) return -1;
+                        // Demote time-period templates when duration cue is typed
+                        if (aIsTimePeriod && !bIsTimePeriod) return 1;
+                        if (!aIsTimePeriod && bIsTimePeriod) return -1;
                         const aIsSender = /^רשום\s+מיילים\s+מ\[שולח\]$/.test(String(a.cmd).toLowerCase());
                         const bIsSender = /^רשום\s+מיילים\s+מ\[שולח\]$/.test(String(b.cmd).toLowerCase());
                         if (aIsSender && !bIsSender) return 1;
@@ -2846,6 +2870,8 @@
                             const s = String(unique[i].cmd || '').toLowerCase();
                             if (/^רשום\s+מיילים\s+לקטגוריה\s+מותאמת\s+".*?"\s+מלפני\s*\[משך\]/.test(s)) { targetIdx = i; break; }
                             if (/^רשום\s+מיילים\s+לקטגוריה\s+מותאמת\s+".*?"\s+ישנים\s*מ\[משך\]/.test(s)) { targetIdx = i; break; }
+                            // Handle specific built-in category phrases
+                            if (/^רשום\s+מיילי\s+(קודי\s+אימות|משלוח|אבטחת\s+חשבון)\s+מלפני\s*\[משך\]$/.test(s)) { targetIdx = i; break; }
                         }
                     }
                     // Fallback to general duration-first template
@@ -2866,6 +2892,15 @@
                             if (/^רשום\s+מיילים\s+מ\[שולח\]$/.test(s)) {
                                 const sw = unique.splice(i, 1)[0];
                                 unique.push(sw);
+                                break;
+                            }
+                        }
+                        // Demote category time-period variant ("מ[תקופה]") when duration is intended
+                        for (let i = 1; i < Math.min(5, unique.length); i++) {
+                            const s = String(unique[i].cmd || '').toLowerCase();
+                            if (/\sמ\[תקופה\]/.test(s) || /^רשום\s+מיילי\s+(קודי\s+אימות|משלוח|אבטחת\s+חשבון)\s+מ\[תקופה\]$/.test(s)) {
+                                const it3 = unique.splice(i, 1)[0];
+                                unique.push(it3);
                                 break;
                             }
                         }
@@ -4056,6 +4091,15 @@
                     if (items.length > 1 && /^רשום\s+מיילים\s+מ\[שולח\]$/i.test(String(items[0]))) {
                         const sw = items.shift();
                         items.push(sw);
+                    }
+                    // Also demote category time-period variant ("מ[תקופה]") when duration is intended
+                    for (let i = 0; i < Math.min(4, items.length); i++) {
+                        const s = String(items[i] || '').toLowerCase();
+                        if (/\sמ\[תקופה\]/.test(s)) {
+                            const it2 = items.splice(i, 1)[0];
+                            items.push(it2);
+                            break;
+                        }
                     }
                 }
             } catch (e) {}
