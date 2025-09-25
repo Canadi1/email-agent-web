@@ -1160,6 +1160,10 @@ def _translate_hebrew_command_to_english(command: str) -> str:
     replacements = [
         # Actions (line-start variants)
         (r"^[\s]*העבר\s+לארכיון", "archive "),
+        # Archived listing phrases (must come before generic 'list' mapping)
+        (r"^[\s]*רש(?:ו)?ם\s+מיילים\s+מ(?:ה)?ארכיון\b", "list archived emails"),
+        (r"^[\s]*מ(?:ה)?ארכיון\b", "list archived emails"),
+        (r"^[\s]*ארכיון\b", "list archived emails"),
         (r"^[\s]*הצג\s+סטטיסטיק(?:ה|ות|ת)(?:\s+דוא[\"']?ל)?", "show email stats"),
         (r"^[\s]*הראה\s+סטטיסטיק(?:ה|ות|ת)(?:\s+דוא[\"']?ל)?", "show email stats"),
         (r"^[\s]*סטטיסטיק(?:ה|ות|ת)(?:\s+דוא[\"']?ל)?$", "show email stats"),

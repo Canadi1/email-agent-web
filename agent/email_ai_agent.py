@@ -4086,14 +4086,33 @@ class GmailAIAgent:
         if results is None:
             return {"error": "Failed to retrieve archived emails"}
             
-        messages = results.get('messages', [])
+        # Collect up to max_results across pages to honor the selected page size
+        messages = results.get('messages', []) or []
         next_token = results.get('nextPageToken')
+        while len(messages) < max_results and next_token:
+            try:
+                page_kwargs = {
+                    "userId": 'me',
+                    "q": q,
+                    "maxResults": min(500, max_results - len(messages)),
+                    "fields": 'messages/id,nextPageToken',
+                    "pageToken": next_token,
+                }
+                page_res = self.service.users().messages().list(**page_kwargs).execute()
+                page_msgs = page_res.get('messages', []) or []
+                if not page_msgs:
+                    break
+                messages.extend(page_msgs)
+                next_token = page_res.get('nextPageToken')
+            except Exception as e:
+                print(f"Pagination error in list_archived_emails: {e}")
+                break
         if not messages:
             return {"emails": [], "next_page_token": None}
         archived_emails = []
         
         # Use batch processing for much faster execution
-        if len(messages) > 10:  # Only batch if we have enough messages
+        if len(messages) >= 10:  # Batch when there are 10 or more messages
             batch_size = 100  # Gmail batch API limit
             total_emails = len(messages)
             batch_processing_attempted = True
@@ -4121,6 +4140,10 @@ class GmailAIAgent:
                 try:
                     # Execute batch request
                     batch_responses = batch.execute()
+                    # Some environments return no iterable; guard and fallback
+                    if not batch_responses or not isinstance(batch_responses, list):
+                        print(f"Batch request failed: Invalid response format")
+                        raise Exception("Invalid batch response")
                     
                     # Process batch responses
                     for j, (message, response) in enumerate(zip(batch_messages, batch_responses)):
@@ -4164,9 +4187,10 @@ class GmailAIAgent:
                     for k, message in enumerate(batch_messages):
                         try:
                             msg = self.api_get_message(
-                                userId='me', id=message['id'], format='metadata', metadataHeaders=['From','Subject'],
+                                message['id'],
+                                format='metadata', metadataHeaders=['From','Subject'],
                                 fields='payload/headers,id,labelIds,internalDate'
-                            ).execute()
+                            )
                             headers = msg.get('payload', {}).get('headers', [])
                             subject = next((h['value'] for h in headers if h.get('name') == 'Subject'), 'No Subject')
                             sender = next((h['value'] for h in headers if h.get('name') == 'From'), 'Unknown Sender')
@@ -4218,8 +4242,9 @@ class GmailAIAgent:
             for i, message in enumerate(messages):
                 try:
                     msg = self.api_get_message(
-                        message['id'], format='metadata', metadataHeaders=['From','Subject'],
-                        fields='payload/headers,id,labelIds,internalDate').execute()
+                        message['id'],
+                        format='metadata', metadataHeaders=['From','Subject'],
+                        fields='payload/headers,id,labelIds,internalDate')
                     headers = msg.get('payload', {}).get('headers', [])
                     subject = next((h['value'] for h in headers if h.get('name') == 'Subject'), 'No Subject')
                     sender = next((h['value'] for h in headers if h.get('name') == 'From'), 'Unknown Sender')
