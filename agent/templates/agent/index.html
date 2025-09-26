@@ -2020,7 +2020,8 @@
             return 1 - (dist / maxLen);
         }
         function getSuggestions(input, maxShow) {
-            const q = (input || '').toLowerCase().trim();
+            const rawQ = (input || '');
+            const q = rawQ.toLowerCase().trim();
             const scored = [];
             const includeMatches = [];
             // Hebrew cues used throughout ranking adjustments
@@ -2028,6 +2029,8 @@
             const heDurCueStrict = /(מל(?:י)?פני|לפני|ישנים\s*מ)/.test(q);
             const heDurCuePartial = /\bמל(?:י)?פני\s*[ח]/.test(q);
             const hebrewDurationActive = heListCue && (heDurCueStrict || heDurCuePartial);
+            // Hebrew fixed timeframe (today/yesterday/this/last) cues
+            const heFixedTimeCue = /(\s|^)מ(?:היום|מאתמול|מהשבוע(?:\s+שעבר)?|מהחודש(?:\s+שעבר)?|מהשנה(?:\s+שעברה)?)(\b|$)/.test(q);
             
 
             // Detect custom category cue so category templates outrank generic ones
@@ -2139,8 +2142,11 @@
                         const typedWord = (typedAfter.match(/^[a-z0-9\u0590-\u05FF]+/i) || [''])[0].toLowerCase();
                         const isSenderTemplate = /\[(sender|domain\.com|שולח|דומיין)\]/i.test(lc);
                         let earlyMismatch = typedWord.length >= 2 && nextWord && !nextWord.startsWith(typedWord);
-                        // Do NOT protect sender templates when duration cue is active in Hebrew
-                        if (isSenderTemplate && !hebrewDurationActive) earlyMismatch = false;
+                        // For Hebrew: if a fixed timeframe is being typed (מהיום/מאתמול/מהשבוע/...) then do not keep sender template
+                        if (isSenderTemplate) {
+                            if (heFixedTimeCue) earlyMismatch = true;
+                            else if (!hebrewDurationActive) earlyMismatch = false;
+                        }
                         // Hebrew: boost/demote scores
                         try {
                             const isHeDurationList = /^רשום\s+מיילים\s+(מלפני\s*\[משך\]|ישנים\s*מ\[משך\])$/i.test(cmd);
@@ -2184,7 +2190,9 @@
                             const typedWord = (typedAfter.match(/^[a-z0-9\u0590-\u05FF]+/i) || [''])[0].toLowerCase();
                             const isSenderTemplate = /\[(sender|domain\.com|שולח|דומיין)\]/i.test(lc);
                             let earlyMismatch = typedWord.length >= 2 && nextWord && !nextWord.startsWith(typedWord);
-                            if (isSenderTemplate) earlyMismatch = false;
+                            if (isSenderTemplate) {
+                                if (heFixedTimeCue) earlyMismatch = true; else earlyMismatch = false;
+                            }
                             if (!earlyMismatch) {
                                 scored.push({ cmd, score, type: 'placeholder', prefixLen: (parts[0] || '').length });
                             }
@@ -2279,7 +2287,24 @@
 
             // Merge: take the best aligned match to the front, then others by previous scoring
             aligned.sort((a, b) => b.score - a.score);
-            const bestAligned = aligned.length ? aligned[0].cmd : null;
+            let bestAligned = aligned.length ? aligned[0].cmd : null;
+            // Hebrew override: if user typed a timeframe token after 'מ', prefer sender+timeframe over plain sender
+            try {
+                const heListCue = /^\s*רש(?:ו)?ם\s+מיילים/.test(q);
+                const heAfterMemTyped = /\sמ(ה|א|ל)/.test(q); // מה..., מא..., מל...
+                if (heListCue && heAfterMemTyped && aligned.length) {
+                    const timeRe = /\s(מל(?:י)?פני|לפני|ישנים\s*מ|מ(?:היום|מאתמול|מהשבוע(?:\s+שעבר)?|מהחודש(?:\s+שעבר)?|מהשנה(?:\s+שעברה)?))$/i;
+                    const plainRe = /^רשום\s+מיילים\s+מ\[שולח\]$/i;
+                    const idxTime = aligned.findIndex(x => timeRe.test(String(x.cmd).toLowerCase()));
+                    if (idxTime > -1) {
+                        bestAligned = aligned[idxTime].cmd;
+                    } else if (bestAligned && plainRe.test(String(bestAligned).toLowerCase())) {
+                        // If top is plain and no explicit timeframe found, try any sender-with-extra token to avoid plain topping
+                        const idxNonPlain = aligned.findIndex(x => /^רשום\s+מיילים\s+מ\[שולח\].+/.test(String(x.cmd).toLowerCase()));
+                        if (idxNonPlain > -1) bestAligned = aligned[idxNonPlain].cmd;
+                    }
+                }
+            } catch(e) {}
             const merged = [];
             const seen = new Set();
             if (bestAligned) { merged.push({ cmd: bestAligned, score: 10, type: 'aligned' }); seen.add(bestAligned); }
@@ -2299,12 +2324,40 @@
                 }
             } catch (e) {}
 
-            // Prioritize starts-with and exact includes first, then others
+            // Prioritize starts-with and exact includes first, then others (Hebrew: give partial timeframe boosts)
             includeMatches.sort((a, b) => {
                 const aStart = commands.indexOf(a.cmd) >= 0 && a.cmd.toLowerCase().startsWith(q);
                 const bStart = commands.indexOf(b.cmd) >= 0 && b.cmd.toLowerCase().startsWith(q);
                 if (aStart && !bStart) return -1;
                 if (!aStart && bStart) return 1;
+                // Hebrew: if user typed a partial timeframe after 'מ' (even just a lone 'מ'),
+                // prefer sender+timeframe over plain sender and strongly demote the plain one
+                try {
+                const heFromPrefix = /\sמ(?:\u200e|\u200f)?$/.test(q) || /\sמ[\u0590-\u05FF]+$/.test(q) || /\sמ(ה|א)/.test(q) || /\sמה$/.test(q) || /\sמא$/.test(q);
+                let heTypedTimePrefix = '';
+                try {
+                    const m = rawQ.match(/(מ[\u0590-\u05FF]+)(?:[\u200e\u200f]*)\s*$/);
+                    if (m && m[1]) heTypedTimePrefix = m[1];
+                } catch(e) { heTypedTimePrefix = ''; }
+                    if (heFromPrefix) {
+                        const aHeSenderTime = /^רשום\s+מיילים\s+מ\[שולח\][^\n]*\s+מ(היום|מאתמול|מהשבוע(?:\s+שעבר)?|מהחודש(?:\s+שעבר)?|מהשנה(?:\s+שעברה)?)$/i.test(String(a.cmd));
+                        const bHeSenderTime = /^רשום\s+מיילים\s+מ\[שולח\][^\n]*\s+מ(היום|מאתמול|מהשבוע(?:\s+שעבר)?|מהחודש(?:\s+שעבר)?|מהשנה(?:\s+שעברה)?)$/i.test(String(b.cmd));
+                        const aHePlain = /^רשום\s+מיילים\s+מ\[שולח\]$/i.test(String(a.cmd));
+                        const bHePlain = /^רשום\s+מיילים\s+מ\[שולח\]$/i.test(String(b.cmd));
+                        // Prefer the exact timeframe prefix typed (e.g., מאת…)
+                        if (heTypedTimePrefix && (aHeSenderTime || bHeSenderTime)) {
+                            const aHas = aHeSenderTime && String(a.cmd).indexOf(heTypedTimePrefix) !== -1;
+                            const bHas = bHeSenderTime && String(b.cmd).indexOf(heTypedTimePrefix) !== -1;
+                            if (aHas && !bHas) return -1;
+                            if (!aHas && bHas) return 1;
+                        }
+                        if (aHeSenderTime && !bHeSenderTime) return -1;
+                        if (!aHeSenderTime && bHeSenderTime) return 1;
+                        // Strong demotion of the plain template while partial timeframe is being typed
+                        if (aHePlain && !bHePlain) return 1;
+                        if (!aHePlain && bHePlain) return -1;
+                    }
+                } catch (e) {}
                 // Hebrew duration cue: prefer duration templates over sender templates
                 try {
                     const heDurationCue = /(מל(?:י)?פני|לפני|ישנים\s*מ)/.test(q);
@@ -2471,6 +2524,36 @@
                     }
                     // Insert right after any aligned match
                     prioritized.forEach(item => { merged.splice(merged.length > 0 ? 1 : 0, 0, item); });
+                }
+            } catch (e) {}
+
+            // HEBREW PRIORITY: If typing 'רשום מיילים מ<sender> מ…' (no full timeframe yet),
+            // seed sender+fixed-timeframe templates and prefer those that match the typed prefix (e.g., מאת… over מהיום)
+            try {
+                const heSenderFromPartial = /^\s*רש(?:ו)?ם\s+מיילים\s+מ[-\s]?([^\s].*?)\s+מ(?:\u200e|\u200f)?\s*$/i.test(q) || /\sמ$/.test(q) || /\sמ[\u0590-\u05FF]+$/.test(q);
+                let heTypedTimePrefix = '';
+                try { const m = q.match(/\sמ([\u0590-\u05FF]+)$/); if (m && m[1]) heTypedTimePrefix = 'מ' + m[1]; } catch(e) { heTypedTimePrefix = ''; }
+                if (heSenderFromPartial) {
+                    const reHeSenderTime = /^רשום\s+מיילים\s+מ\[שולח\][^\n]*\s+מ(היום|מאתמול|מהשבוע(?:\s+שעבר)?|מהחודש(?:\s+שעבר)?|מהשנה(?:\s+שעברה)?)$/i;
+                    const prioritized = [];
+                    for (let i = 0; i < commands.length; i++) {
+                        const c = commands[i];
+                        if (reHeSenderTime.test(String(c)) && !seen.has(c)) {
+                            let score = 9.6;
+                            // If user typed a partial like 'מאת', prefer the matching command over 'מהיום'
+                            if (heTypedTimePrefix && String(c).indexOf(heTypedTimePrefix) !== -1) {
+                                score += 0.6;
+                            }
+                            prioritized.push({ cmd: c, score: score, type: 'he_sender_time_seed' });
+                            seen.add(c);
+                        }
+                    }
+                    prioritized.forEach(item => { merged.splice(merged.length > 0 ? 1 : 0, 0, item); });
+                    // Demote plain sender so timeframe variants surface
+                    for (let i = merged.length - 1; i >= 0; i--) {
+                        const s = (merged[i] && merged[i].cmd ? String(merged[i].cmd).toLowerCase() : '');
+                        if (/^רשום\s+מיילים\s+מ\[שולח\]$/i.test(s)) { const it = merged.splice(i, 1)[0]; merged.push(it); break; }
+                    }
                 }
             } catch (e) {}
 
@@ -2871,6 +2954,131 @@
                 if (!seen2.has(c)) { seen2.add(c); unique.push(merged[i]); }
             }
             
+            // HEBREW SENDER PARTIAL-TIMEFRAME INJECTION: if typing '... מ' or '... מה/מא', make sure a
+            // sender+fixed-timeframe candidate exists in the list (before we reorder), and immediately
+            // demote the plain sender template so it doesn't stick at position 0.
+            try {
+                const heList = /^\s*רש(?:ו)?ם\s+מיילים/.test(q);
+                const hePartialTime = /\sמ(?:\u200e|\u200f)?$/.test(q) || /\sמ[\u0590-\u05FF]+$/.test(q) || /\sמ(ה|א)/.test(q) || /\sמה$/.test(q) || /\sמא$/.test(q);
+                if (heList && hePartialTime) {
+                    const hasSenderFixed = unique.some(function(it){
+                        const s = (it && it.cmd ? String(it.cmd).toLowerCase() : '');
+                        return /^רשום\s+מיילים\s+מ\[שולח\][^\n]*\s+מ(היום|מאתמול|מהשבוע(?:\s+שעבר)?|מהחודש(?:\s+שעבר)?|מהשנה(?:\s+שעברה)?)$/.test(s);
+                    });
+                    if (!hasSenderFixed && Array.isArray(commands)) {
+                        const inject = commands.find(function(c){
+                            const s = String(c).toLowerCase();
+                            return /^רשום\s+מיילים\s+מ\[שולח\]\s+מ(היום|מאתמול|מהשבוע(?:\s+שעבר)?|מהחודש(?:\s+שעבר)?|מהשנה(?:\s+שעברה)?)$/.test(s);
+                        });
+                        if (inject) {
+                            unique.unshift({ cmd: inject, score: 1.0, type: 'he_sender_fixed_inject' });
+                        }
+                    }
+                    // Demote plain sender template immediately
+                    for (let j = 0; j < Math.min(5, unique.length); j++) {
+                        const s2 = (unique[j] && unique[j].cmd ? String(unique[j].cmd).toLowerCase() : '');
+                        if (/^רשום\s+מיילים\s+מ\[שולח\]$/.test(s2)) {
+                            const sw = unique.splice(j, 1)[0];
+                            unique.push(sw);
+                            break;
+                        }
+                    }
+                }
+            } catch (e) {}
+
+            // HEBREW REORDER (outside English actionKey path):
+            // If typing 'רשום מיילים מ<sender> מ…' or 'רשום מיילים מ<sender> מלפני/לפני/ישנים מ',
+            // move the matching sender+timeframe/duration template to the front and demote the plain sender template.
+            try {
+                const heList = /^\s*רש(?:ו)?ם\s+מיילים/.test(q);
+                if (heList) {
+                    // Treat a lone 'מ' (optionally with direction marks) or 'מ' followed by Hebrew letters at the end as a timeframe cue start
+                    const heSenderTimeTyping = /\sמ(?:\u200e|\u200f)?$/.test(q) || /\sמ[\u0590-\u05FF]+$/.test(q) || /\sמ(ה|א)/.test(q) || /\sמה$/.test(q) || /\sמא$/.test(q);
+                    const heDurTyping = /(מל(?:י)?פני|לפני|ישנים\s*מ)/.test(q) || /\sמל$/.test(q);
+                    // Extract the partial timeframe prefix typed after the last 'מ' (robust to direction marks and trailing space)
+                    let heTypedTimePrefix = '';
+                    try {
+                        const m = q.match(/(מ[\u0590-\u05FF]+)(?:[\u200e\u200f]*)\s*$/);
+                        if (m && m[1]) heTypedTimePrefix = m[1];
+                    } catch (e) { heTypedTimePrefix = ''; }
+                    let targetIdx = -1;
+                    try { if (heSenderTimeTyping) { console.log('[HE-FIXED-REORDER] q=', q, ' prefix=', heTypedTimePrefix, ' topBefore=', unique.slice(0,3).map(x=>x.cmd)); } } catch (e) {}
+                    if (heSenderTimeTyping) {
+                        for (let i = 0; i < unique.length; i++) {
+                            const sRaw = String(unique[i].cmd || '');
+                            const s = sRaw.toLowerCase();
+                            const sClean = s.replace(/[\u200e\u200f]/g, '').replace(/\s+/g,' ').trim();
+                            const isFixed = /\sמ(היום|מאתמול|מהשבוע(?:\s+שעבר)?|מהחודש(?:\s+שעבר)?|מהשנה(?:\s+שעברה)?)(\s|$)/.test(sClean);
+                            // Prefer the exact fixed timeframe variant when a partial prefix exists (e.g., 'מאת' -> 'מאתמול')
+                            if (heTypedTimePrefix && sClean.indexOf(' ' + heTypedTimePrefix) !== -1) { targetIdx = i; break; }
+                            // Otherwise fall back to any fixed-timeframe variant
+                            if (isFixed) { targetIdx = i; break; }
+                        }
+                    } else if (heDurTyping) {
+                        for (let i = 0; i < unique.length; i++) {
+                            const s = String(unique[i].cmd || '').toLowerCase().replace(/[\u200e\u200f]/g, '').replace(/\s+/g,' ').trim();
+                            if (/^רשום\s+מיילים\s+מ\[שולח\].*?(מלפני\s*\[משך\]|לפני\s*\[משך\]|ישנים\s*מ\[משך\])$/.test(s)) { targetIdx = i; break; }
+                        }
+                    }
+                    if (targetIdx > 0) {
+                        const it = unique.splice(targetIdx, 1)[0];
+                        unique.unshift(it);
+                        try { console.log('[HE-FIXED-REORDER] movedToFront=', it.cmd); } catch (e) {}
+                        // Demote plain sender template from the first few slots
+                        for (let j = 1; j < Math.min(5, unique.length); j++) {
+                            const s2 = String(unique[j].cmd || '').toLowerCase();
+                            if (/^רשום\s+מיילים\s+מ\[שולח\]$/.test(s2)) { const sw = unique.splice(j, 1)[0]; unique.push(sw); break; }
+                        }
+                        // Also demote other fixed-timeframe variants that do not match the currently typed prefix
+                        if (heTypedTimePrefix) {
+                            const toDemote = [];
+                            const limit = Math.min(6, unique.length);
+                            for (let j = 0; j < limit; j++) {
+                                const s3 = String(unique[j].cmd || '').toLowerCase();
+                                const s3Clean = s3.replace(/[\u200e\u200f]/g, '');
+                                const isFixed = /\sמ(היום|מאתמול|מהשבוע|מהחודש|מהשנה)/.test(s3Clean);
+                                const matchesPrefix = s3Clean.indexOf(heTypedTimePrefix) !== -1;
+                                if (isFixed && !matchesPrefix) toDemote.push(j);
+                            }
+                            for (let k = toDemote.length - 1; k >= 0; k--) {
+                                const idx = toDemote[k];
+                                const moved = unique.splice(idx, 1)[0];
+                                unique.push(moved);
+                            }
+                            try { console.log('[HE-FIXED-REORDER] topAfter=', unique.slice(0,3).map(x=>x.cmd)); } catch (e) {}
+                        }
+                    } else if (heSenderTimeTyping) {
+                        // Even if we didn't find a specific target yet, demote the plain sender template immediately
+                        for (let j = 0; j < Math.min(5, unique.length); j++) {
+                            const s2 = String(unique[j].cmd || '').toLowerCase();
+                            if (/^רשום\s+מיילים\s+מ\[שולח\]$/.test(s2)) {
+                                const sw = unique.splice(j, 1)[0];
+                                unique.push(sw);
+                                break;
+                            }
+                        }
+                        // Also demote any fixed-timeframe variant in the first block that doesn't match the typed prefix
+                        if (heTypedTimePrefix) {
+                            const toDemote = [];
+                            const limit = Math.min(6, unique.length);
+                            for (let j = 0; j < limit; j++) {
+                                const s3 = String(unique[j].cmd || '').toLowerCase();
+                                const s3Clean = s3.replace(/[\u200e\u200f]/g, '').replace(/\s+/g,' ').trim();
+                                const isFixed = /\sמ(היום|מאתמול|מהשבוע|מהחודש|מהשנה)(\s|$)/.test(s3Clean);
+                                const matchesPrefix = s3Clean.indexOf(heTypedTimePrefix) !== -1;
+                                if (isFixed && !matchesPrefix) toDemote.push(j);
+                            }
+                            for (let k = toDemote.length - 1; k >= 0; k--) {
+                                const idx = toDemote[k];
+                                const moved = unique.splice(idx, 1)[0];
+                                unique.push(moved);
+                            }
+                        }
+                        try { console.log('[HE-FIXED-REORDER] noTarget; plainDemoted topNow=', unique.slice(0,3).map(x=>x.cmd)); } catch (e) {}
+                    }
+                }
+            } catch (e) {}
+
             // HARD OVERRIDE (HEBREW DURATION): Force duration-first list templates to index 0
             try {
                 const heList = /^\s*רש(?:ו)?ם\s+מיילים/.test(q);
@@ -2926,11 +3134,14 @@
             } catch (e) {}
 
             // HARD OVERRIDE (HEBREW SENDER): When typing 'רשום מיילים מ...'
-            // ensure plain 'רשום מיילים מ[שולח]' stays at the top and is treated as a match
+            // keep plain 'רשום מיילים מ[שולח]' on top ONLY if no timeframe/duration cue is present
             try {
                 const heSenderCue = /^\s*רש(?:ו)?ם\s+מיילים\s+מ[-\s]?.+$/i.test(q);
                 const heHasDurationCue = /(מל(?:י)?פני|לפני|ישנים\s*מ)/.test(q);
-                if (heSenderCue && !heHasDurationCue) {
+                const heHasFixedTimeCue = /(\s|^)מ(?:היום|מאתמול|מהשבוע(?:\s+שעבר)?|מהחודש(?:\s+שעבר)?|מהשנה(?:\s+שעברה)?)(\b|$)/.test(q);
+                // Treat partial fixed-timeframe typing after 'מ' as a cue start as well (e.g., 'מה', 'מא', 'מהי')
+                const hePartialFixed = /(\s|^)מ(?:\u200e|\u200f)?$/.test(q) || /\sמ[\u0590-\u05FF]+$/.test(q) || /\sמ(ה|א)/.test(q);
+                if (heSenderCue && !(heHasDurationCue || heHasFixedTimeCue || hePartialFixed)) {
                     const idxSenderTpl = unique.findIndex(function(it){
                         const s = (it && it.cmd ? String(it.cmd).toLowerCase() : '');
                         return /^רשום\s+מיילים\s+מ\[שולח\]$/i.test(s);
@@ -3242,6 +3453,42 @@
                             filteredByAction.splice(bestMatch, 1);
                             filteredByAction.unshift(bestItem);
                             console.log(`LIST REORDERING - Moved suggestion to top: "${bestItem.cmd}"`);
+                        }
+                    }
+                    // Hebrew list sender+timeframe reordering (partial 'מה…')
+                    const heListSenderTimeframeMatch = q.match(/^\s*רש(?:ו)?ם\s+מיילים\s+מ[^\s].*?\s+מ(.+)$/i);
+                    if (heListSenderTimeframeMatch) {
+                        const typedHe = ('מ' + (heListSenderTimeframeMatch[1] || '').trim()).toLowerCase();
+                        console.log(`LIST REORDERING (HE) - Typed timeframe: "${typedHe}"`);
+                        let bestMatchHe = null;
+                        let bestScoreHe = -1;
+                        for (let i = 0; i < filteredByAction.length; i++) {
+                            const item = filteredByAction[i];
+                            const cmd = (item && item.cmd ? String(item.cmd).toLowerCase() : '');
+                            // Match fixed Hebrew timeframes at the end of the suggestion
+                            const mFix = cmd.match(/\sמ(היום|מאתמול|מהשבוע(?:\s+שעבר)?|מהחודש(?:\s+שעבר)?|מהשנה(?:\s+שעברה)?)$/);
+                            if (mFix) {
+                                const suggestionTf = 'מ' + mFix[1];
+                                let score = 0;
+                                if (suggestionTf === typedHe) score = 100;
+                                else if (suggestionTf.startsWith(typedHe)) score = 85;
+                                else if (typedHe.startsWith('מה') && suggestionTf.startsWith('מה')) score = 70; // generic 'מה' boost
+                                if (score > bestScoreHe) { bestScoreHe = score; bestMatchHe = i; }
+                            }
+                        }
+                        if (bestMatchHe !== null && bestMatchHe > 0) {
+                            const bestItem = filteredByAction[bestMatchHe];
+                            filteredByAction.splice(bestMatchHe, 1);
+                            filteredByAction.unshift(bestItem);
+                            // Demote plain sender below the top few spots
+                            for (let j = 1; j < Math.min(4, filteredByAction.length); j++) {
+                                const s2 = (filteredByAction[j] && filteredByAction[j].cmd ? String(filteredByAction[j].cmd).toLowerCase() : '');
+                                if (/^רשום\s+מיילים\s+מ\[שולח\]$/i.test(s2)) {
+                                    const it = filteredByAction.splice(j, 1)[0];
+                                    filteredByAction.push(it);
+                                    break;
+                                }
+                            }
                         }
                     }
                     
@@ -4133,6 +4380,24 @@
                             items.push(it2);
                             break;
                         }
+                    }
+                }
+            } catch (e) {}
+            // Final client-side hard override (Hebrew sender+timeframe): keep matching timeframe variant on top
+            try {
+                const q = (input || '').toLowerCase();
+                const heList = /^\s*רש(?:ו)?ם\s+מיילים/.test(q);
+                const heTimeCue = /\sמ(היום|מאתמול|מהשבוע(?:\s+שעבר)?|מהחודש(?:\s+שעבר)?|מהשנה(?:\s+שעברה)?)\b/.test(q) || /\sמ(ה|א)$/.test(q);
+                if (heList && heTimeCue && Array.isArray(items) && items.length) {
+                    let idx = items.findIndex(s => /^רשום\s+מיילים\s+מ\[שולח\][^\n]*\s+מ(היום|מאתמול|מהשבוע(?:\s+שעבר)?|מהחודש(?:\s+שעבר)?|מהשנה(?:\s+שעברה)?)$/i.test(String(s)));
+                    if (idx > 0) {
+                        const it = items.splice(idx, 1)[0];
+                        items.unshift(it);
+                    }
+                    // Demote plain sender if it sits first
+                    if (items.length > 1 && /^רשום\s+מיילים\s+מ\[שולח\]$/i.test(String(items[0]))) {
+                        const sw = items.shift();
+                        items.push(sw);
                     }
                 }
             } catch (e) {}
