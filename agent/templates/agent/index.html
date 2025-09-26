@@ -2131,6 +2131,13 @@
                     if (heDurationCueNow && isHeTimePeriodTemplate) {
                         continue;
                     }
+                    // Hebrew fixed timeframe cue: when typing מהיום/מאתמול/מהשבוע/מהחודש/מהשנה,
+                    // de-prioritize '[משך]' templates so fixed-time matches can rise while typing
+                    if (heFixedTimeCue && /\[משך\]/.test(lc)) {
+                        // Apply strong penalty to avoid taking slot 0
+                        // but still allow appearance further down
+                        // (do not continue entirely so it can remain visible)
+                    }
                     if (fixedPrefix && q.startsWith(fixedPrefix)) {
                         // Base score for prefix-only match (keep; will be outranked by deeper matches)
                         const fixedSegmentsCount = parts.filter(p => p.length > 0).length;
@@ -2140,12 +2147,20 @@
                         const nextWord = (nextFixed.trim().match(/^[a-z\u0590-\u05FF]+/i) || [''])[0].toLowerCase();
                         const typedAfter = q.slice(fixedPrefix.length).trimLeft();
                         const typedWord = (typedAfter.match(/^[a-z0-9\u0590-\u05FF]+/i) || [''])[0].toLowerCase();
+                        // If user already typed a second token after the first placeholder (e.g., after sender), capture it
+                        const afterTokens = typedAfter.split(/\s+/).filter(Boolean);
+                        const typedSecond = (afterTokens.length >= 2 ? afterTokens[1] : '').toLowerCase();
                         const isSenderTemplate = /\[(sender|domain\.com|שולח|דומיין)\]/i.test(lc);
                         let earlyMismatch = typedWord.length >= 2 && nextWord && !nextWord.startsWith(typedWord);
                         // For Hebrew: if a fixed timeframe is being typed (מהיום/מאתמול/מהשבוע/...) then do not keep sender template
                         if (isSenderTemplate) {
                             if (heFixedTimeCue) earlyMismatch = true;
                             else if (!hebrewDurationActive) earlyMismatch = false;
+                            // When a second token is present (e.g., google מאת...), require it to prefix-match the next fixed word
+                            if (typedSecond) {
+                                const nfTok = (nextFixed.trim().match(/^[\u0590-\u05FFa-z]+/i) || [''])[0].toLowerCase();
+                                if (nfTok && !nfTok.startsWith(typedSecond)) earlyMismatch = true;
+                            }
                         }
                         // Hebrew: boost/demote scores
                         try {
@@ -2175,6 +2190,8 @@
                             if (inputHasDuration && lc.includes('[duration]')) score += 0.12;
                             if (inputHasFromTime && lc.includes('[time')) score += 0.06;
                             if (heDurationCueNow && isHeTimePeriodTemplate) score -= 5;
+                            // Penalize duration-based templates when fixed timeframe cue is present
+                            if (heFixedTimeCue && /\[משך\]/.test(lc)) score -= 2.5;
                             // Hebrew: strong preference for duration-first list when active
                             try {
                                 const isHeDurationList = /^רשום\s+מיילים\s+(מלפני\s*\[משך\]|ישנים\s*מ\[משך\])$/i.test(cmd);
@@ -2188,10 +2205,16 @@
                             const nextWord = (nextFixed.trim().match(/^[a-z\u0590-\u05FF]+/i) || [''])[0].toLowerCase();
                             const typedAfter = q.slice(fixedPrefix.length).trimLeft();
                             const typedWord = (typedAfter.match(/^[a-z0-9\u0590-\u05FF]+/i) || [''])[0].toLowerCase();
+                            const afterTokens = typedAfter.split(/\s+/).filter(Boolean);
+                            const typedSecond = (afterTokens.length >= 2 ? afterTokens[1] : '').toLowerCase();
                             const isSenderTemplate = /\[(sender|domain\.com|שולח|דומיין)\]/i.test(lc);
                             let earlyMismatch = typedWord.length >= 2 && nextWord && !nextWord.startsWith(typedWord);
                             if (isSenderTemplate) {
                                 if (heFixedTimeCue) earlyMismatch = true; else earlyMismatch = false;
+                                if (typedSecond) {
+                                    const nfTok = (nextFixed.trim().match(/^[\u0590-\u05FFa-z]+/i) || [''])[0].toLowerCase();
+                                    if (nfTok && !nfTok.startsWith(typedSecond)) earlyMismatch = true;
+                                }
                             }
                             if (!earlyMismatch) {
                                 scored.push({ cmd, score, type: 'placeholder', prefixLen: (parts[0] || '').length });
@@ -2344,6 +2367,18 @@
                         const bHeSenderTime = /^רשום\s+מיילים\s+מ\[שולח\][^\n]*\s+מ(היום|מאתמול|מהשבוע(?:\s+שעבר)?|מהחודש(?:\s+שעבר)?|מהשנה(?:\s+שעברה)?)$/i.test(String(b.cmd));
                         const aHePlain = /^רשום\s+מיילים\s+מ\[שולח\]$/i.test(String(a.cmd));
                         const bHePlain = /^רשום\s+מיילים\s+מ\[שולח\]$/i.test(String(b.cmd));
+                        const aHeSenderDur = /מ\[שולח\].*\[משך\]/i.test(String(a.cmd));
+                        const bHeSenderDur = /מ\[שולח\].*\[משך\]/i.test(String(b.cmd));
+                        // Prefer sender+fixed-time over sender+[משך]
+                        if (aHeSenderTime && bHeSenderDur) return -1;
+                        if (bHeSenderTime && aHeSenderDur) return 1;
+                        // If both are fixed-time, prefer the one matching the typed prefix
+                        if (heTypedTimePrefix) {
+                            const aHasPref = aHeSenderTime && String(a.cmd).indexOf(heTypedTimePrefix) !== -1;
+                            const bHasPref = bHeSenderTime && String(b.cmd).indexOf(heTypedTimePrefix) !== -1;
+                            if (aHasPref && !bHasPref) return -1;
+                            if (!aHasPref && bHasPref) return 1;
+                        }
                         // Prefer the exact timeframe prefix typed (e.g., מאת…)
                         if (heTypedTimePrefix && (aHeSenderTime || bHeSenderTime)) {
                             const aHas = aHeSenderTime && String(a.cmd).indexOf(heTypedTimePrefix) !== -1;
@@ -2902,20 +2937,21 @@
             fuzzyList.sort((a, b) => b.score - a.score);
             for (let k = 0; k < fuzzyList.length; k++) if (!seen.has(fuzzyList[k].cmd)) { merged.push(fuzzyList[k]); seen.add(fuzzyList[k].cmd); }
 
-            // If typing fixed timeframe (today/this/last/yesterday), demote or drop '[duration] ago' variants
-            if (hasFixedTimeCue) {
+                // If typing fixed timeframe (today/this/last/yesterday), demote or drop '[duration]' variants (HE)
+                if (hasFixedTimeCue || heFixedTimeCue) {
                 const durAgoRe = /\bfrom\s+\[duration\]\s+ago\b/i;
+                    const heDurRe = /\[משך\]/i;
                 // First, lower their scores so fixed-time suggestions stay above
                 for (let i = 0; i < merged.length; i++) {
-                    if (merged[i] && merged[i].cmd && durAgoRe.test(merged[i].cmd)) {
+                    if (merged[i] && merged[i].cmd && (durAgoRe.test(merged[i].cmd) || heDurRe.test(String(merged[i].cmd)))) {
                         // reduce effective score substantially
                         merged[i].score = (merged[i].score || 0) - 5;
                     }
                 }
                 // Move duration-ago items to the end while preserving order otherwise
                 merged.sort((a, b) => {
-                    const aDur = a && a.cmd && durAgoRe.test(a.cmd);
-                    const bDur = b && b.cmd && durAgoRe.test(b.cmd);
+                    const aDur = a && a.cmd && (durAgoRe.test(a.cmd) || heDurRe.test(String(a.cmd)));
+                    const bDur = b && b.cmd && (durAgoRe.test(b.cmd) || heDurRe.test(String(b.cmd)));
                     if (aDur && !bDur) return 1;
                     if (!aDur && bDur) return -1;
                     // keep previous ordering between same class
