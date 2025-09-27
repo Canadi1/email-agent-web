@@ -4413,6 +4413,20 @@
                         return keep;
                     });
                 }
+                // Filter out "רשום מיילים מהיום" when typing sender commands
+                const isHeSenderTyping = isHeb && /^רש(?:ו)?ם\s+מיילים\s+מ\s*[^\s]/.test(q);
+                if (isHeSenderTyping && Array.isArray(items)) {
+                    items = items.filter(it => {
+                        const text = typeof it === 'string' ? it : (it && it.cmd ? it.cmd : '');
+                        const lc = String(text || '').toLowerCase().trim();
+                        // Remove "רשום מיילים מהיום" when typing sender commands
+                        const remove = /^רשום\s+מיילים\s+מהיום$/.test(lc);
+                        if (remove) {
+                            console.log('Filtering out:', lc, 'because typing sender command');
+                        }
+                        return !remove;
+                    });
+                }
             } catch (e) {}
             // Final client-side hard override (Hebrew duration): ensure duration stays first
             try {
