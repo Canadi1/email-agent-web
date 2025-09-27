@@ -4056,6 +4056,17 @@
                 const extra = cutoffMat - (before.length + typedInsidePlaceholderLen);
                 cutoffTpl = before.length + tokenText.length + extra;
             }
+            // Additional guard: if the next fixed word does not prefix-match what's typed after the sender,
+            // do not render sender materialization at all (prevents any bold for non-matching suggestions)
+            const typedTokens = typedAfterPrefix.trim().split(/\s+/).filter(Boolean);
+            const secondToken = (typedTokens.length >= 2 ? typedTokens[1] : '').toLowerCase();
+            const nextFixedTrimLc = (afterFixed || '').toLowerCase().trimStart();
+            const nextFixedWord = (nextFixedTrimLc.match(/^[\u0590-\u05FFa-z]+/) || [''])[0];
+            // If there's a second token typed after [שולח] and it doesn't align with the next fixed word,
+            // or there is no next fixed word at all (plain sender), do not bold via materialization
+            if (secondToken && (!nextFixedWord || !nextFixedWord.startsWith(secondToken))) {
+                return false;
+            }
             cutoffTpl = Math.max(0, Math.min(cutoffTpl, cmd.length));
 
             const bold = escapeHtml(cmd.substring(0, cutoffTpl));
@@ -4387,7 +4398,22 @@
             positionSuggestions();
 
             const maxShow = 12;
-            const items = getSuggestions(input.toLowerCase(), maxShow);
+            let items = getSuggestions(input.toLowerCase(), maxShow);
+            // Hebrew intent filter: if typing a list command (רשום...), hide archive/delete/label/send suggestions
+            try {
+                const q = (input || '').toLowerCase().trim();
+                const isHeb = document.documentElement.lang === 'he';
+                const isHeListIntent = isHeb && /^רש(?:ו)?ם\s+/.test(q);
+                if (isHeListIntent && Array.isArray(items)) {
+                    items = items.filter(it => {
+                        const text = typeof it === 'string' ? it : (it && it.cmd ? it.cmd : '');
+                        const lc = String(text || '').toLowerCase().trim();
+                        // Keep only list-like commands in this state
+                        const keep = /^(רשום\s+|רשום\s*מיילים\b)/.test(lc);
+                        return keep;
+                    });
+                }
+            } catch (e) {}
             // Final client-side hard override (Hebrew duration): ensure duration stays first
             try {
                 const q = (input || '').toLowerCase();
