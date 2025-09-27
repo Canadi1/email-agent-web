@@ -2579,6 +2579,10 @@
                             if (heTypedTimePrefix && String(c).indexOf(heTypedTimePrefix) !== -1) {
                                 score += 0.6;
                             }
+                            // Demote 'מהיום' unless explicitly typing its prefix
+                            if (String(c).toLowerCase().includes('מהיום') && (!heTypedTimePrefix || !heTypedTimePrefix.startsWith('מהי'))) {
+                                score = 5.0; // Much lower score
+                            }
                             prioritized.push({ cmd: c, score: score, type: 'he_sender_time_seed' });
                             seen.add(c);
                         }
@@ -2990,27 +2994,48 @@
                 if (!seen2.has(c)) { seen2.add(c); unique.push(merged[i]); }
             }
             
-            // HEBREW SENDER PARTIAL-TIMEFRAME INJECTION: if typing '... מ' or '... מה/מא', make sure a
-            // sender+fixed-timeframe candidate exists in the list (before we reorder), and immediately
-            // demote the plain sender template so it doesn't stick at position 0.
+            // HEBREW SENDER PARTIAL-TIMEFRAME INJECTION: if typing '... מ' with a clear prefix (e.g., 'מהש', 'מאת'),
+            // ensure a matching sender+fixed-timeframe candidate exists. Do NOT inject a default like 'מהיום'.
             try {
                 const heList = /^\s*רש(?:ו)?ם\s+מיילים/.test(q);
                 const hePartialTime = /\sמ(?:\u200e|\u200f)?$/.test(q) || /\sמ[\u0590-\u05FF]+$/.test(q) || /\sמ(ה|א)/.test(q) || /\sמה$/.test(q) || /\sמא$/.test(q);
                 if (heList && hePartialTime) {
+                    // Extract typed timeframe prefix after the last 'מ'
+                    let heTypedTimePrefix = '';
+                    try {
+                        const m = q.match(/(מ[\u0590-\u05FF]+)(?:[\u200e\u200f]*)\s*$/);
+                        if (m && m[1]) heTypedTimePrefix = m[1].trim();
+                    } catch(e) { heTypedTimePrefix = ''; }
+
                     const hasSenderFixed = unique.some(function(it){
                         const s = (it && it.cmd ? String(it.cmd).toLowerCase() : '');
                         return /^רשום\s+מיילים\s+מ\[שולח\][^\n]*\s+מ(היום|מאתמול|מהשבוע(?:\s+שעבר)?|מהחודש(?:\s+שעבר)?|מהשנה(?:\s+שעברה)?)$/.test(s);
                     });
-                    if (!hasSenderFixed && Array.isArray(commands)) {
-                        const inject = commands.find(function(c){
-                            const s = String(c).toLowerCase();
-                            return /^רשום\s+מיילים\s+מ\[שולח\]\s+מ(היום|מאתמול|מהשבוע(?:\s+שעבר)?|מהחודש(?:\s+שעבר)?|מהשנה(?:\s+שעברה)?)$/.test(s);
-                        });
+
+                    // Only inject when we have a meaningful prefix (length >= 2 after the 'מ') and pick a matching variant
+                    // BUT don't inject if we're typing a longer timeframe like "מהשבוע שעבר"
+                    const isTypingLongerTimeframe = /^\s*רש(?:ו)?ם\s+מיילים\s+מ\s*[^\s]+\s+מ(השבוע\s+שע|החודש\s+שע|השנה\s+שע)/.test(q);
+                    if (!hasSenderFixed && Array.isArray(commands) && heTypedTimePrefix && heTypedTimePrefix.length >= 2 && !isTypingLongerTimeframe) {
+                        // Prefer exact match of the typed prefix; handle 'שע' => 'שעבר' expansions
+                        const preferList = [
+                            heTypedTimePrefix,
+                            heTypedTimePrefix.replace(/\s+ש$/, ' שעבר')
+                        ];
+                        let inject = null;
+                        for (const pref of preferList) {
+                            inject = commands.find(function(c){
+                                const s = String(c).toLowerCase();
+                                return /^רשום\s+מיילים\s+מ\[שולח\]\s+מ(היום|מאתמול|מהשבוע(?:\s+שעבר)?|מהחודש(?:\s+שעבר)?|מהשנה(?:\s+שעברה)?)$/.test(s)
+                                       && s.indexOf(pref) !== -1;
+                            });
+                            if (inject) break;
+                        }
                         if (inject) {
                             unique.unshift({ cmd: inject, score: 1.0, type: 'he_sender_fixed_inject' });
                         }
                     }
-                    // Demote plain sender template immediately
+
+                    // Demote plain sender template immediately so timeframe variants can surface
                     for (let j = 0; j < Math.min(5, unique.length); j++) {
                         const s2 = (unique[j] && unique[j].cmd ? String(unique[j].cmd).toLowerCase() : '');
                         if (/^רשום\s+מיילים\s+מ\[שולח\]$/.test(s2)) {
@@ -3034,8 +3059,10 @@
                     // Extract the partial timeframe prefix typed after the last 'מ' (robust to direction marks and trailing space)
                     let heTypedTimePrefix = '';
                     try {
-                        const m = q.match(/(מ[\u0590-\u05FF]+)(?:[\u200e\u200f]*)\s*$/);
+                        // Updated regex to capture "מהשבוע ש" correctly
+                        const m = q.match(/(מ[\u0590-\u05FF]+(?:\s+[\u0590-\u05FF]+)?)(?:[\u200e\u200f]*)\s*$/);
                         if (m && m[1]) heTypedTimePrefix = m[1];
+                        console.log('[PREFIX DEBUG] Input:', q, 'Extracted prefix:', heTypedTimePrefix);
                     } catch (e) { heTypedTimePrefix = ''; }
                     let targetIdx = -1;
                     try { if (heSenderTimeTyping) { console.log('[HE-FIXED-REORDER] q=', q, ' prefix=', heTypedTimePrefix, ' topBefore=', unique.slice(0,3).map(x=>x.cmd)); } } catch (e) {}
@@ -3046,9 +3073,41 @@
                             const sClean = s.replace(/[\u200e\u200f]/g, '').replace(/\s+/g,' ').trim();
                             const isFixed = /\sמ(היום|מאתמול|מהשבוע(?:\s+שעבר)?|מהחודש(?:\s+שעבר)?|מהשנה(?:\s+שעברה)?)(\s|$)/.test(sClean);
                             // Prefer the exact fixed timeframe variant when a partial prefix exists (e.g., 'מאת' -> 'מאתמול')
-                            if (heTypedTimePrefix && sClean.indexOf(' ' + heTypedTimePrefix) !== -1) { targetIdx = i; break; }
-                            // Otherwise fall back to any fixed-timeframe variant
-                            if (isFixed) { targetIdx = i; break; }
+                            // For longer timeframes like "מהשבוע ש", prefer suggestions that start with that prefix
+                            if (heTypedTimePrefix && sClean.indexOf(' ' + heTypedTimePrefix) !== -1) {
+                                // Check if the match is at a word boundary (followed by space or end of string)
+                                const matchPos = sClean.indexOf(' ' + heTypedTimePrefix);
+                                const afterMatch = sClean.substring(matchPos + heTypedTimePrefix.length + 1);
+                                const isWordBoundary = afterMatch === '' || afterMatch.startsWith(' ');
+                                
+                                // Special case: if typing longer timeframes like "מהשבוע ש", prefer longer matches
+                                const isTypingLonger = /^\s*רש(?:ו)?ם\s+מיילים\s+מ\s*[^\s]+\s+מ(השבוע\s+ש|החודש\s+ש|השנה\s+ש)/.test(q);
+                                
+                                // DEBUG: Log ranking decisions
+                                if (q.includes('מהשבוע')) {
+                                    console.log('[RANKING DEBUG] Suggestion:', sRaw, 'TypedPrefix:', heTypedTimePrefix, 'AfterMatch:', afterMatch, 'IsWordBoundary:', isWordBoundary, 'IsTypingLonger:', isTypingLonger);
+                                }
+                                
+                                if (isWordBoundary || (isTypingLonger && sClean.includes('שעבר'))) {
+                                    targetIdx = i; 
+                                    break;
+                                }
+                            }
+                            // Otherwise fall back to any fixed-timeframe variant, but prefer longer matches
+                            if (isFixed && targetIdx === -1) { 
+                                // If we're typing a longer timeframe like "מהשבוע ש", prefer longer matches
+                                const isTypingLonger = /^\s*רש(?:ו)?ם\s+מיילים\s+מ\s*[^\s]+\s+מ(השבוע\s+ש|החודש\s+ש|השנה\s+ש)/.test(q);
+                                if (isTypingLonger) {
+                                    // Prefer suggestions that contain the longer timeframe
+                                    if (sClean.includes('שעבר') || sClean.includes('שעברה')) {
+                                        targetIdx = i;
+                                        break;
+                                    }
+                                } else {
+                                    targetIdx = i; 
+                                    break;
+                                }
+                            }
                         }
                     } else if (heDurTyping) {
                         for (let i = 0; i < unique.length; i++) {
@@ -4067,6 +4126,16 @@
             if (secondToken && (!nextFixedWord || !nextFixedWord.startsWith(secondToken))) {
                 return false;
             }
+            
+            // Simple fix: if user is typing a longer timeframe (like "מהשבוע שעבר") 
+            // but suggestion only has shorter timeframe (like "מהשבוע"), don't bold
+            // Check for partial typing of "שעבר" (ש, שע, שעב, שעבר)
+            if (input && input.includes('ש') && !cmd.includes('שעבר')) {
+                // Check if user is typing "מהשבוע ש" or similar longer timeframe
+                if (input.includes('מהשבוע ש') || input.includes('מהחודש ש') || input.includes('מהשנה ש')) {
+                    return false;
+                }
+            }
             cutoffTpl = Math.max(0, Math.min(cutoffTpl, cmd.length));
 
             const bold = escapeHtml(cmd.substring(0, cutoffTpl));
@@ -4144,9 +4213,27 @@
                 const afterFixedLc = (afterFixed || '').toLowerCase();
                 let k = 0;
                 if (afterFixedLc && typedAfterPrefix) {
-                    const maxPref = Math.min(afterFixedLc.length, typedAfterPrefix.length);
-                    for (let i2 = maxPref; i2 >= 1; i2--) {
-                        if (typedAfterPrefix.endsWith(afterFixedLc.substring(0, i2))) { k = i2; break; }
+                    // Only match if the typed text exactly matches the fixed text or is a complete word boundary
+                    // This prevents partial matches like "מהשבוע" matching "מהשבוע שעבר"
+                    const exactMatch = typedAfterPrefix === afterFixedLc;
+                    const wordBoundaryMatch = typedAfterPrefix.length < afterFixedLc.length && 
+                                           afterFixedLc.charAt(typedAfterPrefix.length) === ' ';
+                    
+                    // Additional check: if we're typing a longer timeframe, don't bold partial matches
+                    const isTypingLongerTimeframe = /^\s*רש(?:ו)?ם\s+מיילים\s+מ\s*[^\s]+\s+מ(השבוע\s+ש|החודש\s+ש|השנה\s+ש)/.test(q);
+                    const isPartialMatch = !exactMatch && wordBoundaryMatch;
+                    
+                    if (exactMatch || (wordBoundaryMatch && !isTypingLongerTimeframe)) {
+                        k = typedAfterPrefix.length;
+                        // DEBUG: Log bolding decisions
+                        if (q.includes('מהשבוע')) {
+                            console.log('[BOLDING DEBUG] Cmd:', cmd, 'TypedAfterPrefix:', typedAfterPrefix, 'AfterFixedLc:', afterFixedLc, 'ExactMatch:', exactMatch, 'WordBoundaryMatch:', wordBoundaryMatch, 'IsTypingLonger:', isTypingLongerTimeframe, 'K:', k);
+                        }
+                    } else {
+                        // DEBUG: Log when bolding logic is not applied
+                        if (q.includes('מהשבוע')) {
+                            console.log('[BOLDING DEBUG] No bolding - Cmd:', cmd, 'TypedAfterPrefix:', typedAfterPrefix, 'AfterFixedLc:', afterFixedLc);
+                        }
                     }
                 }
                 const typedInsidePlaceholderLen = Math.max(0, typedAfterPrefix.length - k);
@@ -4427,7 +4514,65 @@
                         return !remove;
                     });
                 }
+                // Sender intent hard filter: when typing 'רשום מיילים מ…', keep only sender-token suggestions
+                const isHeSenderIntent = isHeb && /^\s*רש(?:ו)?ם\s+מיילים\s+מ(?:-|\s)*[^\s]/.test(q);
+                if (isHeSenderIntent && Array.isArray(items)) {
+                    items = items.filter(it => {
+                        const text = typeof it === 'string' ? it : (it && it.cmd ? it.cmd : '');
+                        const lc = String(text || '').toLowerCase().trim();
+                        const hasSenderToken = /\[(sender|domain\.com|שולח|דומיין)\]/i.test(lc);
+                        const isListLike = /^(רשום\s+|רשום\s*מיילים\b)/.test(lc);
+                        return hasSenderToken && isListLike;
+                    });
+                }
+                // Remove "מהיום" when typing OTHER timeframes (not when typing "מהיום")
+                const isHeTypingOtherTimeframe = isHeb && /^\s*רש(?:ו)?ם\s+מיילים\s+מ\s*(השבוע|החודש|השנה|אתמול|השבוע\s+שעבר|החודש\s+שעבר|השנה\s+שעברה)/.test(q);
+                const isHeTypingToday = isHeb && /^\s*רש(?:ו)?ם\s+מיילים\s+מ\s*מהי/.test(q);
+                if (isHeTypingOtherTimeframe && !isHeTypingToday && Array.isArray(items)) {
+                    items = items.filter(it => {
+                        const text = typeof it === 'string' ? it : (it && it.cmd ? it.cmd : '');
+                        const lc = String(text || '').toLowerCase().trim();
+                        // Remove "מהיום" only when typing other timeframes
+                        const remove = /^רשום\s+מיילים\s+מ\[שולח\][^\n]*\s+מהיום$/.test(lc);
+                        if (remove) {
+                            console.log('Filtering out מהיום when typing other timeframes:', lc);
+                        }
+                        return !remove;
+                    });
+                }
+                // Also remove "מהיום" when typing partial timeframes like "מהשבוע ש"
+                const isHeTypingPartialOther = isHeb && /^\s*רש(?:ו)?ם\s+מיילים\s+מ\s*[^\s]+\s+מ(השבוע|החודש|השנה|אתמול|השבוע\s+ש|החודש\s+ש|השנה\s+ש)/.test(q);
+                if (isHeTypingPartialOther && !isHeTypingToday && Array.isArray(items)) {
+                    items = items.filter(it => {
+                        const text = typeof it === 'string' ? it : (it && it.cmd ? it.cmd : '');
+                        const lc = String(text || '').toLowerCase().trim();
+                        const remove = /^רשום\s+מיילים\s+מ\[שולח\][^\n]*\s+מהיום$/.test(lc);
+                        if (remove) {
+                            console.log('Filtering out מהיום when typing partial other timeframes:', lc);
+                        }
+                        return !remove;
+                    });
+                }
+                
             } catch (e) {}
+            
+            // Prevent incorrect bolding: if typing "מהשבוע שעבר", don't bold "מהשבוע" suggestions
+            try {
+                const q = (input || '').toLowerCase();
+                const isHeTypingLongerTimeframe = isHeb && /^\s*רש(?:ו)?ם\s+מיילים\s+מ\s*[^\s]+\s+מ(השבוע\s+שע|החודש\s+שע|השנה\s+שע)/.test(q);
+                if (isHeTypingLongerTimeframe && Array.isArray(items)) {
+                    // Mark items that should not be bolded due to partial timeframe match
+                    items.forEach(item => {
+                        if (item && typeof item === 'object') {
+                            const text = String(item.cmd || '').toLowerCase();
+                            if (/^רשום\s+מיילים\s+מ\[שולח\]\s+מ(השבוע|החודש|השנה)(\s|$)/.test(text)) {
+                                item.noBold = true; // Flag to prevent bolding
+                            }
+                        }
+                    });
+                }
+            } catch (e) {}
+            
             // Final client-side hard override (Hebrew duration): ensure duration stays first
             try {
                 const q = (input || '').toLowerCase();
@@ -4464,16 +4609,62 @@
                 const q = (input || '').toLowerCase();
                 const heList = /^\s*רש(?:ו)?ם\s+מיילים/.test(q);
                 const heTimeCue = /\sמ(היום|מאתמול|מהשבוע(?:\s+שעבר)?|מהחודש(?:\s+שעבר)?|מהשנה(?:\s+שעברה)?)\b/.test(q) || /\sמ(ה|א)$/.test(q);
+                
+                // DEBUG: Log the current state
+                if (heList && heTimeCue) {
+                    console.log('[HEBREW DEBUG] Input:', q);
+                    console.log('[HEBREW DEBUG] Items before reordering:', items.slice(0, 3).map(x => x.cmd || x));
+                }
+                
                 if (heList && heTimeCue && Array.isArray(items) && items.length) {
-                    let idx = items.findIndex(s => /^רשום\s+מיילים\s+מ\[שולח\][^\n]*\s+מ(היום|מאתמול|מהשבוע(?:\s+שעבר)?|מהחודש(?:\s+שעבר)?|מהשנה(?:\s+שעברה)?)$/i.test(String(s)));
-                    if (idx > 0) {
-                        const it = items.splice(idx, 1)[0];
+                    // Extract the trailing typed timeframe token: 'מ...' possibly with one extra word (e.g., 'מהשבוע שע...')
+                    let typedTf = '';
+                    try {
+                        const m = q.match(/(?:^|\s)(מ[\u0590-\u05FF]+(?:\s+[\u0590-\u05FF]+)?)\s*$/);
+                        if (m && m[1]) typedTf = m[1].trim();
+                    } catch(e) { typedTf = ''; }
+
+                    // Score fixed-timeframe sender suggestions and move the best to the top
+                    let bestIdx = -1;
+                    let bestScore = -1;
+                    for (let i = 0; i < items.length; i++) {
+                        const s = String(items[i] || '');
+                        const lc = s.toLowerCase();
+                        const mFix = lc.match(/\sמ(היום|מאתמול|מהשבוע(?:\s+שעבר)?|מהחודש(?:\s+שעבר)?|מהשנה(?:\s+שעברה)?)$/);
+                        if (!/^רשום\s+מיילים\s+מ\[שולח\]/.test(lc) || !mFix) continue;
+                        const tf = 'מ' + mFix[1];
+                        let score = 0;
+                        if (typedTf) {
+                            if (tf === typedTf) score = 100;
+                            else if (tf.startsWith(typedTf)) score = 90;
+                            else if (typedTf.startsWith('מה') && tf.startsWith('מה')) score = 70;
+                            // Prefer 'מהשבוע שעבר' over 'מהשבוע' when typed prefix suggests 'שע'
+                            if (/^מהשבוע\s+ש/.test(typedTf) && tf === 'מהשבוע שעבר') score = 95;
+                            if (/^מהחודש\s+ש/.test(typedTf) && tf === 'מהחודש שעבר') score = 95;
+                            if (/^מהשנה\s+ש/.test(typedTf) && tf === 'מהשנה שעברה') score = 95;
+                            // Demote 'מהיום' unless explicitly typing its prefix
+                            if (!/^מהי/.test(typedTf) && tf === 'מהיום') score = 5;
+                        } else {
+                            // No specific typed prefix yet; avoid pinning 'מהיום'
+                            score = (tf === 'מהיום') ? 5 : 10;
+                        }
+                        if (score > bestScore) { bestScore = score; bestIdx = i; }
+                    }
+                    if (bestIdx > 0) {
+                        const it = items.splice(bestIdx, 1)[0];
                         items.unshift(it);
                     }
                     // Demote plain sender if it sits first
                     if (items.length > 1 && /^רשום\s+מיילים\s+מ\[שולח\]$/i.test(String(items[0]))) {
                         const sw = items.shift();
                         items.push(sw);
+                    }
+                    // Additionally demote 'מהיום' when user typed a longer timeframe prefix (e.g., 'מהשבוע', 'מהחודש')
+                    if (/\sמ(השבוע|החודש|השנה|את)/.test(q)) {
+                        for (let i = 1; i < Math.min(5, items.length); i++) {
+                            const s = String(items[i] || '').toLowerCase();
+                            if (/\sמהיום$/.test(s)) { const it = items.splice(i, 1)[0]; items.push(it); break; }
+                        }
                     }
                 }
             } catch (e) {}
@@ -4530,8 +4721,16 @@
                         } else {
                     // Try materialized rendering first; if it succeeds, we're done for this item
                     if (renderSenderMaterialized(div, cmd, input)) {
+                        // DEBUG: Log when materialized rendering is used
+                        if (input && input.includes('מהשבוע')) {
+                            console.log('[RENDER PATH DEBUG] Using materialized rendering for:', cmd);
+                        }
                         // keep click/select handlers below
                     } else {
+                        // DEBUG: Log when fallback rendering is used
+                        if (input && input.includes('מהשבוע')) {
+                            console.log('[RENDER PATH DEBUG] Using fallback rendering for:', cmd);
+                        }
                     const ql = (input || '').toLowerCase();
                     const lcCmd2 = cmd.toLowerCase();
                     const tokenRegex = /\[(sender(?:\/domain)?|domain(?:\.com)?|שולח(?:\/דומיין)?|דומיין)\]/i;
@@ -4559,8 +4758,37 @@
                             const typedInside = ql.slice(beforeLc.length); // from start of placeholder
                             let k = 0;
                             const maxPref = Math.min(afterFixedLc.length, typedInside.length);
+                            
+                            // Check if we're typing a longer timeframe - if so, don't bold partial matches
+                            const isTypingLongerTimeframe = /^\s*רש(?:ו)?ם\s+מיילים\s+מ\s*[^\s]+\s+מ(השבוע\s+שע|החודש\s+שע|השנה\s+שע)/.test(ql);
+                            
+                            // DEBUG: Log bolding decisions
+                            if (ql.includes('מהשבוע')) {
+                                console.log('[MAIN BOLDING DEBUG] Cmd:', cmd, 'TypedInside:', typedInside, 'AfterFixedLc:', afterFixedLc, 'IsTypingLonger:', isTypingLongerTimeframe);
+                            }
+                            
                             for (let i2 = maxPref; i2 >= 1; i2--) {
-                                if (typedInside.endsWith(afterFixedLc.substring(0, i2))) { k = i2; break; }
+                                if (typedInside.endsWith(afterFixedLc.substring(0, i2))) { 
+                                    // If typing longer timeframe, only allow exact matches or complete word boundaries
+                                    if (isTypingLongerTimeframe) {
+                                        const isExactMatch = i2 === afterFixedLc.length;
+                                        const isWordBoundary = i2 < afterFixedLc.length && afterFixedLc.charAt(i2) === ' ';
+                                        if (isExactMatch || isWordBoundary) {
+                                            k = i2; 
+                                            if (ql.includes('מהשבוע')) {
+                                                console.log('[MAIN BOLDING DEBUG] Allowing bolding - i2:', i2, 'isExactMatch:', isExactMatch, 'isWordBoundary:', isWordBoundary);
+                                            }
+                                            break;
+                                        } else {
+                                            if (ql.includes('מהשבוע')) {
+                                                console.log('[MAIN BOLDING DEBUG] Blocking bolding - i2:', i2, 'isExactMatch:', isExactMatch, 'isWordBoundary:', isWordBoundary);
+                                            }
+                                        }
+                                    } else {
+                                        k = i2; 
+                                        break;
+                                    }
+                                }
                             }
                             const strongEnd = afterStart + k; // include [sender] and k chars of next fixed
                             const bold = escapeHtml(cmd.substring(0, strongEnd));
@@ -4614,6 +4842,10 @@
                             const bold = escapeHtml(cmd.substring(0, ql.length));
                             const rest = escapeHtml(cmd.substring(ql.length));
                             div.innerHTML = `<strong>${bold}</strong>${rest}`;
+                            // DEBUG: Log duration token bolding
+                            if (ql.includes('מהשבוע')) {
+                                console.log('[DURATION BOLDING DEBUG] Bolding duration token:', cmd, 'Input:', ql);
+                            }
                         } else {
                             div.textContent = cmd;
                         }
@@ -4624,6 +4856,10 @@
                         const bold = escapeHtml(cmd.substring(0, input.length));
                         const rest = escapeHtml(cmd.substring(input.length));
                         div.innerHTML = `<strong>${bold}</strong>${rest}`;
+                        // DEBUG: Log include bolding
+                        if (input && input.includes('מהשבוע')) {
+                            console.log('[INCLUDE BOLDING DEBUG] Bolding include:', cmd, 'Input:', input);
+                        }
                     } else {
                         div.textContent = cmd;
                     }
