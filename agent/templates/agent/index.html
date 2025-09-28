@@ -2588,10 +2588,18 @@
                         }
                     }
                     prioritized.forEach(item => { merged.splice(merged.length > 0 ? 1 : 0, 0, item); });
-                    // Demote plain sender so timeframe variants surface
-                    for (let i = merged.length - 1; i >= 0; i--) {
+                    // Boost plain sender template to ensure it's first
+                    for (let i = 0; i < merged.length; i++) {
                         const s = (merged[i] && merged[i].cmd ? String(merged[i].cmd).toLowerCase() : '');
-                        if (/^רשום\s+מיילים\s+מ\[שולח\]$/i.test(s)) { const it = merged.splice(i, 1)[0]; merged.push(it); break; }
+                        if (/^רשום\s+מיילים\s+מ\[שולח\]$/i.test(s)) {
+                            merged[i].score = 10.5; // Higher than sender+timeframe variants (9.6)
+                            // Move to front if not already there
+                            if (i > 0) {
+                                const item = merged.splice(i, 1)[0];
+                                merged.unshift(item);
+                            }
+                            break;
+                        }
                     }
                 }
             } catch (e) {}
@@ -3035,15 +3043,7 @@
                         }
                     }
 
-                    // Demote plain sender template immediately so timeframe variants can surface
-                    for (let j = 0; j < Math.min(5, unique.length); j++) {
-                        const s2 = (unique[j] && unique[j].cmd ? String(unique[j].cmd).toLowerCase() : '');
-                        if (/^רשום\s+מיילים\s+מ\[שולח\]$/.test(s2)) {
-                            const sw = unique.splice(j, 1)[0];
-                            unique.push(sw);
-                            break;
-                        }
-                    }
+                    // Keep plain sender template at the top - don't demote it
                 }
             } catch (e) {}
 
@@ -3119,11 +3119,7 @@
                         const it = unique.splice(targetIdx, 1)[0];
                         unique.unshift(it);
                         try { console.log('[HE-FIXED-REORDER] movedToFront=', it.cmd); } catch (e) {}
-                        // Demote plain sender template from the first few slots
-                        for (let j = 1; j < Math.min(5, unique.length); j++) {
-                            const s2 = String(unique[j].cmd || '').toLowerCase();
-                            if (/^רשום\s+מיילים\s+מ\[שולח\]$/.test(s2)) { const sw = unique.splice(j, 1)[0]; unique.push(sw); break; }
-                        }
+                        // Keep plain sender template at the top - don't demote it
                         // Also demote other fixed-timeframe variants that do not match the currently typed prefix
                         if (heTypedTimePrefix) {
                             const toDemote = [];
@@ -3575,15 +3571,7 @@
                             const bestItem = filteredByAction[bestMatchHe];
                             filteredByAction.splice(bestMatchHe, 1);
                             filteredByAction.unshift(bestItem);
-                            // Demote plain sender below the top few spots
-                            for (let j = 1; j < Math.min(4, filteredByAction.length); j++) {
-                                const s2 = (filteredByAction[j] && filteredByAction[j].cmd ? String(filteredByAction[j].cmd).toLowerCase() : '');
-                                if (/^רשום\s+מיילים\s+מ\[שולח\]$/i.test(s2)) {
-                                    const it = filteredByAction.splice(j, 1)[0];
-                                    filteredByAction.push(it);
-                                    break;
-                                }
-                            }
+                            // Keep plain sender at the top - don't demote it
                         }
                     }
                     
@@ -3883,6 +3871,18 @@
                 console.log("FINAL CHECK - 'today' suggestions still present:", todaySuggestions.map(s => s.cmd));
             }
             
+            // FINAL OVERRIDE: Ensure plain sender is first when typing "רשום מיילים" patterns
+            if (/^\s*רש(?:ו)?ם\s+מיילים(\s+מ\s*)?$/i.test(q)) {
+                const plainSenderIdx = unique.findIndex(item => 
+                    /^רשום\s+מיילים\s+מ\[שולח\]$/i.test(String(item.cmd || ''))
+                );
+                if (plainSenderIdx > 0) {
+                    const plainSender = unique.splice(plainSenderIdx, 1)[0];
+                    unique.unshift(plainSender);
+                }
+            }
+            
+            
             return unique;
         }
 
@@ -4056,9 +4056,13 @@
             // If user hasn't matched the fixed prefix fully yet, bold ONLY within the fixed prefix per letter
             const startsWithBefore = q.startsWith(beforeLc);
             if (!startsWithBefore) {
-                const cutoff = Math.min(q.length, before.length);
-                const bold = escapeHtml(cmd.substring(0, cutoff));
-                const rest = escapeHtml(cmd.substring(cutoff));
+                // Only bold up to the point where there's a mismatch
+                let matched = 0;
+                while (matched < beforeLc.length && matched < q.length && q.charAt(matched) === beforeLc.charAt(matched)) {
+                    matched++;
+                }
+                const bold = escapeHtml(cmd.substring(0, matched));
+                const rest = escapeHtml(cmd.substring(matched));
                 div.innerHTML = `<strong>${bold}</strong>${rest}`;
                 return true;
             }
@@ -4514,6 +4518,24 @@
                         return !remove;
                     });
                 }
+                
+                // Filter out "רשום מיילים מ[שולח] מהיום" when typing partial "רשום מיילים מ" (not full commands)
+                const isHeTypingSenderPrefix = isHeb && /^\s*רש(?:ו)?ם\s*מ/i.test(q) && !/^\s*רש(?:ו)?ם\s+מיילים\s+מ\s*[^\s]+\s+מ/.test(q);
+                console.log('Checking filter - isHeb:', isHeb, 'q:', q, 'isHeTypingSenderPrefix:', isHeTypingSenderPrefix);
+                if (isHeTypingSenderPrefix && Array.isArray(items)) {
+                    console.log('Before filter - items count:', items.length);
+                    items = items.filter(it => {
+                        const text = typeof it === 'string' ? it : (it && it.cmd ? it.cmd : '');
+                        const lc = String(text || '').toLowerCase().trim();
+                        // Remove "רשום מיילים מ[שולח] מהיום" when typing "רשום מיילים מ" (partial or full)
+                        const remove = /^רשום\s+מיילים\s+מ\[שולח\].*מהיום$/.test(lc);
+                        if (remove) {
+                            console.log('Filtering out מהיום variant when typing sender prefix:', lc);
+                        }
+                        return !remove;
+                    });
+                    console.log('After filter - items count:', items.length);
+                }
                 // Sender intent hard filter: when typing 'רשום מיילים מ…', keep only sender-token suggestions
                 const isHeSenderIntent = isHeb && /^\s*רש(?:ו)?ם\s+מיילים\s+מ(?:-|\s)*[^\s]/.test(q);
                 if (isHeSenderIntent && Array.isArray(items)) {
@@ -4588,11 +4610,7 @@
                         const it = items.splice(idx, 1)[0];
                         items.unshift(it);
                     }
-                    // Demote plain sender template if it sits first
-                    if (items.length > 1 && /^רשום\s+מיילים\s+מ\[שולח\]$/i.test(String(items[0]))) {
-                        const sw = items.shift();
-                        items.push(sw);
-                    }
+                    // Keep plain sender template at the top - don't demote it
                     // Also demote category time-period variant ("מ[תקופה]") when duration is intended
                     for (let i = 0; i < Math.min(4, items.length); i++) {
                         const s = String(items[i] || '').toLowerCase();
@@ -4654,11 +4672,7 @@
                         const it = items.splice(bestIdx, 1)[0];
                         items.unshift(it);
                     }
-                    // Demote plain sender if it sits first
-                    if (items.length > 1 && /^רשום\s+מיילים\s+מ\[שולח\]$/i.test(String(items[0]))) {
-                        const sw = items.shift();
-                        items.push(sw);
-                    }
+                    // Keep plain sender at the top - don't demote it
                     // Additionally demote 'מהיום' when user typed a longer timeframe prefix (e.g., 'מהשבוע', 'מהחודש')
                     if (/\sמ(השבוע|החודש|השנה|את)/.test(q)) {
                         for (let i = 1; i < Math.min(5, items.length); i++) {
