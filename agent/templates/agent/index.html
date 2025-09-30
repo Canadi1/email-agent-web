@@ -4490,10 +4490,15 @@
 
             const maxShow = 12;
             let items = getSuggestions(input.toLowerCase(), maxShow);
+            // Predeclare variables used across renderSuggestions so later final filters can access them
+            let q = (input || '').toLowerCase().trim();
+            let isHeb = document.documentElement.lang === 'he';
+            let hasFixedTokenNorm = false;
+            let qNorm = '';
             // Hebrew intent filter: if typing a list command (רשום...), hide archive/delete/label/send suggestions
             try {
-                const q = (input || '').toLowerCase().trim();
-                const isHeb = document.documentElement.lang === 'he';
+                q = (input || '').toLowerCase().trim();
+                isHeb = document.documentElement.lang === 'he';
                 const isHeListIntent = isHeb && /^רש(?:ו)?ם\s+/.test(q);
                 if (isHeListIntent && Array.isArray(items)) {
                     items = items.filter(it => {
@@ -4504,8 +4509,12 @@
                         return keep;
                     });
                 }
-                // Filter out "רשום מיילים מהיום" when typing sender commands
-                const isHeSenderTyping = isHeb && /^רש(?:ו)?ם\s+מיילים\s+מ\s*[^\s]/.test(q);
+                // Normalize input (remove RTL marks, collapse spaces) and detect fixed timeframe tokens
+                qNorm = q.replace(/[\u200e\u200f]/g, '').replace(/\s+/g, ' ');
+                hasFixedTokenNorm = / (מהיום|מאתמול|מהשבוע(?:\s+שעבר)?|מהחודש(?:\s+שעבר)?|מהשנה(?:\s+שעברה)?)(\b|$)/.test(qNorm);
+                const heSenderShape = /^רש(?:ו)?ם\s+מיילים\s+מ\s*[^\s]/.test(qNorm);
+                const isHeSenderTyping = isHeb && heSenderShape && !hasFixedTokenNorm;
+                console.log('[HE-DIAG]', { q, qNorm, heSenderShape, hasFixedTokenNorm });
                 if (isHeSenderTyping && Array.isArray(items)) {
                     items = items.filter(it => {
                         const text = typeof it === 'string' ? it : (it && it.cmd ? it.cmd : '');
@@ -4513,15 +4522,19 @@
                         // Remove "רשום מיילים מהיום" when typing sender commands
                         const remove = /^רשום\s+מיילים\s+מהיום$/.test(lc);
                         if (remove) {
-                            console.log('Filtering out:', lc, 'because typing sender command');
+                            console.log('Filtering out (NEW):', lc, 'because typing sender command');
                         }
                         return !remove;
                     });
                 }
                 
                 // Filter out "רשום מיילים מ[שולח] מהיום" when typing partial "רשום מיילים מ" (not full commands)
-                const isHeTypingSenderPrefix = isHeb && /^\s*רש(?:ו)?ם\s*מ/i.test(q) && !/^\s*רש(?:ו)?ם\s+מיילים\s+מ\s*[^\s]+\s+מ/.test(q);
-                console.log('Checking filter - isHeb:', isHeb, 'q:', q, 'isHeTypingSenderPrefix:', isHeTypingSenderPrefix);
+                // Require explicit "רשום מיילים מ" and EXCLUDE fixed timeframes (using normalized string)
+                const isHeTypingSenderPrefix = isHeb
+                    && /^\s*רש(?:ו)?ם\s+מיילים\s+מ\s*/i.test(qNorm)
+                    && !hasFixedTokenNorm
+                    && !/^\s*רש(?:ו)?ם\s+מיילים\s+מ\s*[^\s]+\s+מ/.test(qNorm);
+                console.log('Checking filter - isHeb (NEW):', isHeb, 'q:', q, 'isHeTypingSenderPrefix:', isHeTypingSenderPrefix);
                 if (isHeTypingSenderPrefix && Array.isArray(items)) {
                     console.log('Before filter - items count:', items.length);
                     items = items.filter(it => {
@@ -4530,14 +4543,15 @@
                         // Remove "רשום מיילים מ[שולח] מהיום" when typing "רשום מיילים מ" (partial or full)
                         const remove = /^רשום\s+מיילים\s+מ\[שולח\].*מהיום$/.test(lc);
                         if (remove) {
-                            console.log('Filtering out מהיום variant when typing sender prefix:', lc);
+                            console.log('Filtering out מהיום variant when typing sender prefix (NEW):', lc);
                         }
                         return !remove;
                     });
                     console.log('After filter - items count:', items.length);
                 }
-                // Sender intent hard filter: when typing 'רשום מיילים מ…', keep only sender-token suggestions
-                const isHeSenderIntent = isHeb && /^\s*רש(?:ו)?ם\s+מיילים\s+מ(?:-|\s)*[^\s]/.test(q);
+
+                // Sender intent hard filter: when typing 'רשום מיילים מ…', keep only sender-token suggestions (but not when a fixed timeframe token is present)
+                const isHeSenderIntent = isHeb && !hasFixedTokenNorm && /^\s*רש(?:ו)?ם\s+מיילים\s+מ(?:-|\s)*[^\s]/.test(q);
                 if (isHeSenderIntent && Array.isArray(items)) {
                     items = items.filter(it => {
                         const text = typeof it === 'string' ? it : (it && it.cmd ? it.cmd : '');
@@ -4682,6 +4696,67 @@
                     }
                 }
             } catch (e) {}
+            
+            // FINAL: When a fixed timeframe token exists right after 'מ', keep only the list fixed-timeframe command(s)
+            // More permissive: match partial timeframes like "מה", "מהי", "מהיו", "מהיום", "מהש", etc.
+            const isHeFixedAfterMem = isHeb && /^(?:\s*)רש(?:ו)?ם\s+מיילים\s+מ(ה|א|הש|הח|השנ|מה|מהי|מהיו|מהיום|מהש|מהשב|מהשבו|מהשבוע|מהח|מהחו|מהחוד|מהחודש|מהשנ|מהשנה)/.test(qNorm);
+            if (isHeFixedAfterMem && Array.isArray(items)) {
+                const before = items.length;
+                items = items.filter(it => {
+                    const text = typeof it === 'string' ? it : (it && it.cmd ? it.cmd : '');
+                    const lc = String(text || '').toLowerCase().trim();
+                    return /^רשום\s+מיילים\s+מ(היום|מאתמול|מהשבוע(?:\s+שעבר)?|מהחודש(?:\s+שעבר)?|מהשנה(?:\s+שעברה)?)$/i.test(lc);
+                });
+                console.log('[HE-FIXED-FILTER-FINAL] kept', items.length, 'of', before, 'items for fixed timeframe (scoped)');
+                if (items.length === 0) {
+                    try {
+                        // Try exact token first
+                        let injected = false;
+                        let mTok = qNorm.match(/ (מהיום|מאתמול|מהשבוע(?:\s+שעבר)?|מהחודש(?:\s+שעבר)?|מהשנה(?:\s+שעברה)?)(\b|$)/);
+                        if (mTok && mTok[1]) {
+                            const cmd = 'רשום מיילים ' + 'מ' + mTok[1].replace(/^מ/, '').replace(/^/, '');
+                            items.push({ cmd, score: 10.9, type: 'he_fixed_injected' });
+                            console.log('[HE-FIXED-FILTER-FINAL] injected fixed list command (exact):', cmd);
+                            injected = true;
+                        }
+                        if (!injected) {
+                            // Handle partial timeframe typing after 'מ'
+                            const mPartial = qNorm.match(/\sמ([\u0590-\u05FF]+)\s*$/);
+                            if (mPartial && mPartial[1]) {
+                                const partial = 'מ' + mPartial[1];
+                                const candidates = ['מהיום','מאתמול','מהשבוע','מהחודש','מהשנה','מהשבוע שעבר','מהחודש שעבר','מהשנה שעברה'];
+                                let best = '';
+                                for (const c of candidates) {
+                                    if (c.startsWith(partial)) { best = c; break; }
+                                }
+                                // Heuristics for very short prefixes like 'מא', 'מה', 'מהי', etc.
+                                if (!best) {
+                                    if (/^מא$/.test(partial)) best = 'מאתמול';
+                                    else if (/^מה$/.test(partial)) best = 'מהיום';
+                                    else if (/^מהי/.test(partial)) best = 'מהיום';
+                                    else if (/^מהיו/.test(partial)) best = 'מהיום';
+                                    else if (/^מהש/.test(partial)) best = 'מהשבוע';
+                                    else if (/^מהחו/.test(partial)) best = 'מהחודש';
+                                    else if (/^מהחד/.test(partial)) best = 'מהחודש';
+                                    else if (/^מהשנ/.test(partial)) best = 'מהשנה';
+                                }
+                                if (best) {
+                                    const cmd = 'רשום מיילים ' + best;
+                                    items.push({ cmd, score: 10.95, type: 'he_fixed_injected_partial' });
+                                    console.log('[HE-FIXED-FILTER-FINAL] injected fixed list command (partial):', cmd, 'from', partial);
+                                }
+                            }
+                        }
+                    } catch (e) {}
+                }
+                // Ensure items are objects with cmd to avoid render errors
+                items = items.map(function(it){
+                    if (it && typeof it === 'object' && typeof it.cmd === 'string') return it;
+                    const cmd = typeof it === 'string' ? it : String(it && it.cmd ? it.cmd : '');
+                    return { cmd: cmd, score: 10.85, type: 'he_fixed_normalized' };
+                });
+            }
+            
             items.forEach((item, idx) => {
                 const { cmd, type } = item;
                 const div = document.createElement('div');
@@ -4921,7 +4996,15 @@
                         div.textContent = cmd;
                     }
                 } else {
-                    div.textContent = cmd;
+                    const ql = (input || '').toLowerCase();
+                    const lcCmd2 = cmd.toLowerCase();
+                    if (lcCmd2.startsWith(ql) && ql.length > 0) {
+                        const bold = escapeHtml(cmd.substring(0, ql.length));
+                        const rest = escapeHtml(cmd.substring(ql.length));
+                        div.innerHTML = `<strong>${bold}</strong>${rest}`;
+                    } else {
+                        div.textContent = cmd;
+                    }
                 }
                 div.addEventListener('mouseenter', () => {
                     setActive(idx);
