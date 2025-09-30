@@ -4790,7 +4790,9 @@
                             if (c.startsWith(partial)) {
                                 const cmd = 'רשום מיילים ' + c;
                                 if (!exists.has(cmd)) {
-                                    items.push({ cmd: cmd, score: 10.7, type: 'he_fixed_seed_partial' });
+                                    // Give higher score to exact matches for better ranking
+                                    const score = (c === 'מהיום' && partial === 'מה') ? 10.9 : 10.7;
+                                    items.push({ cmd: cmd, score: score, type: 'he_fixed_seed_partial' });
                                     if (items.length >= 8) break;
                                 }
                             }
@@ -4802,6 +4804,30 @@
                             const cmd = 'רשום מיילים מהיום';
                             if (!existsNow.has(cmd)) {
                                 items.push({ cmd: cmd, score: 10.8, type: 'he_fixed_seed_partial' });
+                            }
+                        }
+                        // If still too few items, seed matching timeframe suggestions so dropdown feels complete
+                        if (items.length < 5) {
+                            const baseline = ['רשום מיילים מהשבוע','רשום מיילים מהחודש','רשום מיילים מהשנה','רשום מיילים מאתמול'];
+                            const existsFinal = new Set(items.map(function(it){ return (it && it.cmd) ? it.cmd : String(it); }));
+                            for (const b of baseline) {
+                                if (!existsFinal.has(b)) {
+                                    items.push({ cmd: b, score: 10.5, type: 'he_fixed_seed_baseline' });
+                                    if (items.length >= 6) break;
+                                }
+                            }
+                        }
+                        // Force "מהיום" to top when typing "מה" for better UX
+                        if (partial === 'מה') {
+                            const targetCmd = 'רשום מיילים מהיום';
+                            const targetIdx = items.findIndex(function(it) { 
+                                return (it && it.cmd) ? it.cmd === targetCmd : String(it) === targetCmd; 
+                            });
+                            if (targetIdx > 0) {
+                                const targetItem = items.splice(targetIdx, 1)[0];
+                                targetItem.score = 11.0; // Highest possible score
+                                items.unshift(targetItem);
+                                console.log('[HE-FIXED-FILTER-FINAL] moved מהיום to top for מה');
                             }
                         }
                     }
