@@ -1554,7 +1554,6 @@
             toggle.innerHTML = hideTxt + " &#9652;";
         }
     }
-
     function showCustomConfirmDialog() {
         var emailCount = 0;
         
@@ -2653,7 +2652,6 @@
                     prioritized.forEach(item => { if (!seen.has(item.cmd)) { merged.splice(merged.length > 0 ? 1 : 0, 0, item); seen.add(item.cmd); } });
                 }
             } catch (e) {}
-
             // ABSOLUTE PRIORITY (ARCHIVE): When full phrase is typed with fixed timeframe
             // e.g., "archive emails from <sender> from today|yesterday|this X|last X",
             // move the EXACT matching archive sender+timeframe template to the very top.
@@ -3127,7 +3125,7 @@
                             for (let j = 0; j < limit; j++) {
                                 const s3 = String(unique[j].cmd || '').toLowerCase();
                                 const s3Clean = s3.replace(/[\u200e\u200f]/g, '');
-                                const isFixed = /\sמ(היום|מאתמול|מהשבוע|מהחודש|מהשנה)/.test(s3Clean);
+                                const isFixed = /\sמ(היום|מאתמול|מהשבוע|מהחודש|מהשנה)(\s|$)/.test(s3Clean);
                                 const matchesPrefix = s3Clean.indexOf(heTypedTimePrefix) !== -1;
                                 if (isFixed && !matchesPrefix) toDemote.push(j);
                             }
@@ -3885,7 +3883,6 @@
             
             return unique;
         }
-
         // Compute how much of a placeholder template should be bolded based on user input
         // Example: cmd = 'list emails from [sender] older than [duration]'
         // If input = 'list emails from google older', bold covers up to 'list emails from [sender] older'
@@ -4469,7 +4466,6 @@
                 console.error('Error positioning suggestions:', e);
             }
         }
-
         function renderSuggestions(input) {
             console.log('renderSuggestions called with input:', input);
             closeAllLists();
@@ -4512,6 +4508,14 @@
                 // Normalize input (remove RTL marks, collapse spaces) and detect fixed timeframe tokens
                 qNorm = q.replace(/[\u200e\u200f]/g, '').replace(/\s+/g, ' ');
                 hasFixedTokenNorm = / (מהיום|מאתמול|מהשבוע(?:\s+שעבר)?|מהחודש(?:\s+שעבר)?|מהשנה(?:\s+שעברה)?)(\b|$)/.test(qNorm);
+                // Detect partial timeframe directly after 'מ' (without forcing any collapse) — safe prefix check
+                var hasPartialTimeCue = false;
+                try {
+                    var mAfter = qNorm.match(/\sמ([^\s]*)$/);
+                    var typedAfterM = mAfter ? ('מ' + mAfter[1]) : '';
+                    var tfPrefixes = ['מה','מהי','מהיו','מהש','מהשב','מהשבו','מהח','מהחו','מהחוד','מהשנ','מא','מאת','מאתמ','מאתמו'];
+                    hasPartialTimeCue = typedAfterM && tfPrefixes.some(function(p){ return typedAfterM.startsWith(p); });
+                } catch(e) { hasPartialTimeCue = false; }
                 const heSenderShape = /^רש(?:ו)?ם\s+מיילים\s+מ\s*[^\s]/.test(qNorm);
                 const isHeSenderTyping = isHeb && heSenderShape && !hasFixedTokenNorm;
                 console.log('[HE-DIAG]', { q, qNorm, heSenderShape, hasFixedTokenNorm });
@@ -4550,8 +4554,9 @@
                     console.log('After filter - items count:', items.length);
                 }
 
-                // Sender intent hard filter: when typing 'רשום מיילים מ…', keep only sender-token suggestions (but not when a fixed timeframe token is present)
-                const isHeSenderIntent = isHeb && !hasFixedTokenNorm && /^\s*רש(?:ו)?ם\s+מיילים\s+מ(?:-|\s)*[^\s]/.test(q);
+                // Sender intent hard filter: when typing 'רשום מיילים מ…', keep only sender-token suggestions
+                // BUT if a partial timeframe cue is detected after 'מ', do not force sender-only list.
+                const isHeSenderIntent = isHeb && !hasFixedTokenNorm && /^\s*רש(?:ו)?ם\s+מיילים\s+מ(?:-|\s)*[^\s]/.test(q) && !hasPartialTimeCue;
                 if (isHeSenderIntent && Array.isArray(items)) {
                     items = items.filter(it => {
                         const text = typeof it === 'string' ? it : (it && it.cmd ? it.cmd : '');
@@ -4697,9 +4702,8 @@
                 }
             } catch (e) {}
             
-            // FINAL: When a fixed timeframe token exists right after 'מ', keep only the list fixed-timeframe command(s)
-            // More permissive: match partial timeframes like "מה", "מהי", "מהיו", "מהיום", "מהש", etc.
-            const isHeFixedAfterMem = isHeb && /^(?:\s*)רש(?:ו)?ם\s+מיילים\s+מ(ה|א|הש|הח|השנ|מה|מהי|מהיו|מהיום|מהש|מהשב|מהשבו|מהשבוע|מהח|מהחו|מהחוד|מהחודש|מהשנ|מהשנה)/.test(qNorm);
+            // FINAL: timeframe handling — only collapse on full timeframe, keep others during partial typing
+            const isHeFixedAfterMem = isHeb && hasFixedTokenNorm;
             if (isHeFixedAfterMem && Array.isArray(items)) {
                 const before = items.length;
                 items = items.filter(it => {
@@ -4749,12 +4753,59 @@
                         }
                     } catch (e) {}
                 }
+                // Ensure we keep a small family of timeframe options so dropdown doesn't vanish
+                try {
+                    const family = ['רשום מיילים מהיום','רשום מיילים מאתמול','רשום מיילים מהשבוע','רשום מיילים מהחודש','רשום מיילים מהשנה'];
+                    const existing = new Set(items.map(function(it){ return (it && it.cmd) ? it.cmd : String(it); }));
+                    for (const f of family) {
+                        if (items.length >= 5) break;
+                        if (!existing.has(f)) items.push({ cmd: f, score: 10.6, type: 'he_fixed_family' });
+                    }
+                } catch(e) {}
                 // Ensure items are objects with cmd to avoid render errors
                 items = items.map(function(it){
                     if (it && typeof it === 'object' && typeof it.cmd === 'string') return it;
                     const cmd = typeof it === 'string' ? it : String(it && it.cmd ? it.cmd : '');
                     return { cmd: cmd, score: 10.85, type: 'he_fixed_normalized' };
                 });
+            }
+            else if (isHeb && hasPartialTimeCue && Array.isArray(items)) {
+                // Partial timeframe typed after 'מ': only remove sender-token items, keep rest intact
+                const before = items.length;
+                const senderTokenRe = /\[(sender(?:\/domain)?|domain(?:\.com)?|שולח(?:\/דומיין)?|דומיין)\]/i;
+                items = items.filter(function(it){
+                    const text = typeof it === 'string' ? it : (it && it.cmd ? it.cmd : '');
+                    const lc = String(text || '').toLowerCase().trim();
+                    return !senderTokenRe.test(lc);
+                });
+                console.log('[HE-FIXED-FILTER-FINAL] partial cue: kept', items.length, 'of', before);
+                // Also inject matching timeframe suggestions alongside others so the target appears during typing
+                try {
+                    const mPartial = qNorm.match(/\sמ([\u0590-\u05FF]+)\s*$/);
+                    if (mPartial && mPartial[1]) {
+                        const partial = 'מ' + mPartial[1];
+                        const candidates = ['מהיום','מאתמול','מהשבוע','מהחודש','מהשנה','מהשבוע שעבר','מהחודש שעבר','מהשנה שעברה'];
+                        const exists = new Set(items.map(function(it){ return (it && it.cmd) ? it.cmd : String(it); }));
+                        for (const c of candidates) {
+                            if (c.startsWith(partial)) {
+                                const cmd = 'רשום מיילים ' + c;
+                                if (!exists.has(cmd)) {
+                                    items.push({ cmd: cmd, score: 10.7, type: 'he_fixed_seed_partial' });
+                                    if (items.length >= 8) break;
+                                }
+                            }
+                        }
+                        // Recompute existing commands after the loop to include newly pushed items
+                        const existsNow = new Set(items.map(function(it){ return (it && it.cmd) ? it.cmd : String(it); }));
+                        // Special case: show "מהיום" when typing "מהי" or "מהיו" (not just "מה")
+                        if (partial === 'מהי' || partial === 'מהיו') {
+                            const cmd = 'רשום מיילים מהיום';
+                            if (!existsNow.has(cmd)) {
+                                items.push({ cmd: cmd, score: 10.8, type: 'he_fixed_seed_partial' });
+                            }
+                        }
+                    }
+                } catch(e) {}
             }
             
             items.forEach((item, idx) => {
@@ -5054,7 +5105,6 @@
                 renderSuggestions(val);
             }, 80);
         });
-
         commandInput.addEventListener('keydown', function(e) {
             if (!suggestionsContainer) {
                 if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
@@ -5661,9 +5711,6 @@
             });
             window.addEventListener('resize', positionContacts);
         }
-
-
-
         // Enhanced form submission with loading screens
         document.getElementById('command-form').addEventListener('submit', function(e) {
             console.log('Form submitted!'); // Debug log
@@ -6155,4 +6202,3 @@
     </div>
 </body>
 </html>
-
