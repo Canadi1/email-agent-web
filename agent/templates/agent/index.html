@@ -4564,7 +4564,7 @@
                 // BUT keep commands that have BOTH sender AND duration (e.g., "מ[שולח] ישנים מ[משך]")
                 // Also detect partial "מלפני" typing (מל/מלפ/מלפנ/מלפני)
                 const isDurationIntent = isHeb && /(?:^|\s)(?:י(?:ש(?:נ(?:י(?:ם)?)?)?)?|מל(?:פ(?:נ(?:י)?)?)?|older\s+than|from\s+duration)/i.test(q);
-                const hasSenderBeforeDuration = /מיילים\s+מ\s+[^\s]+\s+י(?:ש(?:נ(?:י(?:ם)?)?)?)?/i.test(q);
+                const hasSenderBeforeDuration = /מיילים\s+מ\s+[^\s]+\s+(?:י(?:ש(?:נ(?:י(?:ם)?)?)?)?|מל(?:פ(?:נ(?:י)?)?)?)/i.test(q);
                 if (isDurationIntent && Array.isArray(items)) {
                     console.log('[HE-DURATION-FILTER] Detected duration intent, filtering sender-only commands. HasSenderBeforeDuration:', hasSenderBeforeDuration);
                     items = items.filter(it => {
