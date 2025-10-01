@@ -4533,13 +4533,12 @@
                     });
                 }
                 
-                // Filter out "רשום מיילים מ[שולח] מהיום" when typing partial "רשום מיילים מ" (not full commands)
-                // Require explicit "רשום מיילים מ" and EXCLUDE fixed timeframes (using normalized string)
+                // Filter out "רשום מיילים מ[שולח] מהיום" when typing "רשום מיילים" or "רשום מיילים מ" (not full commands)
+                // This includes ALL partial typing stages: "רשום מ/מי/מיי/מייל/מיילי/מיילים" and "מיילים מ"
                 const isHeTypingSenderPrefix = isHeb
-                    && /^\s*רש(?:ו)?ם\s+מיילים\s+מ\s*/i.test(qNorm)
-                    && !hasFixedTokenNorm
-                    && !/^\s*רש(?:ו)?ם\s+מיילים\s+מ\s*[^\s]+\s+מ/.test(qNorm);
-                console.log('Checking filter - isHeb (NEW):', isHeb, 'q:', q, 'isHeTypingSenderPrefix:', isHeTypingSenderPrefix);
+                    && /^\s*רש(?:ו)?ם\s+מ(?:י(?:י(?:ל(?:י(?:ם)?)?)?)?)?(\s+מ\s*)?$/i.test(qNorm)
+                    && !hasFixedTokenNorm;
+                console.log('Checking filter - isHeb (NEW):', isHeb, 'q:', q, 'qNorm:', qNorm, 'isHeTypingSenderPrefix:', isHeTypingSenderPrefix);
                 if (isHeTypingSenderPrefix && Array.isArray(items)) {
                     console.log('Before filter - items count:', items.length);
                     items = items.filter(it => {
