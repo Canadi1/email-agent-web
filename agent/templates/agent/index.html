@@ -4560,17 +4560,38 @@
                     console.log('After filter - items count:', items.length);
                 }
 
-                // Duration intent filter: when typing "ישנים" or duration keywords, remove sender/domain suggestions
-                const isDurationIntent = isHeb && /ישנים|מלפני|older\s+than|from\s+duration/i.test(q);
+                // Duration intent filter: when typing "ישנים" (or partial like "י", "יש", "ישנ") or duration keywords, remove sender-ONLY suggestions
+                // BUT keep commands that have BOTH sender AND duration (e.g., "מ[שולח] ישנים מ[משך]")
+                const isDurationIntent = isHeb && /(?:^|\s)(?:י(?:ש(?:נ(?:י(?:ם)?)?)?)?|מלפני|older\s+than|from\s+duration)/i.test(q);
+                const hasSenderBeforeDuration = /מיילים\s+מ\s+[^\s]+\s+י(?:ש(?:נ(?:י(?:ם)?)?)?)?/i.test(q);
                 if (isDurationIntent && Array.isArray(items)) {
-                    console.log('[HE-DURATION-FILTER] Detected duration intent, filtering out sender/domain commands');
+                    console.log('[HE-DURATION-FILTER] Detected duration intent, filtering sender-only commands. HasSenderBeforeDuration:', hasSenderBeforeDuration);
                     items = items.filter(it => {
                         const text = typeof it === 'string' ? it : (it && it.cmd ? it.cmd : '');
                         const lc = String(text || '').toLowerCase().trim();
                         const hasSenderToken = /\[(?:sender(?:\/domain)?|domain(?:\.com)?|שולח(?:\/דומיין)?|דומיין)\]/i.test(lc);
-                        // Remove commands with sender/domain tokens when typing duration
-                        return !hasSenderToken;
+                        const hasDurationToken = /\[(?:duration|משך)\]/i.test(lc) || /ישנים/i.test(lc);
+                        // Remove commands with sender BUT NO duration (sender-only commands)
+                        // Keep commands with both sender AND duration, or duration-only
+                        const isSenderOnly = hasSenderToken && !hasDurationToken;
+                        return !isSenderOnly;
                     });
+                    
+                    // If user typed a sender name before "ישנים", prioritize sender+duration combos
+                    if (hasSenderBeforeDuration && Array.isArray(items)) {
+                        const senderDurationIdx = items.findIndex(it => {
+                            const text = typeof it === 'string' ? it : (it && it.cmd ? it.cmd : '');
+                            const lc = String(text || '').toLowerCase().trim();
+                            const hasSenderToken = /\[(?:sender(?:\/domain)?|domain(?:\.com)?|שולח(?:\/דומיין)?|דומיין)\]/i.test(lc);
+                            const hasDurationToken = /\[(?:duration|משך)\]/i.test(lc) || /ישנים/i.test(lc);
+                            return hasSenderToken && hasDurationToken;
+                        });
+                        if (senderDurationIdx > 0) {
+                            const senderDurationItem = items.splice(senderDurationIdx, 1)[0];
+                            items.unshift(senderDurationItem);
+                            console.log('[HE-DURATION-FILTER] Moved sender+duration to top');
+                        }
+                    }
                 }
                 
                 // Sender intent hard filter: when typing 'רשום מיילים מ…', keep only sender-token suggestions
