@@ -4515,12 +4515,12 @@
                 // Match complete timeframes OR partial "שעבר" typing (ש, שע, שעב, etc.)
                 hasFixedTokenNorm = !hasShulachToken && !hasSenderBeforeTimeframe && / (מהיום|מאתמול|מהשבוע(?:\s+(?:ש(?:ע(?:ב(?:ר)?)?)?)?)?|מהחודש(?:\s+(?:ש(?:ע(?:ב(?:ר)?)?)?)?)?|מהשנה(?:\s+(?:ש(?:ע(?:ב(?:ר(?:ה)?)?)?)?)?)?)\s*$/.test(qNorm);
                 console.log('[HE-TIMEFRAME-DETECT]', { qNorm, hasShulachToken, hasSenderBeforeTimeframe, hasFixedTokenNorm });
-                // Detect partial timeframe directly after 'מ' (without forcing any collapse) — safe prefix check
+                // Detect partial timeframe OR duration keyword directly after 'מ' (without forcing any collapse) — safe prefix check
                 var hasPartialTimeCue = false;
                 try {
                     var mAfter = qNorm.match(/\sמ([^\s]*)$/);
                     var typedAfterM = mAfter ? ('מ' + mAfter[1]) : '';
-                    var tfPrefixes = ['מה','מהי','מהיו','מהש','מהשב','מהשבו','מהח','מהחו','מהחוד','מהשנ','מא','מאת','מאתמ','מאתמו','מהשבו ש','מהחוד ש','מהשנה ש'];
+                    var tfPrefixes = ['מה','מהי','מהיו','מהש','מהשב','מהשבו','מהח','מהחו','מהחוד','מהשנ','מא','מאת','מאתמ','מאתמו','מהשבו ש','מהחוד ש','מהשנה ש','מל','מלפ','מלפנ','מלפני'];
                     hasPartialTimeCue = typedAfterM && tfPrefixes.some(function(p){ return typedAfterM.startsWith(p); });
                 } catch(e) { hasPartialTimeCue = false; }
                 const heSenderShape = /^רש(?:ו)?ם\s+מיילים\s+מ\s*[^\s]/.test(qNorm);
@@ -4562,7 +4562,8 @@
 
                 // Duration intent filter: when typing "ישנים" (or partial like "י", "יש", "ישנ") or duration keywords, remove sender-ONLY suggestions
                 // BUT keep commands that have BOTH sender AND duration (e.g., "מ[שולח] ישנים מ[משך]")
-                const isDurationIntent = isHeb && /(?:^|\s)(?:י(?:ש(?:נ(?:י(?:ם)?)?)?)?|מלפני|older\s+than|from\s+duration)/i.test(q);
+                // Also detect partial "מלפני" typing (מל/מלפ/מלפנ/מלפני)
+                const isDurationIntent = isHeb && /(?:^|\s)(?:י(?:ש(?:נ(?:י(?:ם)?)?)?)?|מל(?:פ(?:נ(?:י)?)?)?|older\s+than|from\s+duration)/i.test(q);
                 const hasSenderBeforeDuration = /מיילים\s+מ\s+[^\s]+\s+י(?:ש(?:נ(?:י(?:ם)?)?)?)?/i.test(q);
                 if (isDurationIntent && Array.isArray(items)) {
                     console.log('[HE-DURATION-FILTER] Detected duration intent, filtering sender-only commands. HasSenderBeforeDuration:', hasSenderBeforeDuration);
