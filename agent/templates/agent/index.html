@@ -4560,9 +4560,23 @@
                     console.log('After filter - items count:', items.length);
                 }
 
+                // Duration intent filter: when typing "ישנים" or duration keywords, remove sender/domain suggestions
+                const isDurationIntent = isHeb && /ישנים|מלפני|older\s+than|from\s+duration/i.test(q);
+                if (isDurationIntent && Array.isArray(items)) {
+                    console.log('[HE-DURATION-FILTER] Detected duration intent, filtering out sender/domain commands');
+                    items = items.filter(it => {
+                        const text = typeof it === 'string' ? it : (it && it.cmd ? it.cmd : '');
+                        const lc = String(text || '').toLowerCase().trim();
+                        const hasSenderToken = /\[(?:sender(?:\/domain)?|domain(?:\.com)?|שולח(?:\/דומיין)?|דומיין)\]/i.test(lc);
+                        // Remove commands with sender/domain tokens when typing duration
+                        return !hasSenderToken;
+                    });
+                }
+                
                 // Sender intent hard filter: when typing 'רשום מיילים מ…', keep only sender-token suggestions
                 // BUT if a partial timeframe cue is detected after 'מ', do not force sender-only list.
-                const isHeSenderIntent = isHeb && !hasFixedTokenNorm && /^\s*רש(?:ו)?ם\s+מיילים\s+מ(?:-|\s)*[^\s]/.test(q) && !hasPartialTimeCue;
+                // ALSO skip if duration intent is detected
+                const isHeSenderIntent = isHeb && !hasFixedTokenNorm && !isDurationIntent && /^\s*רש(?:ו)?ם\s+מיילים\s+מ(?:-|\s)*[^\s]/.test(q) && !hasPartialTimeCue;
                 if (isHeSenderIntent && Array.isArray(items)) {
                     items = items.filter(it => {
                         const text = typeof it === 'string' ? it : (it && it.cmd ? it.cmd : '');
@@ -4940,12 +4954,41 @@
                         const afterFixedLc = afterFixed.toLowerCase();
 
                         // 1) If still typing the fixed prefix (including partial 'from'), bold only that much
+                        // BUT: if the typed text diverges significantly, don't bold at all (e.g., "ישנים מ" vs "מ[שולח]")
                         let matched = 0;
                         while (matched < beforeLc.length && matched < ql.length && ql.charAt(matched) === beforeLc.charAt(matched)) matched++;
+                        
+                        // Validation: check if the input is actually a valid prefix of the suggestion
+                        // Extract key words from input (excluding placeholders)
+                        let isValidPartialMatch = true;
+                        const inputWords = ql.replace(/\[.*?\]/g, '').trim().split(/\s+/).filter(w => w.length > 0);
+                        const suggestionWords = beforeLc.replace(/\[.*?\]/g, '').trim().split(/\s+/).filter(w => w.length > 0);
+                        
+                        // Check if all input words appear in suggestion in the same order and position
+                        if (inputWords.length > 0 && suggestionWords.length > 0) {
+                            for (let i = 0; i < Math.min(inputWords.length, suggestionWords.length); i++) {
+                                const inputWord = inputWords[i];
+                                const suggWord = suggestionWords[i];
+                                // If words at same position don't match (one is not prefix of other), invalid
+                                if (!suggWord.startsWith(inputWord) && !inputWord.startsWith(suggWord)) {
+                                    isValidPartialMatch = false;
+                                    break;
+                                }
+                            }
+                            // If input has more words than suggestion prefix, also invalid
+                            if (inputWords.length > suggestionWords.length) {
+                                isValidPartialMatch = false;
+                            }
+                        }
+                        
                         if (matched < beforeLc.length) {
-                            const bold = escapeHtml(cmd.substring(0, matched));
-                            const rest = escapeHtml(cmd.substring(matched));
-                            div.innerHTML = `<strong>${bold}</strong>${rest}`;
+                            if (isValidPartialMatch && matched > 0) {
+                                const bold = escapeHtml(cmd.substring(0, matched));
+                                const rest = escapeHtml(cmd.substring(matched));
+                                div.innerHTML = `<strong>${bold}</strong>${rest}`;
+                            } else {
+                                div.textContent = cmd;
+                            }
                         } else {
                             // 2) Inside/after sender: compute how much of the next fixed segment is typed
                             const typedInside = ql.slice(beforeLc.length); // from start of placeholder
