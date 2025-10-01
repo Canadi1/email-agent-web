@@ -4683,6 +4683,68 @@
                     }
                 }
             } catch (e) {}
+
+            // Category typing guard: when typing a custom category after "רשום מיילי ...",
+            // hide sender/timeframe suggestions which do not match category queries
+            try {
+                const q = (input || '').toLowerCase();
+                const isHeCategoryCustom = isHeb && /^\s*רש(?:ו)?ם\s+מיילי(?:ם)?\s+[\u0590-\u05FF]+/.test(q);
+                if (isHeCategoryCustom && Array.isArray(items) && items.length) {
+                    // Extract typed words after the cue 'רשום מיילי' to enforce in-order matching
+                    const words = q.replace(/^\s*רש(?:ו)?ם\s+מיילי(?:ם)?\s*/,'').trim().split(/\s+/).filter(Boolean);
+                    items = items.filter(it => {
+                        const text = (it && it.cmd) ? it.cmd : String(it);
+                        const lc = String(text || '').toLowerCase();
+                        const hasSenderToken = /\[(?:sender(?:\/domain)?|domain(?:\.com)?|שולח(?:\/דומיין)?|דומיין)\]/i.test(lc);
+                        const hasFixedTime = /\sמ(היום|מאתמול|מהשבוע(?:\s+שעבר)?|מהחודש(?:\s+שעבר)?|מהשנה(?:\s+שעברה)?)\b/.test(lc);
+                        const isPlainTimeframe = /^רשום\s+מיילים\s+(מהיום|מאתמול|מהשבוע(?:\s+שעבר)?|מהחודש(?:\s+שעבר)?|מהשנה(?:\s+שעברה)?)$/i.test(lc);
+                        const isArchive = /^רשום\s+מיילים\s+מארכיון$/i.test(lc) || /\sמארכיון\b/.test(lc);
+                        if (hasSenderToken || hasFixedTime || isPlainTimeframe || isArchive) return false;
+                        // Enforce that suggestion starts with the list cue and contains typed words in order
+                        if (!/^רשום\s+מייל/.test(lc)) return false;
+                        let pos = 0;
+                        for (const w of words) {
+                            const idx = lc.indexOf(w, pos);
+                            if (idx === -1) return false;
+                            pos = idx + w.length;
+                        }
+                        return true;
+                    });
+                }
+            } catch (e) {}
+
+            // FINAL: boost curated suggestions for the cue "רשום מיילי" (with optional trailing space)
+            try {
+                const ql = (input || '').toLowerCase();
+                const isHeJustMaily = /^\s*רש(?:ו)?ם\s+מיילי\s*$/.test(ql);
+                if (isHeb && isHeJustMaily && Array.isArray(items) && items.length) {
+                    const targets = [
+                        'רשום מיילי קודי אימות',
+                        'רשום מיילי אבטחת חשבון',
+                        'רשום מיילי משלוח'
+                    ];
+                    const getCmd = (it) => (it && it.cmd) ? it.cmd : String(it);
+                    // 1) Keep plain sender first if present
+                    const senderIdx = items.findIndex(it => /^רשום\s+מיילים\s+מ\[שולח\]$/i.test(getCmd(it)));
+                    if (senderIdx > 0) {
+                        const itSender = items.splice(senderIdx, 1)[0];
+                        items.unshift(itSender);
+                    }
+                    // 2) Place the three targets in positions 2-4 (indices 1..3), preserving their given order
+                    let insertPos = 1; // after sender (or top if no sender)
+                    for (let t = 0; t < targets.length; t++) {
+                        const target = targets[t];
+                        const idx = items.findIndex(it => getCmd(it) === target);
+                        if (idx !== -1) {
+                            const it = items.splice(idx, 1)[0];
+                            // Clamp insert position within bounds
+                            if (insertPos > items.length) insertPos = items.length;
+                            items.splice(insertPos, 0, it);
+                            insertPos++;
+                        }
+                    }
+                }
+            } catch (e) {}
             // Final client-side hard override (Hebrew sender+timeframe): keep matching timeframe variant on top
             try {
                 const q = (input || '').toLowerCase();
