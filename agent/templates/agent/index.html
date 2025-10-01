@@ -4491,6 +4491,7 @@
             let isHeb = document.documentElement.lang === 'he';
             let hasFixedTokenNorm = false;
             let qNorm = '';
+            let hasSenderBeforeTimeframe = false;
             // Hebrew intent filter: if typing a list command (רשום...), hide archive/delete/label/send suggestions
             try {
                 q = (input || '').toLowerCase().trim();
@@ -4507,8 +4508,13 @@
                 }
                 // Normalize input (remove RTL marks, collapse spaces) and detect fixed timeframe tokens
                 qNorm = q.replace(/[\u200e\u200f]/g, '').replace(/\s+/g, ' ');
+                // Check if typing after a sender/domain - either with brackets [שולח] OR actual sender name (text between "מ" and timeframe)
+                const hasShulachToken = /\[(?:שולח|sender|דומיין|domain)\]/i.test(qNorm);
+                // Match complete OR partial timeframes after sender (מה/מהי/מהיו/מהיום/מאת/מאתמול/etc.)
+                hasSenderBeforeTimeframe = /מיילים\s+מ\s+[^\s]+\s+מ[\u0590-\u05FF]/.test(qNorm);
                 // Match complete timeframes OR partial "שעבר" typing (ש, שע, שעב, etc.)
-                hasFixedTokenNorm = / (מהיום|מאתמול|מהשבוע(?:\s+(?:ש(?:ע(?:ב(?:ר)?)?)?)?)?|מהחודש(?:\s+(?:ש(?:ע(?:ב(?:ר)?)?)?)?)?|מהשנה(?:\s+(?:ש(?:ע(?:ב(?:ר(?:ה)?)?)?)?)?)?)\s*$/.test(qNorm);
+                hasFixedTokenNorm = !hasShulachToken && !hasSenderBeforeTimeframe && / (מהיום|מאתמול|מהשבוע(?:\s+(?:ש(?:ע(?:ב(?:ר)?)?)?)?)?|מהחודש(?:\s+(?:ש(?:ע(?:ב(?:ר)?)?)?)?)?|מהשנה(?:\s+(?:ש(?:ע(?:ב(?:ר(?:ה)?)?)?)?)?)?)\s*$/.test(qNorm);
+                console.log('[HE-TIMEFRAME-DETECT]', { qNorm, hasShulachToken, hasSenderBeforeTimeframe, hasFixedTokenNorm });
                 // Detect partial timeframe directly after 'מ' (without forcing any collapse) — safe prefix check
                 var hasPartialTimeCue = false;
                 try {
@@ -4790,8 +4796,8 @@
                     return { cmd: cmd, score: 10.85, type: 'he_fixed_normalized' };
                 });
             }
-            else if (isHeb && hasPartialTimeCue && Array.isArray(items)) {
-                // Partial timeframe typed after 'מ': only remove sender-token items, keep rest intact
+            else if (isHeb && hasPartialTimeCue && !hasSenderBeforeTimeframe && Array.isArray(items)) {
+                // Partial timeframe typed after 'מ' (BUT NOT after a sender): only remove sender-token items, keep rest intact
                 const before = items.length;
                 const senderTokenRe = /\[(sender(?:\/domain)?|domain(?:\.com)?|שולח(?:\/דומיין)?|דומיין)\]/i;
                 items = items.filter(function(it){
@@ -4799,7 +4805,7 @@
                     const lc = String(text || '').toLowerCase().trim();
                     return !senderTokenRe.test(lc);
                 });
-                console.log('[HE-FIXED-FILTER-FINAL] partial cue: kept', items.length, 'of', before);
+                console.log('[HE-FIXED-FILTER-FINAL] partial cue (no sender before): kept', items.length, 'of', before);
                 // Also inject matching timeframe suggestions alongside others so the target appears during typing
                 try {
                     const mPartial = qNorm.match(/\sמ([\u0590-\u05FF]+)\s*$/);
