@@ -4507,13 +4507,14 @@
                 }
                 // Normalize input (remove RTL marks, collapse spaces) and detect fixed timeframe tokens
                 qNorm = q.replace(/[\u200e\u200f]/g, '').replace(/\s+/g, ' ');
-                hasFixedTokenNorm = / (מהיום|מאתמול|מהשבוע(?:\s+שעבר)?|מהחודש(?:\s+שעבר)?|מהשנה(?:\s+שעברה)?)(\b|$)/.test(qNorm);
+                // Match complete timeframes OR partial "שעבר" typing (ש, שע, שעב, etc.)
+                hasFixedTokenNorm = / (מהיום|מאתמול|מהשבוע(?:\s+(?:ש(?:ע(?:ב(?:ר)?)?)?)?)?|מהחודש(?:\s+(?:ש(?:ע(?:ב(?:ר)?)?)?)?)?|מהשנה(?:\s+(?:ש(?:ע(?:ב(?:ר(?:ה)?)?)?)?)?)?)\s*$/.test(qNorm);
                 // Detect partial timeframe directly after 'מ' (without forcing any collapse) — safe prefix check
                 var hasPartialTimeCue = false;
                 try {
                     var mAfter = qNorm.match(/\sמ([^\s]*)$/);
                     var typedAfterM = mAfter ? ('מ' + mAfter[1]) : '';
-                    var tfPrefixes = ['מה','מהי','מהיו','מהש','מהשב','מהשבו','מהח','מהחו','מהחוד','מהשנ','מא','מאת','מאתמ','מאתמו'];
+                    var tfPrefixes = ['מה','מהי','מהיו','מהש','מהשב','מהשבו','מהח','מהחו','מהחוד','מהשנ','מא','מאת','מאתמ','מאתמו','מהשבו ש','מהחוד ש','מהשנה ש'];
                     hasPartialTimeCue = typedAfterM && tfPrefixes.some(function(p){ return typedAfterM.startsWith(p); });
                 } catch(e) { hasPartialTimeCue = false; }
                 const heSenderShape = /^רש(?:ו)?ם\s+מיילים\s+מ\s*[^\s]/.test(qNorm);
@@ -4706,21 +4707,42 @@
             const isHeFixedAfterMem = isHeb && hasFixedTokenNorm;
             if (isHeFixedAfterMem && Array.isArray(items)) {
                 const before = items.length;
+                // Check if user typed a base timeframe (without שעבר) OR is typing partial שעבר
+                const hasSheaverBase = / (מהשבוע|מהחודש|מהשנה)(?:\s+(?:ש(?:ע(?:ב(?:ר(?:ה)?)?)?)?)?)?$/.test(qNorm);
+                const isTypingSheaver = / (מהשבוע|מהחודש|מהשנה)\s+ש/.test(qNorm);
                 items = items.filter(it => {
                     const text = typeof it === 'string' ? it : (it && it.cmd ? it.cmd : '');
                     const lc = String(text || '').toLowerCase().trim();
+                    if (hasSheaverBase || isTypingSheaver) {
+                        // When typing base timeframe or partial שעבר, show both base and "שעבר" variants
+                        return /^רשום\s+מיילים\s+מ(השבוע(?:\s+שעבר)?|החודש(?:\s+שעבר)?|השנה(?:\s+שעברה)?)$/i.test(lc);
+                    }
                     return /^רשום\s+מיילים\s+מ(היום|מאתמול|מהשבוע(?:\s+שעבר)?|מהחודש(?:\s+שעבר)?|מהשנה(?:\s+שעברה)?)$/i.test(lc);
                 });
-                console.log('[HE-FIXED-FILTER-FINAL] kept', items.length, 'of', before, 'items for fixed timeframe (scoped)');
+                console.log('[HE-FIXED-FILTER-FINAL] kept', items.length, 'of', before, 'items for fixed timeframe (scoped, hasSheaverBase='+hasSheaverBase+', isTypingSheaver='+isTypingSheaver+')');
                 if (items.length === 0) {
                     try {
-                        // Try exact token first
+                        // Try exact token first (including partial שעבר)
                         let injected = false;
-                        let mTok = qNorm.match(/ (מהיום|מאתמול|מהשבוע(?:\s+שעבר)?|מהחודש(?:\s+שעבר)?|מהשנה(?:\s+שעברה)?)(\b|$)/);
+                        let mTok = qNorm.match(/ (מהיום|מאתמול|מהשבוע(?:\s+(?:ש(?:ע(?:ב(?:ר)?)?)?)?)?|מהחודש(?:\s+(?:ש(?:ע(?:ב(?:ר)?)?)?)?)?|מהשנה(?:\s+(?:ש(?:ע(?:ב(?:ר(?:ה)?)?)?)?)?)?)\s*$/);
                         if (mTok && mTok[1]) {
                             const cmd = 'רשום מיילים ' + 'מ' + mTok[1].replace(/^מ/, '').replace(/^/, '');
                             items.push({ cmd, score: 10.9, type: 'he_fixed_injected' });
                             console.log('[HE-FIXED-FILTER-FINAL] injected fixed list command (exact):', cmd);
+                            // Also inject "שעבר" variant if base timeframe was typed or partial שעבר
+                            if (hasSheaverBase || isTypingSheaver) {
+                                let sheaverVariant = '';
+                                const baseMatch = mTok[1].match(/^(מהשבוע|מהחודש|מהשנה)/);
+                                if (baseMatch) {
+                                    if (baseMatch[1] === 'מהשבוע') sheaverVariant = 'רשום מיילים מהשבוע שעבר';
+                                    else if (baseMatch[1] === 'מהחודש') sheaverVariant = 'רשום מיילים מהחודש שעבר';
+                                    else if (baseMatch[1] === 'מהשנה') sheaverVariant = 'רשום מיילים מהשנה שעברה';
+                                }
+                                if (sheaverVariant && !items.some(it => (it.cmd || it) === sheaverVariant)) {
+                                    items.push({ cmd: sheaverVariant, score: 10.85, type: 'he_fixed_sheaver_injected' });
+                                    console.log('[HE-FIXED-FILTER-FINAL] injected שעבר variant:', sheaverVariant);
+                                }
+                            }
                             injected = true;
                         }
                         if (!injected) {
@@ -4728,7 +4750,7 @@
                             const mPartial = qNorm.match(/\sמ([\u0590-\u05FF]+)\s*$/);
                             if (mPartial && mPartial[1]) {
                                 const partial = 'מ' + mPartial[1];
-                                const candidates = ['מהיום','מאתמול','מהשבוע','מהחודש','מהשנה','מהשבוע שעבר','מהחודש שעבר','מהשנה שעברה'];
+                                const candidates = ['מהיום','מאתמול','מהשבוע','מהשבוע שעבר','מהחודש','מהחודש שעבר','מהשנה','מהשנה שעברה'];
                                 let best = '';
                                 for (const c of candidates) {
                                     if (c.startsWith(partial)) { best = c; break; }
@@ -4784,7 +4806,7 @@
                     const mPartial = qNorm.match(/\sמ([\u0590-\u05FF]+)\s*$/);
                     if (mPartial && mPartial[1]) {
                         const partial = 'מ' + mPartial[1];
-                        const candidates = ['מהיום','מאתמול','מהשבוע','מהחודש','מהשנה','מהשבוע שעבר','מהחודש שעבר','מהשנה שעברה'];
+                        const candidates = ['מהיום','מאתמול','מהשבוע','מהשבוע שעבר','מהחודש','מהחודש שעבר','מהשנה','מהשנה שעברה'];
                         const exists = new Set(items.map(function(it){ return (it && it.cmd) ? it.cmd : String(it); }));
                         for (const c of candidates) {
                             if (c.startsWith(partial)) {
@@ -4808,7 +4830,7 @@
                         }
                         // If still too few items, seed matching timeframe suggestions so dropdown feels complete
                         if (items.length < 5) {
-                            const baseline = ['רשום מיילים מהשבוע','רשום מיילים מהחודש','רשום מיילים מהשנה','רשום מיילים מאתמול'];
+                            const baseline = ['רשום מיילים מהשבוע','רשום מיילים מהשבוע שעבר','רשום מיילים מהחודש','רשום מיילים מהחודש שעבר','רשום מיילים מהשנה','רשום מיילים מהשנה שעברה','רשום מיילים מאתמול'];
                             const existsFinal = new Set(items.map(function(it){ return (it && it.cmd) ? it.cmd : String(it); }));
                             for (const b of baseline) {
                                 if (!existsFinal.has(b)) {
