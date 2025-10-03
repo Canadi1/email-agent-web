@@ -2346,6 +2346,18 @@
                 }
             } catch (e) {}
 
+            // Seed core sender templates when typing exactly 'רשום מיילים מ'
+            try {
+                const qSeed = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                if (/^רש(?:ו)?ם\s+מיילים\s+מ$/.test(qSeed) && Array.isArray(items)) {
+                    const exists = new Set(items.map(function(it){ return (it && it.cmd) ? it.cmd : String(it); }));
+                    const toAdd = [];
+                    if (!exists.has('רשום מיילים מ[שולח]')) toAdd.push({ cmd: 'רשום מיילים מ[שולח]', score: 931, type: 'he_sender_seed' });
+                    if (!exists.has('רשום מיילים מ[דומיין]')) toAdd.push({ cmd: 'רשום מיילים מ[דומיין]', score: 930, type: 'he_sender_seed' });
+                    if (toAdd.length) items = toAdd.concat(items);
+                }
+            } catch (e) {}
+
             // Prioritize starts-with and exact includes first, then others (Hebrew: give partial timeframe boosts)
             includeMatches.sort((a, b) => {
                 const aStart = commands.indexOf(a.cmd) >= 0 && a.cmd.toLowerCase().startsWith(q);
@@ -4523,15 +4535,16 @@
                     var tfPrefixes = ['מה','מהי','מהיו','מהש','מהשב','מהשבו','מהח','מהחו','מהחוד','מהשנ','מא','מאת','מאתמ','מאתמו','מהשבו ש','מהחוד ש','מהשנה ש','מל','מלפ','מלפנ','מלפני'];
                     hasPartialTimeCue = typedAfterM && tfPrefixes.some(function(p){ return typedAfterM.startsWith(p); });
                 } catch(e) { hasPartialTimeCue = false; }
-                const heSenderShape = /^רש(?:ו)?ם\s+מיילים\s+מ\s*[^\s]/.test(qNorm);
+                const heSenderShape = /^רש(?:ו)?ם\s+מיילים\s+מ[\u0590-\u05FF]+/.test(qNorm);
                 const isHeSenderTyping = isHeb && heSenderShape && !hasFixedTokenNorm;
                 console.log('[HE-DIAG]', { q, qNorm, heSenderShape, hasFixedTokenNorm });
                 if (isHeSenderTyping && Array.isArray(items)) {
                     items = items.filter(it => {
                         const text = typeof it === 'string' ? it : (it && it.cmd ? it.cmd : '');
                         const lc = String(text || '').toLowerCase().trim();
-                        // Remove "רשום מיילים מהיום" when typing sender commands
-                        const remove = /^רשום\s+מיילים\s+מהיום$/.test(lc);
+                        // Remove "רשום מיילים מהיום" only if there is a non-empty token after 'מ'
+                        const hasTokenAfterM = /רשום\s+מיילים\s+מ\s*[\u0590-\u05FF]+/i.test(qNorm);
+                        const remove = hasTokenAfterM && /^רשום\s+מיילים\s+מהיום$/.test(lc);
                         if (remove) {
                             console.log('Filtering out (NEW):', lc, 'because typing sender command');
                         }
@@ -4550,12 +4563,17 @@
                     items = items.filter(it => {
                         const text = typeof it === 'string' ? it : (it && it.cmd ? it.cmd : '');
                         const lc = String(text || '').toLowerCase().trim();
-                        // Remove "רשום מיילים מ[שולח] מהיום" when typing "רשום מיילים מ" (partial or full)
-                        const remove = /^רשום\s+מיילים\s+מ\[שולח\].*מהיום$/.test(lc);
+                        // Remove "רשום מיילים מ[שולח] מהיום" only when there is a token after 'מ'
+                        const hasTokenAfterM2 = /רשום\s+מיילים\s+מ\s*[\u0590-\u05FF]+/i.test(qNorm);
+                        const remove = hasTokenAfterM2 && /^רשום\s+מיילים\s+מ\[שולח\].*מהיום$/.test(lc);
+                        const removeCatMf = /^רשום\s+מיילים\s+(?!מ\[שולח\]|מ\[דומיין\])[\u0590-\u05FF]+\s+מ(היום|מאתמול|מהשבוע(?:\s+שעבר)?|מהחודש(?:\s+שעבר)?|מהשנה(?:\s+שעברה)?)$/i.test(lc);
                         if (remove) {
                             console.log('Filtering out מהיום variant when typing sender prefix (NEW):', lc);
                         }
-                        return !remove;
+                        if (removeCatMf) {
+                            console.log('Filtering out category-like timeframe under sender prefix:', lc);
+                        }
+                        return !remove && !removeCatMf;
                     });
                     console.log('After filter - items count:', items.length);
                 }
@@ -4600,6 +4618,7 @@
                 // ALSO skip if duration intent is detected
                 const isHeSenderIntent = isHeb && !hasFixedTokenNorm && !isDurationIntent && /^\s*רש(?:ו)?ם\s+מיילים\s+מ(?:-|\s)*[^\s]/.test(q) && !hasPartialTimeCue;
                 if (isHeSenderIntent && Array.isArray(items)) {
+                    try { console.log('[HE-DIAG][sender-intent] q=', q, 'isHeb=', !!isHeb, 'hasFixedTokenNorm=', !!hasFixedTokenNorm, 'isDurationIntent=', !!isDurationIntent, 'hasPartialTimeCue=', !!hasPartialTimeCue, 'items.len(before)=', items.length); } catch(e) {}
                     items = items.filter(it => {
                         const text = typeof it === 'string' ? it : (it && it.cmd ? it.cmd : '');
                         const lc = String(text || '').toLowerCase().trim();
@@ -4607,6 +4626,7 @@
                         const isListLike = /^(רשום\s+|רשום\s*מיילים\b)/.test(lc);
                         return hasSenderToken && isListLike;
                     });
+                    try { console.log('[HE-DIAG][sender-intent] items.len(after)=', items.length); } catch(e) {}
                 }
                 // Remove "מהיום" when typing OTHER timeframes (not when typing "מהיום")
                 const isHeTypingOtherTimeframe = isHeb && /^\s*רש(?:ו)?ם\s+מיילים\s+מ\s*(השבוע|החודש|השנה|אתמול|השבוע\s+שעבר|החודש\s+שעבר|השנה\s+שעברה)/.test(q);
@@ -4683,15 +4703,16 @@
                     }
                 }
             } catch (e) {}
+            try { console.log('[HE-DIAG][after-duration]', Array.isArray(items)?items.length:'n/a'); } catch(e) {}
 
             // Category typing guard: when typing a custom category after "רשום מיילי ...",
             // hide sender/timeframe suggestions which do not match category queries
             try {
                 const q = (input || '').toLowerCase();
-                const isHeCategoryCustom = isHeb && /^\s*רש(?:ו)?ם\s+מיילי(?:ם)?\s+[\u0590-\u05FF]+/.test(q);
+                const isHeCategoryCustom = isHeb && /^\s*רש(?:ו)?ם\s+מיילי\b/.test(q);
                 if (isHeCategoryCustom && Array.isArray(items) && items.length) {
                     // Extract typed words after the cue 'רשום מיילי' to enforce in-order matching
-                    const words = q.replace(/^\s*רש(?:ו)?ם\s+מיילי(?:ם)?\s*/,'').trim().split(/\s+/).filter(Boolean);
+                    const words = q.replace(/^\s*רש(?:ו)?ם\s+מיילי\s*/,'').trim().split(/\s+/).filter(Boolean);
                     items = items.filter(it => {
                         const text = (it && it.cmd) ? it.cmd : String(it);
                         const lc = String(text || '').toLowerCase();
@@ -4712,19 +4733,21 @@
                     });
                 }
             } catch (e) {}
+            try { console.log('[HE-DIAG][after-cat-guard]', Array.isArray(items)?items.length:'n/a'); } catch(e) {}
 
             // Inject per-category timeframe suggestions for curated categories
             // Format: "רשום מיילי <קטגוריה> <זמן>", with progressive partial support after 'מ'
             try {
-                const q = (input || '').toLowerCase();
+                const qRaw = (input || '').toLowerCase();
+                const qNormCat = qRaw.replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
                 const isHeb = typeof document !== 'undefined' && (document.documentElement.lang === 'he' || document.documentElement.getAttribute('dir') === 'rtl');
                 if (isHeb && Array.isArray(items)) {
-                    // DO NOT inject when the input begins with plain list cue 'רשום מיילים'
-                    if (/^\s*רש(?:ו)?ם\s+מיילים\b/.test(q)) {
-                        // skip category timeframe injection entirely
+                    // ONLY inject when the input begins with 'רשום מיילי' (normalized)
+                    if (!/^רש(?:ו)?ם\s+מיילי\b/.test(qNormCat)) {
+                        // skip category timeframe injection entirely for any other cue (e.g., 'רשום מיילים')
                     } else {
-                    // Match: רשום מיילי <category> [מ<partial>]
-                    const m = q.match(/^\s*רש(?:ו)?ם\s+מיילי(?:ם)?\s+([\u0590-\u05FF\s]+?)(?:\s+מ([\u0590-\u05FF]*))?\s*$/);
+                    // Match: רשום מיילי <category> [מ<partial>] on normalized string
+                    const m = qNormCat.match(/^רש(?:ו)?ם\s+מיילי(?:ם)?\s+([\u0590-\u05FF\s]+?)(?:\s+מ([\u0590-\u05FF]*))?$/);
                     if (m) {
                         const typedCatRaw = (m[1] || '').trim();
                         const afterM = m[2] != null ? ('מ' + m[2]) : '';
@@ -4778,6 +4801,7 @@
                     }
                 }
             } catch (e) {}
+            try { console.log('[HE-DIAG][after-cat-inject]', Array.isArray(items)?items.length:'n/a'); } catch(e) {}
 
             // Reorder for category + "שעבר/שעברה": ensure the exact variant is first
             try {
@@ -4940,6 +4964,7 @@
                     }
                 }
             } catch (e) {}
+            try { console.log('[HE-DIAG][after-sender+timeframe]', Array.isArray(items)?items.length:'n/a'); } catch(e) {}
             
             // FINAL: timeframe handling — only collapse on full timeframe, keep others during partial typing
             const isHeFixedAfterMem = isHeb && hasFixedTokenNorm;
@@ -5154,6 +5179,12 @@
                 }
             } catch (e) {}
 
+            
+            // DIAG: show final suggestions head before rendering
+            try {
+                var headItems = Array.isArray(items) ? items.slice(0, 10).map(function(it){ return (it && it.cmd) ? it.cmd : String(it); }) : [];
+                console.log('[HE-DIAG][final-head] len=', Array.isArray(items)?items.length:'n/a', headItems);
+            } catch (e) {}
 
             items.forEach((item, idx) => {
                 const { cmd, type } = item;
