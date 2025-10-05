@@ -4560,6 +4560,9 @@
         function renderSuggestions(input) {
             console.log('renderSuggestions called with input:', input);
             try { console.log('[HE-VERSION-RENDER]', 'cat-ss v1'); } catch(e) {}
+            // Allow building category suggestions but still use common renderer for keyboard nav
+            let heCategoryOverride = null;
+            let heCategoryMode = false;
             // ABSOLUTE EARLY CATEGORY SHORT-CIRCUIT: handle 'רשום מיילי …' before any other logic
             try {
                 const qCat0 = (input || '').toLowerCase()
@@ -4571,18 +4574,6 @@
                 if (isCat0) {
                     const categories = ['קודי אימות','אבטחת חשבון','משלוח'];
                     const tfAll = ['מהיום','מאתמול','מהשבוע','מהשבוע שעבר','מהחודש','מהחודש שעבר','מהשנה','מהשנה שעברה'];
-                    // Ensure container exists
-                    closeAllLists();
-                    activeIndex = -1;
-                    suggestionItems = [];
-                    const wrapper0 = commandInput.parentNode;
-                    wrapper0.style.position = 'relative';
-                    suggestionsContainer = document.createElement('div');
-                    suggestionsContainer.className = 'autocomplete-suggestions';
-                    suggestionsContainer.setAttribute('role','listbox');
-                    wrapper0.appendChild(suggestionsContainer);
-                    positionSuggestions();
-
                     let out = [];
                     if (/^רש(?:ו)?ם\s+מיילי\s*$/.test(qCat0)) {
                         out.push({ cmd: 'רשום מיילים מ[שולח]', score: 1000 });
@@ -4610,31 +4601,9 @@
                             }
                         }
                     }
-                    // Render only category items; if none, render nothing (no free-text echo)
-                    suggestionsContainer.innerHTML = '';
-                    out.slice(0, 12).forEach(function(it){
-                        const cmd = it.cmd;
-                        const div = document.createElement('div');
-                        div.setAttribute('role','option');
-                        div.style.padding = '10px';
-                        div.style.cursor = 'pointer';
-                        // Bold matching prefix
-                        try {
-                            const lcCmd = String(cmd || '').toLowerCase();
-                            const normQ = qCat0;
-                            if (lcCmd.startsWith(normQ)) {
-                                const bold = escapeHtml(cmd.substring(0, normQ.length));
-                                const rest = escapeHtml(cmd.substring(normQ.length));
-                                div.innerHTML = `<strong>${bold}</strong>${rest}`;
-                            } else {
-                                div.textContent = cmd;
-                            }
-                        } catch(e) { div.textContent = cmd; }
-                        div.addEventListener('click', function(){ try { commandInput.value = cmd; closeAllLists(); commandInput.focus(); } catch(e) {} });
-                        suggestionsContainer.appendChild(div);
-                    });
-                    try { console.log('[HE-CAT-SHORTCIRCUIT-ABS] rendered', out.length); } catch(e) {}
-                    return;
+                    heCategoryOverride = out;
+                    heCategoryMode = true;
+                    try { console.log('[HE-CAT-SHORTCIRCUIT-ABS] override items', out.length); } catch(e) {}
                 }
             } catch(e) {}
             closeAllLists();
@@ -4655,6 +4624,24 @@
 
             const maxShow = 12;
             let items = getSuggestions(input.toLowerCase(), maxShow);
+            if (Array.isArray(heCategoryOverride)) {
+                items = heCategoryOverride;
+            }
+            // Ensure category mode keeps only category items throughout the pipeline
+            try {
+                const qDbgCat = (input || '').toLowerCase().replace(/[\u200e\u200f\u202a\u202b\u202c\u202d\u202e]/g,'').replace(/\u00a0/g,' ').replace(/\s+/g,' ').trim();
+                const isCatFlow = heCategoryMode || /^רש(?:ו)?ם\s+מיילי(?!ם)(?:\s|$)/.test(qDbgCat);
+                if (isCatFlow && Array.isArray(items)) {
+                    items = items.filter(function(it){
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lc = String(cmd || '').toLowerCase();
+                        if (!/^רשום\s+מיילי\b/.test(lc)) return false;
+                        if (/\bשולח\b|דומיין|\[(sender|domain|שולח|דומיין)/i.test(lc)) return false;
+                        if (/^רשום\s+מיילים\s+מ(היום|מאתמול|מהשבוע|מהחודש|מהשנה)/.test(lc)) return false;
+                        return true;
+                    });
+                }
+            } catch(e) {}
             // Do NOT modify non-category flows here; only category commands should filter timeframes/senders
             // EARLY CATEGORY ENFORCER IN RENDER: keep only 'רשום מיילי …' and inject timeframes, then render+return
             try {
@@ -4663,7 +4650,7 @@
                     .replace(/\u00a0/g,' ')
                     .replace(/\s+/g,' ').trim();
                 const isCatRender = /^רש(?:ו)?ם\s+מיילי(?!ם)(?:\s|$)/.test(qNormCatR);
-                if (isCatRender) {
+                if (false && isCatRender) {
                     // Hard-filter out any non-category items right away
                     items = Array.isArray(items) ? items.filter(function(it){
                         const cmd = (it && it.cmd) ? it.cmd : String(it);
@@ -4763,7 +4750,8 @@
                 console.log('[HE-DIAG]', { q, qNorm, heSenderShape, hasFixedTokenNorm });
                 // While typing the bare list cue (progressively up to exactly 'רשום מיילים'),
                 // suppress the noisy 'רשום מיילים מ[שולח] מהיום' variant
-                const isHeTypingListBare = isHeb && /^\s*רש(?:ו)?ם\s+מ(?:י(?:י(?:ל(?:י(?:ם)?)?)?)?)?$/.test(qNorm);
+                const isCatFlowNow = heCategoryMode || /^\s*רש(?:ו)?ם\s+מיילי(?!ם)/.test(qNorm);
+                const isHeTypingListBare = !isCatFlowNow && isHeb && /^\s*רש(?:ו)?ם\s+מ(?:י(?:י(?:ל(?:י(?:ם)?)?)?)?)?$/.test(qNorm);
                 if (isHeTypingListBare && Array.isArray(items)) {
                     items = items.filter(function(it){
                         const text = typeof it === 'string' ? it : (it && it.cmd ? it.cmd : '');
@@ -4787,7 +4775,7 @@
                 
                 // Filter out "רשום מיילים מ[שולח] מהיום" when typing "רשום מיילים" or "רשום מיילים מ" (not full commands)
                 // This includes ALL partial typing stages: "רשום מ/מי/מיי/מייל/מיילי/מיילים" and "מיילים מ"
-                const isHeTypingSenderPrefix = isHeb
+                const isHeTypingSenderPrefix = !isCatFlowNow && isHeb
                     && /^\s*רש(?:ו)?ם\s+מ(?:י(?:י(?:ל(?:י(?:ם)?)?)?)?)?(\s+מ\s*)?$/i.test(qNorm)
                     && !hasFixedTokenNorm;
                 console.log('Checking filter - isHeb (NEW):', isHeb, 'q:', q, 'qNorm:', qNorm, 'isHeTypingSenderPrefix:', isHeTypingSenderPrefix);
@@ -5524,6 +5512,16 @@
                 console.log('[HE-DIAG][final-head] len=', Array.isArray(items)?items.length:'n/a', headItems);
             } catch (e) {}
 
+            // Category fallback: if category flow and items got wiped by a guard, restore override items
+            try {
+                const qCatChk = (input || '').toLowerCase().replace(/[\u200e\u200f\u202a\u202b\u202c\u202d\u202e]/g,'').replace(/\u00a0/g,' ').replace(/\s+/g,' ').trim();
+                const isCatFlowRender = heCategoryMode || /^רש(?:ו)?ם\s+מיילי(?!ם)(?:\s|$)/.test(qCatChk);
+                if (isCatFlowRender && Array.isArray(heCategoryOverride) && (!Array.isArray(items) || items.length === 0)) {
+                    items = heCategoryOverride.slice(0);
+                    console.log('[HE-CAT-FALLBACK] restored', items.length, 'items');
+                }
+            } catch(e) {}
+
             items.forEach((item, idx) => {
                 const { cmd, type } = item;
                 const div = document.createElement('div');
@@ -5532,6 +5530,17 @@
                 div.style.cursor = 'pointer';
                 const lc = cmd.toLowerCase();
                 const pos = lc.indexOf(input.toLowerCase());
+                // Category-mode robust bolding for normalized prefix
+                try {
+                    const qNormB = (input || '').toLowerCase().replace(/[\u200e\u200f\u202a\u202b\u202c\u202d\u202e]/g,'').replace(/\u00a0/g,' ').replace(/\s+/g,' ').trim();
+                    const cmdNormB = lc.replace(/[\u200e\u200f\u202a\u202b\u202c\u202d\u202e]/g,'').replace(/\u00a0/g,' ').replace(/\s+/g,' ').trim();
+                    if (qNormB && /^רשום\s+מיילי\b/.test(qNormB) && cmdNormB.startsWith(qNormB)) {
+                        const boldLen = Math.min(cmd.length, (input || '').length);
+                        const safeBold = escapeHtml(cmd.substring(0, boldLen));
+                        const safeRest = escapeHtml(cmd.substring(boldLen));
+                        div.innerHTML = `<strong>${safeBold}</strong>${safeRest}`;
+                    }
+                } catch(e) {}
 
                 // Force placeholder-aware bolding for sender and duration/timeframe tokens
                 const hasSenderToken = /\[(sender(?:\/domain)?|domain(?:\.com)?|שולח(?:\/דומיין)?|דומיין)\]/i.test(cmd);
