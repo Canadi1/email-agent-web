@@ -2018,9 +2018,64 @@
             const dist = levenshtein(a, b);
             return 1 - (dist / maxLen);
         }
+        // VERSION MARKER - helps verify the correct script is loaded
+        try { console.log('[HE-VERSION]', 'cat-ss v1'); } catch(e) {}
+
         function getSuggestions(input, maxShow) {
             const rawQ = (input || '');
             const q = rawQ.toLowerCase().trim();
+            const qNormHe = rawQ.toLowerCase()
+                .replace(/[\u200e\u200f\u202a\u202b\u202c\u202d\u202e]/g,'')
+                .replace(/\u00a0/g,' ')
+                .replace(/\s+/g,' ')
+                .trim();
+    // HEBREW CATEGORY SHORT-CIRCUIT: if input starts with 'רשום מיילי', return ONLY category suggestions
+    try {
+        if (/^רש(?:ו)?ם\s+מיילי(?!ם)(?:\s|$)/.test(qNormHe)) {
+            try { console.log('[HE-CAT-SS-GS] short-circuit active q=', qNormHe); } catch(e) {}
+            const categories = ['קודי אימות','אבטחת חשבון','משלוח'];
+            const tfAll = ['מהיום','מאתמול','מהשבוע','מהשבוע שעבר','מהחודש','מהחודש שעבר','מהשנה','מהשנה שעברה'];
+            // Exact base cue: keep sender first, categories 2-4
+            if (/^רש(?:ו)?ם\s+מיילי\s*$/.test(qNormHe)) {
+                const out = [];
+                out.push({ cmd: 'רשום מיילים מ[שולח]', score: 1000, type: 'he_cat_short_sender_first' });
+                out.push({ cmd: 'רשום מיילי קודי אימות', score: 999, type: 'he_cat_short' });
+                out.push({ cmd: 'רשום מיילי אבטחת חשבון', score: 998, type: 'he_cat_short' });
+                out.push({ cmd: 'רשום מיילי משלוח', score: 997, type: 'he_cat_short' });
+                return out;
+            }
+            // Match: רשום מיילי <קטגוריה> [מ<partial>]
+            const m = qNormHe.match(/^רש(?:ו)?ם\s+מיילי(?:ם)?\s+([\u0590-\u05FF\s]+?)(?:\s+מ([\u0590-\u05FF]*))?$/);
+            if (m) {
+                const typedCat = (m[1] || '').trim();
+                const afterM = m[2] ? ('מ' + m[2]) : '';
+                // Resolve category by prefix in either direction
+                let cat = '';
+                for (const c of categories) { if (c.startsWith(typedCat) || typedCat.startsWith(c)) { cat = c; break; } }
+                if (cat) {
+                    let tfs = tfAll.slice();
+                    if (afterM) {
+                        tfs = tfAll.filter(tf => tf.startsWith(afterM));
+                        if (!tfs.length) {
+                            if (afterM === 'מא') tfs = ['מאתמול'];
+                            else if (afterM === 'מה') tfs = ['מהיום','מהשבוע','מהחודש','מהשנה'];
+                        }
+                    }
+                    const out = [];
+                    // Base first
+                    out.push({ cmd: 'רשום מיילי ' + cat, score: 995, type: 'he_cat_short_base' });
+                    // Then timeframes (filtered by partial if present)
+                    for (const tf of tfs) { out.push({ cmd: 'רשום מיילי ' + cat + ' ' + tf, score: 994, type: 'he_cat_short_tf' }); }
+                    return out;
+                } else {
+                    // If category not resolved yet, only show base category entries matching the typed prefix
+                    const out = [];
+                    for (const c of categories) { if (c.startsWith(typedCat)) out.push({ cmd: 'רשום מיילי ' + c, score: 993, type: 'he_cat_short_suggest' }); }
+                    return out.length ? out : [{ cmd: 'רשום מיילי ' + typedCat, score: 992, type: 'he_cat_short_fallback' }];
+                }
+            }
+        }
+    } catch (e) {}
             const scored = [];
             const includeMatches = [];
             // Hebrew cues used throughout ranking adjustments
@@ -2944,6 +2999,11 @@
                 const cmd = commands[i];
                 if (seen.has(cmd)) continue;
                 const lc = cmd.toLowerCase();
+                // Hebrew: when typing 'רשום מיילים …', exclude category commands 'רשום מיילי …' from fuzzy
+                try {
+                    const heListTyping = /^\s*רש(?:ו)?ם\s+מיילים/.test(q);
+                    if (heListTyping && /^רשום\s+מיילי\b/.test(lc)) continue;
+                } catch (e) {}
                 if (categoryKey) {
                     const isListCmd = /^list\b/.test(lc);
                     if (isListCmd && lc.indexOf(categoryKey) === -1) {
@@ -4499,6 +4559,84 @@
         }
         function renderSuggestions(input) {
             console.log('renderSuggestions called with input:', input);
+            try { console.log('[HE-VERSION-RENDER]', 'cat-ss v1'); } catch(e) {}
+            // ABSOLUTE EARLY CATEGORY SHORT-CIRCUIT: handle 'רשום מיילי …' before any other logic
+            try {
+                const qCat0 = (input || '').toLowerCase()
+                    .replace(/[\u200e\u200f\u202a\u202b\u202c\u202d\u202e]/g,'')
+                    .replace(/\u00a0/g,' ')
+                    .replace(/\s+/g,' ').trim();
+                const isCat0 = /^רש(?:ו)?ם\s+מיילי(?!ם)(?:\s|$)/.test(qCat0);
+                console.log('[HE-CAT-SHORTCIRCUIT-ABS][chk]', { qCat0, isCat0 });
+                if (isCat0) {
+                    const categories = ['קודי אימות','אבטחת חשבון','משלוח'];
+                    const tfAll = ['מהיום','מאתמול','מהשבוע','מהשבוע שעבר','מהחודש','מהחודש שעבר','מהשנה','מהשנה שעברה'];
+                    // Ensure container exists
+                    closeAllLists();
+                    activeIndex = -1;
+                    suggestionItems = [];
+                    const wrapper0 = commandInput.parentNode;
+                    wrapper0.style.position = 'relative';
+                    suggestionsContainer = document.createElement('div');
+                    suggestionsContainer.className = 'autocomplete-suggestions';
+                    suggestionsContainer.setAttribute('role','listbox');
+                    wrapper0.appendChild(suggestionsContainer);
+                    positionSuggestions();
+
+                    let out = [];
+                    if (/^רש(?:ו)?ם\s+מיילי\s*$/.test(qCat0)) {
+                        out.push({ cmd: 'רשום מיילים מ[שולח]', score: 1000 });
+                        out.push({ cmd: 'רשום מיילי קודי אימות', score: 999 });
+                        out.push({ cmd: 'רשום מיילי אבטחת חשבון', score: 998 });
+                        out.push({ cmd: 'רשום מיילי משלוח', score: 997 });
+                    } else {
+                        const m = qCat0.match(/^רש(?:ו)?ם\s+מיילי(?:ם)?\s+([\u0590-\u05FF\s]+?)(?:\s+מ([\u0590-\u05FF]*))?$/);
+                        if (m) {
+                            const typedCat = (m[1] || '').trim();
+                            const afterM = m[2] ? ('מ' + m[2]) : '';
+                            let cat = '';
+                            for (const c of categories) { if (c.startsWith(typedCat) || typedCat.startsWith(c)) { cat = c; break; } }
+                            if (cat) {
+                                out.push({ cmd: 'רשום מיילי ' + cat, score: 995 });
+                                let tfs = tfAll.slice();
+                                if (afterM) {
+                                    tfs = tfAll.filter(tf => tf.startsWith(afterM));
+                                    if (!tfs.length) { if (afterM === 'מא') tfs = ['מאתמול']; else if (afterM === 'מה') tfs = ['מהיום','מהשבוע','מהחודש','מהשנה']; }
+                                }
+                                for (const tf of tfs) out.push({ cmd: 'רשום מיילי ' + cat + ' ' + tf, score: 994 });
+                            } else {
+                                for (const c of categories) { if (c.startsWith(typedCat)) out.push({ cmd: 'רשום מיילי ' + c, score: 993 }); }
+                                if (!out.length) out.push({ cmd: 'רשום מיילי ' + typedCat, score: 992 });
+                            }
+                        }
+                    }
+                    // Render only category items
+                    suggestionsContainer.innerHTML = '';
+                    out.slice(0, 12).forEach(function(it){
+                        const cmd = it.cmd;
+                        const div = document.createElement('div');
+                        div.setAttribute('role','option');
+                        div.style.padding = '10px';
+                        div.style.cursor = 'pointer';
+                        // Bold matching prefix
+                        try {
+                            const lcCmd = String(cmd || '').toLowerCase();
+                            const normQ = qCat0;
+                            if (lcCmd.startsWith(normQ)) {
+                                const bold = escapeHtml(cmd.substring(0, normQ.length));
+                                const rest = escapeHtml(cmd.substring(normQ.length));
+                                div.innerHTML = `<strong>${bold}</strong>${rest}`;
+                            } else {
+                                div.textContent = cmd;
+                            }
+                        } catch(e) { div.textContent = cmd; }
+                        div.addEventListener('click', function(){ try { commandInput.value = cmd; closeAllLists(); commandInput.focus(); } catch(e) {} });
+                        suggestionsContainer.appendChild(div);
+                    });
+                    try { console.log('[HE-CAT-SHORTCIRCUIT-ABS] rendered', out.length); } catch(e) {}
+                    return;
+                }
+            } catch(e) {}
             closeAllLists();
             activeIndex = -1;
             suggestionItems = [];
@@ -4517,6 +4655,72 @@
 
             const maxShow = 12;
             let items = getSuggestions(input.toLowerCase(), maxShow);
+            // Do NOT modify non-category flows here; only category commands should filter timeframes/senders
+            // EARLY CATEGORY ENFORCER IN RENDER: keep only 'רשום מיילי …' and inject timeframes, then render+return
+            try {
+                const qNormCatR = (input || '').toLowerCase()
+                    .replace(/[\u200e\u200f\u202a\u202b\u202c\u202d\u202e]/g,'')
+                    .replace(/\u00a0/g,' ')
+                    .replace(/\s+/g,' ').trim();
+                const isCatRender = /^רש(?:ו)?ם\s+מיילי(?!ם)(?:\s|$)/.test(qNormCatR);
+                if (isCatRender) {
+                    // Hard-filter out any non-category items right away
+                    items = Array.isArray(items) ? items.filter(function(it){
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lc = String(cmd || '').toLowerCase();
+                        if (!/^רשום\s+מיילי\b/.test(lc)) return false;
+                        if (/\bשולח\b|דומיין|\[(sender|domain|שולח|דומיין)/i.test(lc)) return false;
+                        if (/^רשום\s+מיילים\s+מ(היום|מאתמול|מהשבוע|מהחודש|מהשנה)/.test(lc)) return false;
+                        return true;
+                    }) : [];
+                    // Filter to category-only
+                    items = Array.isArray(items) ? items.filter(function(it){
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lc = String(cmd || '').toLowerCase();
+                        return /^רשום\s+מיילי\b/.test(lc);
+                    }) : [];
+                    // If user typed a specific category, ensure timeframe variants exist
+                    const mCat = qNormCatR.match(/^רש(?:ו)?ם\s+מיילי(?:ם)?\s+([\u0590-\u05FF\s]+?)(?:\s+מ([\u0590-\u05FF]*))?$/);
+                    if (mCat) {
+                        const categories = ['קודי אימות','אבטחת חשבון','משלוח'];
+                        const tfAll = ['מהיום','מאתמול','מהשבוע','מהשבוע שעבר','מהחודש','מהחודש שעבר','מהשנה','מהשנה שעברה'];
+                        const typedCat = (mCat[1] || '').trim();
+                        const afterM = mCat[2] ? ('מ' + mCat[2]) : '';
+                        let cat = '';
+                        for (const c of categories) { if (c.startsWith(typedCat) || typedCat.startsWith(c)) { cat = c; break; } }
+                        if (cat) {
+                            let tfs = tfAll.slice();
+                            if (afterM) {
+                                tfs = tfAll.filter(tf => tf.startsWith(afterM));
+                                if (!tfs.length) {
+                                    if (afterM === 'מא') tfs = ['מאתמול'];
+                                    else if (afterM === 'מה') tfs = ['מהיום','מהשבוע','מהחודש','מהשנה'];
+                                }
+                            }
+                            const have = new Set(items.map(function(it){ return (it && it.cmd) ? it.cmd : String(it); }));
+                            if (!have.has('רשום מיילי ' + cat)) items.unshift({ cmd: 'רשום מיילי ' + cat, score: 980, type: 'he_cat_render_base' });
+                            for (const tf of tfs) {
+                                const cmd = 'רשום מיילי ' + cat + ' ' + tf;
+                                if (!have.has(cmd)) items.push({ cmd: cmd, score: 979, type: 'he_cat_render_tf' });
+                            }
+                        }
+                    }
+                    // Render immediately and return to avoid later pipelines
+                    suggestionsContainer.innerHTML = '';
+                    items.slice(0, maxShow).forEach(function(it){
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const div = document.createElement('div');
+                        div.setAttribute('role','option');
+                        div.style.padding = '10px';
+                        div.style.cursor = 'pointer';
+                        div.textContent = cmd;
+                        div.addEventListener('click', function(){ try { commandInput.value = cmd; closeAllLists(); commandInput.focus(); } catch(e) {} });
+                        suggestionsContainer.appendChild(div);
+                    });
+                    try { console.log('[HE-CAT-RENDER-EARLY] rendered', items.length, 'category items'); } catch(e) {}
+                    return;
+                }
+            } catch(e) {}
             // Predeclare variables used across renderSuggestions so later final filters can access them
             let q = (input || '').toLowerCase().trim();
             let isHeb = document.documentElement.lang === 'he';
