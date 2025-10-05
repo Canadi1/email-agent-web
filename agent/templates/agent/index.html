@@ -2068,10 +2068,10 @@
                     for (const tf of tfs) { out.push({ cmd: 'רשום מיילי ' + cat + ' ' + tf, score: 994, type: 'he_cat_short_tf' }); }
                     return out;
                 } else {
-                    // If category not resolved yet, only show base category entries matching the typed prefix
+                    // If category not resolved yet, only show curated categories that prefix-match (no arbitrary fallbacks)
                     const out = [];
                     for (const c of categories) { if (c.startsWith(typedCat)) out.push({ cmd: 'רשום מיילי ' + c, score: 993, type: 'he_cat_short_suggest' }); }
-                    return out.length ? out : [{ cmd: 'רשום מיילי ' + typedCat, score: 992, type: 'he_cat_short_fallback' }];
+                    return out; // may be empty until a known category is identifiable
                 }
             }
         }
@@ -4605,12 +4605,12 @@
                                 }
                                 for (const tf of tfs) out.push({ cmd: 'רשום מיילי ' + cat + ' ' + tf, score: 994 });
                             } else {
+                                // Only surface curated categories that prefix-match; do NOT fabricate free-text category
                                 for (const c of categories) { if (c.startsWith(typedCat)) out.push({ cmd: 'רשום מיילי ' + c, score: 993 }); }
-                                if (!out.length) out.push({ cmd: 'רשום מיילי ' + typedCat, score: 992 });
                             }
                         }
                     }
-                    // Render only category items
+                    // Render only category items; if none, render nothing (no free-text echo)
                     suggestionsContainer.innerHTML = '';
                     out.slice(0, 12).forEach(function(it){
                         const cmd = it.cmd;
