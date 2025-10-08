@@ -1895,9 +1895,14 @@
                     'רשום מיילים אחרונים',
                     'רשום מיילים מ[שולח]',
                     'רשום מיילים מ[דומיין]',
-                    'רשום מיילים מהשבוע שעבר',
-                    'רשום מיילים מהחודש שעבר',
+                    'רשום מיילים מהיום',
                     'רשום מיילים מאתמול',
+                    'רשום מיילים מהשבוע',
+                    'רשום מיילים מהשבוע שעבר',
+                    'רשום מיילים מהחודש',
+                    'רשום מיילים מהחודש שעבר',
+                    'רשום מיילים מהשנה',
+                    'רשום מיילים מהשנה שעברה',
                     'רשום מיילים מלפני [משך]',
                     'רשום מיילים ישנים מ[משך]',
                     'חפש מיילים עם נושא "[מילת מפתח]"',
@@ -5370,6 +5375,77 @@
                 }
             } catch (e) {}
 
+            // FILTER: Remove sender suggestions when typing pure timeframe commands (including partial typing)
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                // Match both complete and partial timeframe patterns
+                const isPureTimeframe = /^רש(?:ו)?ם\s+מיילים\s+מ(היום|אתמול|השבוע(?:\s+שעבר)?|החודש(?:\s+שעבר)?|השנה(?:\s+שעברה)?)$/.test(qlc);
+                const isPartialTimeframe = /^רש(?:ו)?ם\s+מיילים\s+מ(ה|מה|מא|מהש|מהשב|מהשבו|מהשבוע|מהח|מהחו|מהחוד|מהחודש|מהש|מהש|מהשנ|מהשנה)/.test(qlc);
+                
+                if ((isPureTimeframe || isPartialTimeframe) && Array.isArray(items)) {
+                    // Remove all sender-based suggestions when typing pure timeframes
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        return !/\[שולח\]|\[sender\]|\[domain\.com\]|\[דומיין\]/i.test(cmd);
+                    });
+                    try { console.log('[HE-PURE-TIMEFRAME-FILTER] removed sender suggestions for:', qlc); } catch(e) {}
+                }
+            } catch(e) {}
+
+
+            // FINAL TIMEFRAME FILTER: Apply specific timeframe restrictions at the very end
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                
+                // Check for "היום" timeframes
+                const isHaiom = /^רש(?:ו)?ם\s+מיילים\s+מהיום$/.test(qlc);
+                const isPartialHaiom = /^רש(?:ו)?ם\s+מיילים\s+מה(י|יו|יום)?$/.test(qlc);
+                
+                // Check for "אתמול" timeframes
+                const isEtmol = /^רש(?:ו)?ם\s+מיילים\s+מאתמול$/.test(qlc);
+                const isPartialEtmol = /^רש(?:ו)?ם\s+מיילים\s+מא/.test(qlc);
+                
+                // Check for "שעבר" timeframes
+                const isCompleteSheaver = /^רש(?:ו)?ם\s+מיילים\s+מ(השבוע|החודש|השנה)\s+שעבר(ה)?$/.test(qlc);
+                const isPartialSheaver = /^רש(?:ו)?ם\s+מיילים\s+מ(השבוע|החודש|השנה)\s+ש/.test(qlc);
+                
+                if ((isHaiom || isPartialHaiom || isEtmol || isPartialEtmol || isCompleteSheaver || isPartialSheaver) && Array.isArray(items)) {
+                    if (isHaiom || isPartialHaiom) {
+                        // Filter for "היום" - keep only the exact today command
+                        items = items.filter(function(it) {
+                            const cmd = (it && it.cmd) ? it.cmd : String(it);
+                            const lcCmd = cmd.toLowerCase();
+                            return lcCmd === 'רשום מיילים מהיום';
+                        });
+                        try { console.log('[HE-FINAL-HAIOM-FILTER] restricted to exact today command for:', qlc); } catch(e) {}
+                    } else if (isEtmol || isPartialEtmol) {
+                        // Filter for "אתמול" - keep only yesterday-related suggestions
+                        items = items.filter(function(it) {
+                            const cmd = (it && it.cmd) ? it.cmd : String(it);
+                            const lcCmd = cmd.toLowerCase();
+                            return lcCmd === 'רשום מיילים מאתמול' || lcCmd.startsWith('רשום מיילים מאתמול ');
+                        });
+                        try { console.log('[HE-FINAL-ETMOL-FILTER] restricted to yesterday suggestions for:', qlc); } catch(e) {}
+                    } else if (isCompleteSheaver || isPartialSheaver) {
+                        // Filter for "שעבר" - keep only base and שעבר variants
+                        const baseTimeframe = qlc.match(/^רש(?:ו)?ם\s+מיילים\s+מ(השבוע|החודש|השנה)/);
+                        if (baseTimeframe) {
+                            const base = baseTimeframe[1];
+                            const suffix = (base === 'השנה') ? 'שעברה' : 'שעבר';
+                            
+                            items = items.filter(function(it) {
+                                const cmd = (it && it.cmd) ? it.cmd : String(it);
+                                const lcCmd = cmd.toLowerCase();
+                                return lcCmd === `רשום מיילים מ${base}` || 
+                                       lcCmd === `רשום מיילים מ${base} ${suffix}` ||
+                                       lcCmd.startsWith(`רשום מיילים מ${base} `);
+                            });
+                            try { console.log('[HE-FINAL-SHEAVER-FILTER] restricted to matching timeframes for:', qlc); } catch(e) {}
+                        }
+                    }
+                }
+            } catch(e) {}
+
             // FINAL FIX: Handle all categories with "מ" and "שעבר" cases
             try {
                 const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
@@ -5663,6 +5739,28 @@
                         }
                     }
                 } catch(e) {}
+                
+                // Special reordering for "מהש" patterns: ensure שבוע comes before שנה
+                try {
+                    const qReorder = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                    if (/^רש(?:ו)?ם\s+מיילים\s+מהש/.test(qReorder) && Array.isArray(items)) {
+                        const shavuaItems = items.filter(it => {
+                            const cmd = (it && it.cmd) ? it.cmd : String(it);
+                            return cmd.includes('מהשבוע');
+                        });
+                        const shanaItems = items.filter(it => {
+                            const cmd = (it && it.cmd) ? it.cmd : String(it);
+                            return cmd.includes('מהשנה');
+                        });
+                        const otherItems = items.filter(it => {
+                            const cmd = (it && it.cmd) ? it.cmd : String(it);
+                            return !cmd.includes('מהשבוע') && !cmd.includes('מהשנה');
+                        });
+                        // Reorder: שבוע items first, then שנה items, then others
+                        items = [...shavuaItems, ...shanaItems, ...otherItems];
+                        console.log('[HE-REORDER-MAHSH] reordered שבוע before שנה for:', qReorder);
+                    }
+                } catch(e) {}
             }
         
         // FINAL PLAIN-TIMEFRAME FILTER: while typing 'רשום מיילים מה', 'מהי', 'מהיו' hide sender templates and prefer 'מהיום'
@@ -5683,8 +5781,8 @@
                     items.unshift(it);
                 }
                 // Seed a compact family of fixed timeframe suggestions so the list doesn't collapse
+                // Only seed commands that actually start with "מה" to match the user's input
                 const wanted = [
-                    'רשום מיילים מאתמול',
                     'רשום מיילים מהשבוע',
                     'רשום מיילים מהחודש',
                     'רשום מיילים מהשנה'
@@ -5761,6 +5859,86 @@
             } catch (e) {}
 
             
+            // AGGRESSIVE REORDERING FOR "מהש": Force שבוע before שנה at the very end
+            try {
+                const qReorder = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                if (/^רש(?:ו)?ם\s+מיילים\s+מהש/.test(qReorder) && Array.isArray(items)) {
+                    // Separate items by type
+                    const shavuaItems = [];
+                    const shanaItems = [];
+                    const otherItems = [];
+                    
+                    for (const item of items) {
+                        const cmd = (item && item.cmd) ? item.cmd : String(item);
+                        if (cmd.includes('מהשבוע')) {
+                            shavuaItems.push(item);
+                        } else if (cmd.includes('מהשנה')) {
+                            shanaItems.push(item);
+                        } else {
+                            otherItems.push(item);
+                        }
+                    }
+                    
+                    // Rebuild items array with שבוע first, then שנה, then others
+                    items.length = 0; // Clear the array
+                    items.push(...shavuaItems, ...shanaItems, ...otherItems);
+                    console.log('[HE-AGGRESSIVE-REORDER] forced שבוע before שנה for:', qReorder, 'shavua:', shavuaItems.length, 'shana:', shanaItems.length);
+                }
+            } catch(e) {}
+
+            // ULTIMATE FINAL TIMEFRAME FILTER: Apply specific timeframe restrictions at the very end
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                
+                // Check for "היום" timeframes - only when typing "מהי" or beyond (not just "מה")
+                const isHaiom = /^רש(?:ו)?ם\s+מיילים\s+מהיום$/.test(qlc);
+                const isPartialHaiom = /^רש(?:ו)?ם\s+מיילים\s+מהי(ו|ום)?$/.test(qlc);
+                
+                // Check for "אתמול" timeframes
+                const isEtmol = /^רש(?:ו)?ם\s+מיילים\s+מאתמול$/.test(qlc);
+                const isPartialEtmol = /^רש(?:ו)?ם\s+מיילים\s+מא/.test(qlc);
+                
+                // Check for "שעבר" timeframes
+                const isCompleteSheaver = /^רש(?:ו)?ם\s+מיילים\s+מ(השבוע|החודש|השנה)\s+שעבר(ה)?$/.test(qlc);
+                const isPartialSheaver = /^רש(?:ו)?ם\s+מיילים\s+מ(השבוע|החודש|השנה)\s+ש/.test(qlc);
+                
+                if ((isHaiom || isPartialHaiom || isEtmol || isPartialEtmol || isCompleteSheaver || isPartialSheaver) && Array.isArray(items)) {
+                    if (isHaiom || isPartialHaiom) {
+                        // Filter for "היום" - keep only the exact today command
+                        items = items.filter(function(it) {
+                            const cmd = (it && it.cmd) ? it.cmd : String(it);
+                            const lcCmd = cmd.toLowerCase();
+                            return lcCmd === 'רשום מיילים מהיום';
+                        });
+                        try { console.log('[HE-ULTIMATE-HAIOM-FILTER] restricted to exact today command for:', qlc); } catch(e) {}
+                    } else if (isEtmol || isPartialEtmol) {
+                        // Filter for "אתמול" - keep only yesterday-related suggestions
+                        items = items.filter(function(it) {
+                            const cmd = (it && it.cmd) ? it.cmd : String(it);
+                            const lcCmd = cmd.toLowerCase();
+                            return lcCmd === 'רשום מיילים מאתמול' || lcCmd.startsWith('רשום מיילים מאתמול ');
+                        });
+                        try { console.log('[HE-ULTIMATE-ETMOL-FILTER] restricted to yesterday suggestions for:', qlc); } catch(e) {}
+                    } else if (isCompleteSheaver || isPartialSheaver) {
+                        // Filter for "שעבר" - keep only base and שעבר variants
+                        const baseTimeframe = qlc.match(/^רש(?:ו)?ם\s+מיילים\s+מ(השבוע|החודש|השנה)/);
+                        if (baseTimeframe) {
+                            const base = baseTimeframe[1];
+                            const suffix = (base === 'השנה') ? 'שעברה' : 'שעבר';
+                            
+                            items = items.filter(function(it) {
+                                const cmd = (it && it.cmd) ? it.cmd : String(it);
+                                const lcCmd = cmd.toLowerCase();
+                                return lcCmd === `רשום מיילים מ${base}` || 
+                                       lcCmd === `רשום מיילים מ${base} ${suffix}` ||
+                                       lcCmd.startsWith(`רשום מיילים מ${base} `);
+                            });
+                            try { console.log('[HE-ULTIMATE-SHEAVER-FILTER] restricted to matching timeframes for:', qlc); } catch(e) {}
+                        }
+                    }
+                }
+            } catch(e) {}
+
             // DIAG: show final suggestions head before rendering
             try {
                 var headItems = Array.isArray(items) ? items.slice(0, 10).map(function(it){ return (it && it.cmd) ? it.cmd : String(it); }) : [];
