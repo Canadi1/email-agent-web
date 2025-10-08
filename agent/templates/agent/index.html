@@ -4585,10 +4585,17 @@
                         if (m) {
                             const typedCat = (m[1] || '').trim();
                             const afterM = m[2] ? ('מ' + m[2]) : '';
+                            // Check if there's a 'מ' AFTER the category name (captured in group 2 of regex)
+                            // m[2] is defined when regex captures \s+מ([\u0590-\u05FF]*) - i.e., space + מ + optional letters
+                            const hasTimeframeM = (m[2] !== undefined);
                             let cat = '';
                             for (const c of categories) { if (c.startsWith(typedCat) || typedCat.startsWith(c)) { cat = c; break; } }
+                            try { console.log('[HE-CAT-MATCH]', { typedCat, cat, hasTimeframeM, afterM, m2: m[2], qCat0 }); } catch(e) {}
                             if (cat) {
-                                out.push({ cmd: 'רשום מיילי ' + cat, score: 995 });
+                                // Only show base category if NO timeframe 'מ' is being typed
+                                if (!hasTimeframeM) {
+                                    out.push({ cmd: 'רשום מיילי ' + cat, score: 995 });
+                                }
                                 let tfs = tfAll.slice();
                                 if (afterM) {
                                     tfs = tfAll.filter(tf => tf.startsWith(afterM));
