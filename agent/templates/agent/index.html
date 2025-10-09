@@ -5392,6 +5392,34 @@
                 }
             } catch(e) {}
 
+            // FILTER: Remove sender suggestions when typing duration commands (including partial typing)
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                // Match both complete and partial duration patterns
+                const isPureDuration = /^רש(?:ו)?ם\s+מיילים\s+מלפני/.test(qlc);
+                const isPartialDuration = /^רש(?:ו)?ם\s+מיילים\s+מ(ל|לפ|לפנ|לפני)/.test(qlc);
+                
+                if ((isPureDuration || isPartialDuration) && Array.isArray(items)) {
+                    // Remove all sender-based suggestions when typing duration commands
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        return !/\[שולח\]|\[sender\]|\[domain\.com\]|\[דומיין\]/i.test(cmd);
+                    });
+                    try { console.log('[HE-PURE-DURATION-FILTER] removed sender suggestions for:', qlc); } catch(e) {}
+                }
+                
+                // When typing actual duration value, only show the base duration command
+                const isTypingDurationValue = /^רש(?:ו)?ם\s+מיילים\s+מלפני\s+\S/.test(qlc);
+                if (isTypingDurationValue && Array.isArray(items)) {
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        return lcCmd === 'רשום מיילים מלפני [משך]' || lcCmd.startsWith('רשום מיילים מלפני ');
+                    });
+                    try { console.log('[HE-DURATION-VALUE-FILTER] restricted to duration commands for:', qlc); } catch(e) {}
+                }
+            } catch(e) {}
+
 
             // FINAL TIMEFRAME FILTER: Apply specific timeframe restrictions at the very end
             try {
