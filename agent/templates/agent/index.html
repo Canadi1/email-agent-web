@@ -5476,8 +5476,8 @@
                 
                 // Progressive typing patterns - detect when typing sender + partial timeframe
                 const senderWithPartialHaiom = (hasSenderToken || hasRealSender) && /מ(הי|היו)$/.test(qlc); // Only "מהי" or "מהיו", not just "מה"
-                const senderWithPartialEtmol = (hasSenderToken || hasRealSender) && /מא$/.test(qlc);
-                const senderWithPartialWeek = (hasSenderToken || hasRealSender) && /מ(הש|השב|השבו)$/.test(qlc);
+                const senderWithPartialEtmol = (hasSenderToken || hasRealSender) && /מא/.test(qlc) && !/מה/.test(qlc);
+                const senderWithPartialWeek = (hasSenderToken || hasRealSender) && /מ(הש|השב|השבו)/.test(qlc);
                 const senderWithPartialMonth = (hasSenderToken || hasRealSender) && /מ(הח|החו|החוד)$/.test(qlc);
                 const senderWithPartialYear = (hasSenderToken || hasRealSender) && /מ(השנ)$/.test(qlc); // Only "מהשנ", not "מהש"
                 
