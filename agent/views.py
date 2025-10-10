@@ -1133,7 +1133,7 @@ def _translate_hebrew_command_to_english(command: str) -> str:
     # Longer phrases first
     # Direct mapping for: רשום מיילים מ[sender] מלפני N [unit]
     try:
-        # Category forms: "רשום מיילי <קטגוריה> מלפני N יחידה" -> "list <category> from N <unit> ago"
+        # Category duration patterns (must come FIRST to avoid generic "רשום" replacement)
         def _cat_key_to_en(cat_he: str) -> str:
             cat_he = (cat_he or '').strip()
             if re.search(r"קוד(?:י)?\s*אימות|קודים\s*לאימות", cat_he):
@@ -1142,6 +1142,25 @@ def _translate_hebrew_command_to_english(command: str) -> str:
                 return "account security emails"
             # default shipping
             return "shipping emails"
+        def _he_to_en_unit(unit_he: str, qty: int) -> str:
+            u = unit_he
+            if u.startswith('יום'):
+                return 'day' if qty == 1 else 'days'
+            if u.startswith('שבוע'):
+                return 'week' if qty == 1 else 'weeks'
+            if u.startswith('חודש'):
+                return 'month' if qty == 1 else 'months'
+            if u.startswith('שנה') or u.startswith('שנים'):
+                return 'year' if qty == 1 else 'years'
+            return 'days'
+        def _cat_melifney_one_repl(m):
+            cat = _cat_key_to_en(m.group(1) or '')
+            unit_he = m.group(2)
+            unit_en = _he_to_en_unit(unit_he, 1)
+            return f"list {cat} from 1 {unit_en} ago"
+        c = re.sub(r"רש(?:ו)?ם\s+מיילי(?:ם)?\s+([\u0590-\u05FF\s]+?)\s+מלפני\s*(יום|שבוע|חודש|שנה)\b",
+                   _cat_melifney_one_repl, c, flags=re.IGNORECASE)
+        # Category forms: "רשום מיילי <קטגוריה> מלפני N יחידה" -> "list <category> from N <unit> ago"
         def _cat_melifney_repl(m):
             cat = _cat_key_to_en(m.group(1) or '')
             qty = int(m.group(2))
@@ -1150,13 +1169,6 @@ def _translate_hebrew_command_to_english(command: str) -> str:
             return f"list {cat} from {qty} {unit_en} ago"
         c = re.sub(r"^[\s]*רש(?:ו)?ם\s+מיילי(?:ם)?\s+([\u0590-\u05FF\s]+?)\s+מלפני\s*(\d+)\s*(יום(?:ים)?|שבוע(?:ות)?|חודש(?:ים)?|שנה(?:ים)?)\b",
                    _cat_melifney_repl, c, flags=re.IGNORECASE)
-        def _cat_melifney_one_repl(m):
-            cat = _cat_key_to_en(m.group(1) or '')
-            unit_he = m.group(2)
-            unit_en = _he_to_en_unit(unit_he, 1)
-            return f"list {cat} from 1 {unit_en} ago"
-        c = re.sub(r"^[\s]*רש(?:ו)?ם\s+מיילי(?:ם)?\s+([\u0590-\u05FF\s]+?)\s+מלפני\s*(יום|שבוע|חודש|שנה)\b",
-                   _cat_melifney_one_repl, c, flags=re.IGNORECASE)
         def _sender_melifney_repl(m):
             sender = (m.group(1) or '').strip()
             qty = int(m.group(2))
