@@ -1903,6 +1903,9 @@
                     'רשום מיילים מהחודש שעבר',
                     'רשום מיילים מהשנה',
                     'רשום מיילים מהשנה שעברה',
+                    'רשום מיילי משלוח מלפני [משך]',
+                    'רשום מיילי קודי אימות מלפני [משך]',
+                    'רשום מיילי אבטחת חשבון מלפני [משך]',
                     'רשום מיילים מלפני [משך]',
                     'רשום מיילים ישנים מ[משך]',
                     'חפש מיילים עם נושא "[מילת מפתח]"',
@@ -2042,13 +2045,18 @@
                 out.push({ cmd: 'רשום מיילי קודי אימות', score: 999, type: 'he_cat_short' });
                 out.push({ cmd: 'רשום מיילי אבטחת חשבון', score: 998, type: 'he_cat_short' });
                 out.push({ cmd: 'רשום מיילי משלוח', score: 997, type: 'he_cat_short' });
+                // Also surface category duration shortcuts for easier testing
+                out.push({ cmd: 'רשום מיילי משלוח מלפני [משך]', score: 996, type: 'he_cat_short_duration' });
+                out.push({ cmd: 'רשום מיילי קודי אימות מלפני [משך]', score: 996, type: 'he_cat_short_duration' });
+                out.push({ cmd: 'רשום מיילי אבטחת חשבון מלפני [משך]', score: 996, type: 'he_cat_short_duration' });
                 return out;
             }
-            // Match: רשום מיילי <קטגוריה> [מ<partial>]
-            const m = qNormHe.match(/^רש(?:ו)?ם\s+מיילי(?:ם)?\s+([\u0590-\u05FF\s]+?)(?:\s+מ([\u0590-\u05FF]*))?$/);
+            // Match: רשום מיילי <קטגוריה> [מ<partial>] | or 'מלפני <...>' for category
+            const m = qNormHe.match(/^רש(?:ו)?ם\s+מיילי(?:ם)?\s+([\u0590-\u05FF\s]+?)(?:\s+מ([\u0590-\u05FF]*))?(?:\s+מלפני\b([\u0590-\u05FF\s\d]*)?)?$/);
             if (m) {
                 const typedCat = (m[1] || '').trim();
                 const afterM = m[2] ? ('מ' + m[2]) : '';
+                const afterDur = (m[3] || '').trim();
                 // Resolve category by prefix in either direction
                 let cat = '';
                 for (const c of categories) { if (c.startsWith(typedCat) || typedCat.startsWith(c)) { cat = c; break; } }
@@ -2061,11 +2069,22 @@
                             else if (afterM === 'מה') tfs = ['מהיום','מהשבוע','מהחודש','מהשנה'];
                         }
                     }
-                    const out = [];
-                    // Base first
+                    // Build output suggestions
+                    let out = [];
+                    // If user is typing a concrete duration value after 'מלפני', surface the exact composed command first
+                    if (afterDur) {
+                        const exactDur = 'רשום מיילי ' + cat + ' מלפני ' + afterDur;
+                        out.push({ cmd: exactDur, score: 997, type: 'he_cat_short_duration_value' });
+                        out.push({ cmd: 'רשום מיילי ' + cat + ' מלפני [משך]', score: 996, type: 'he_cat_short_duration' });
+                        return out;
+                    }
+                    // Otherwise, show base + timeframes + a duration hint
                     out.push({ cmd: 'רשום מיילי ' + cat, score: 995, type: 'he_cat_short_base' });
-                    // Then timeframes (filtered by partial if present)
                     for (const tf of tfs) { out.push({ cmd: 'רשום מיילי ' + cat + ' ' + tf, score: 994, type: 'he_cat_short_tf' }); }
+                    const durCmd = 'רשום מיילי ' + cat + ' מלפני [משך]';
+                    const isTypingDuration = /\bמלפני/.test(qNormHe);
+                    if (isTypingDuration) out.unshift({ cmd: durCmd, score: 996, type: 'he_cat_short_duration' });
+                    else out.push({ cmd: durCmd, score: 993.5, type: 'he_cat_short_duration_hint' });
                     return out;
                 } else {
                     // If category not resolved yet, only show curated categories that prefix-match (no arbitrary fallbacks)
@@ -5437,12 +5456,14 @@
                 }
                 
                 // When typing actual duration value, only show the base duration command
-                const isTypingDurationValue = /^רש(?:ו)?ם\s+מיילים\s+מלפני\s+\S/.test(qlc);
+                const isTypingDurationValue = /^(?:רש(?:ו)?ם\s+מיילים\s+מלפני\s+\S|רש(?:ו)?ם\s+מיילי(?:ם)?\s+[\u0590-\u05FF\s]+\s+מלפני\s+\S)/.test(qlc);
                 if (isTypingDurationValue && Array.isArray(items)) {
                     items = items.filter(function(it) {
                         const cmd = (it && it.cmd) ? it.cmd : String(it);
                         const lcCmd = cmd.toLowerCase();
-                        return lcCmd === 'רשום מיילים מלפני [משך]' || lcCmd.startsWith('רשום מיילים מלפני ');
+                        const isPlain = lcCmd === 'רשום מיילים מלפני [משך]' || lcCmd.startsWith('רשום מיילים מלפני ');
+                        const isCategoryDur = /^רשום\s+מיילי(?:ם)?\s+[\u0590-\u05ff\s]+\s+מלפני\s+(\[משך\]|\S)/.test(lcCmd);
+                        return isPlain || isCategoryDur;
                     });
                     try { console.log('[HE-DURATION-VALUE-FILTER] restricted to duration commands for:', qlc); } catch(e) {}
                 }

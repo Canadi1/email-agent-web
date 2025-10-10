@@ -1133,6 +1133,30 @@ def _translate_hebrew_command_to_english(command: str) -> str:
     # Longer phrases first
     # Direct mapping for: רשום מיילים מ[sender] מלפני N [unit]
     try:
+        # Category forms: "רשום מיילי <קטגוריה> מלפני N יחידה" -> "list <category> from N <unit> ago"
+        def _cat_key_to_en(cat_he: str) -> str:
+            cat_he = (cat_he or '').strip()
+            if re.search(r"קוד(?:י)?\s*אימות|קודים\s*לאימות", cat_he):
+                return "verification codes"
+            if re.search(r"אבטחת\s*חשבון|אבטחה", cat_he):
+                return "account security emails"
+            # default shipping
+            return "shipping emails"
+        def _cat_melifney_repl(m):
+            cat = _cat_key_to_en(m.group(1) or '')
+            qty = int(m.group(2))
+            unit_he = m.group(3)
+            unit_en = _he_to_en_unit(unit_he, qty)
+            return f"list {cat} from {qty} {unit_en} ago"
+        c = re.sub(r"^[\s]*רש(?:ו)?ם\s+מיילי(?:ם)?\s+([\u0590-\u05FF\s]+?)\s+מלפני\s*(\d+)\s*(יום(?:ים)?|שבוע(?:ות)?|חודש(?:ים)?|שנה(?:ים)?)\b",
+                   _cat_melifney_repl, c, flags=re.IGNORECASE)
+        def _cat_melifney_one_repl(m):
+            cat = _cat_key_to_en(m.group(1) or '')
+            unit_he = m.group(2)
+            unit_en = _he_to_en_unit(unit_he, 1)
+            return f"list {cat} from 1 {unit_en} ago"
+        c = re.sub(r"^[\s]*רש(?:ו)?ם\s+מיילי(?:ם)?\s+([\u0590-\u05FF\s]+?)\s+מלפני\s*(יום|שבוע|חודש|שנה)\b",
+                   _cat_melifney_one_repl, c, flags=re.IGNORECASE)
         def _sender_melifney_repl(m):
             sender = (m.group(1) or '').strip()
             qty = int(m.group(2))
@@ -1294,15 +1318,8 @@ def _translate_hebrew_command_to_english(command: str) -> str:
 
     # 'מלפני 4 חודשים' or 'מ לפני 4 חודשים'
     c = re.sub(r"\bמ\s*לפני\s*(\d+)\s*(יום(?:ים)?|שבוע(?:ות)?|חודש(?:ים)?|שנה(?:ים)?)\b", _mlifnei_repl, c, flags=re.IGNORECASE)
-    # For Hebrew 'לפני ...' we prefer a bounded window ("from N <unit> ago")
-    # EXCEPT for custom categories (verification/shipping/security), where we keep 'older than'
-    custom_hebrew_tokens = [
-        r"קודים\s*לאימות", r"קוד\s*אימות", r"קודי\s*אימות",
-        r"משלוח", r"שילוח", r"משלוחים",
-        r"אבטחת\s*חשבון", r"אבטחה"
-    ]
-    is_custom_category_he = any(re.search(tok, orig) for tok in custom_hebrew_tokens)
-    if (re.search(r"\bמלפני\b", orig) or re.search(r"\bמ\s*לפני\b", orig) or re.search(r"\bלפני\b", orig)) and not is_custom_category_he:
+    # For Hebrew 'לפני/מלפני ...' prefer a bounded window ("from N <unit> ago")
+    if (re.search(r"\bמלפני\b", orig) or re.search(r"\bמ\s*לפני\b", orig) or re.search(r"\bלפני\b", orig)):
         c = re.sub(
             r"^(list\b.*)older than\s*(\d+)\s*(day|days|week|weeks|month|months|year|years)",
             lambda m: f"{m.group(1)}from {m.group(2)} {m.group(3)} ago",
