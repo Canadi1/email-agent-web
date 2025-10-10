@@ -5521,15 +5521,41 @@
                                 if (idx > 0) { const it = items.splice(idx,1)[0]; items.unshift(it); }
                             } catch(e) {}
                         }
-                    } else if (senderWithPartialWeek) {
-                        // Keep only sender + week suggestions
+                    } else if (senderWithPartialYear || (/\sמהשנה$/.test(qlc))) {
+                        // Keep only sender + year suggestions (base and שעברה)
                         items = items.filter(function(it) {
                             const cmd = (it && it.cmd) ? it.cmd : String(it);
                             const lcCmd = cmd.toLowerCase();
-                            return /\[שולח\].*מהשבוע/.test(lcCmd);
+                            return (/\[שולח\]/.test(lcCmd) && /מהשנה(\s+שעברה)?$/.test(lcCmd));
                         });
-                        try { console.log('[HE-SENDER-TIMEFRAME-FILTER] restricted to sender+week for:', qlc); } catch(e) {}
-                        // If user already typed שעבר, put that variant first
+                        try { console.log('[HE-SENDER-TIMEFRAME-FILTER] restricted to sender+year for:', qlc); } catch(e) {}
+                        // If exact 'מהשנה שעברה' was typed, move it to top
+                        try {
+                            if (/\sמהשנה\s+שעברה$/.test(qlc)) {
+                                let idx = items.findIndex(function(it){
+                                    const c = (it && it.cmd) ? it.cmd : String(it || '');
+                                    return /מהשנה\s+שעברה$/.test(c);
+                                });
+                                if (idx > 0) { const it = items.splice(idx,1)[0]; items.unshift(it); }
+                            }
+                        } catch(e) {}
+                    } else if (senderWithPartialWeek) {
+                        // Keep only sender + timeframe suggestions that start with 'מהש' (week or year)
+                        items = items.filter(function(it) {
+                            const cmd = (it && it.cmd) ? it.cmd : String(it);
+                            const lcCmd = cmd.toLowerCase();
+                            return /\[שולח\]/.test(lcCmd) && /מהש(בוע|נה)(?:\s+שעבר(ה)?)?$/.test(lcCmd);
+                        });
+                        try { console.log('[HE-SENDER-TIMEFRAME-FILTER] restricted to sender+"מהש" (week/year) for:', qlc); } catch(e) {}
+                        // Prefer week before year during partial 'מהש'
+                        try {
+                            const weekIdx = items.findIndex(function(it){
+                                const c = (it && it.cmd) ? it.cmd : String(it || '');
+                                return /מהשבוע(\s+שעבר)?$/.test(c);
+                            });
+                            if (weekIdx > 0) { const it = items.splice(weekIdx,1)[0]; items.unshift(it); }
+                        } catch(e) {}
+                        // If user already typed 'מהשבוע שעבר', put it first
                         try {
                             if (/\sמהשבוע\s+שעבר$/.test(qlc)) {
                                 let idx = items.findIndex(function(it){
@@ -5539,14 +5565,24 @@
                                 if (idx > 0) { const it = items.splice(idx,1)[0]; items.unshift(it); }
                             }
                         } catch(e) {}
-                    } else if (senderWithPartialMonth) {
-                        // Keep only sender + month suggestions
+                    } else if (senderWithPartialMonth || (/\sמהחודש$/.test(qlc))) {
+                        // Keep only sender + month suggestions (base and שעבר)
                         items = items.filter(function(it) {
                             const cmd = (it && it.cmd) ? it.cmd : String(it);
                             const lcCmd = cmd.toLowerCase();
-                            return /\[שולח\].*מהחודש/.test(lcCmd);
+                            return (/\[שולח\]/.test(lcCmd) && /מהחודש(\s+שעבר)?$/.test(lcCmd));
                         });
                         try { console.log('[HE-SENDER-TIMEFRAME-FILTER] restricted to sender+month for:', qlc); } catch(e) {}
+                        // If exact 'מהחודש שעבר' was typed, move it to top
+                        try {
+                            if (/\sמהחודש\s+שעבר$/.test(qlc)) {
+                                let idx = items.findIndex(function(it){
+                                    const c = (it && it.cmd) ? it.cmd : String(it || '');
+                                    return /מהחודש\s+שעבר$/.test(c);
+                                });
+                                if (idx > 0) { const it = items.splice(idx,1)[0]; items.unshift(it); }
+                            }
+                        } catch(e) {}
                     } else if (senderWithPartialYear) {
                         // Keep only sender + year suggestions
                         items = items.filter(function(it) {
