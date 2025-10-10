@@ -5454,7 +5454,7 @@
                 
                 // Check for sender + timeframe patterns - handle both placeholder tokens and real sender names
                 const hasSenderToken = /\[שולח\]|\[sender\]/.test(input);
-                const hasRealSender = /^רש(?:ו)?ם\s+מיילים\s+מ\s+[^\s]+\s+מ/.test(qlc) && !/^רש(?:ו)?ם\s+מיילים\s+מ(היום|אתמול|השבוע|החודש|השנה|ל|לפ|לפנ|לפני)/.test(qlc);
+                const hasRealSender = /^רש(?:ו)?ם\s+מיילים\s+מ\s*[^\s]+\s+מ/.test(qlc) && !/^רש(?:ו)?ם\s+מיילים\s+מ(היום|אתמול|השבוע|החודש|השנה|ל|לפ|לפנ|לפני)/.test(qlc);
                 
                 // Debug logging
                 try { 
@@ -5468,18 +5468,19 @@
                 } catch(e) {}
                 
                 
-                const senderWithHaiom = (hasSenderToken || hasRealSender) && /מהיום$/.test(qlc);
-                const senderWithEtmol = (hasSenderToken || hasRealSender) && /מאתמול$/.test(qlc);
-                const senderWithTimeframe = (hasSenderToken || hasRealSender) && /מ(השבוע|החודש|השנה)(?:\s+שעבר(?:ה)?)?$/.test(qlc);
-                const senderWithPartialTimeframe = (hasSenderToken || hasRealSender) && /מ(ה|הי|היו|א|הש|השב|השבו|השבוע|הח|החו|החוד|החודש|השנ|השנה)$/.test(qlc);
-                const senderWithSheaver = (hasSenderToken || hasRealSender) && /מ(השבוע|החודש|השנה)\s+ש/.test(qlc);
+                const senderWithHaiom = (hasSenderToken || hasRealSender) && /\s*מהיום$/.test(qlc);
+                const senderWithEtmol = (hasSenderToken || hasRealSender) && /\s*מאתמול$/.test(qlc);
+                const senderWithTimeframe = (hasSenderToken || hasRealSender) && /\sמ(השבוע|החודש|השנה)(?:\s+שעבר(?:ה)?)?$/.test(qlc);
+                const senderWithPartialTimeframe = (hasSenderToken || hasRealSender) && /\sמ(ה|הי|היו|א|הש|השב|השבו|השבוע|הח|החו|החוד|החודש|השנ|השנה)$/.test(qlc);
+                const senderWithSheaver = (hasSenderToken || hasRealSender) && /\sמ(השבוע|החודש|השנה)\s+ש/.test(qlc);
+                const wantsSheaverExact = (hasSenderToken || hasRealSender) && /\sמ(השבוע|החודש|השנה)\s+שעבר(ה)?$/.test(qlc);
                 
                 // Progressive typing patterns - detect when typing sender + partial timeframe
-                const senderWithPartialHaiom = (hasSenderToken || hasRealSender) && /מ(הי|היו)$/.test(qlc); // Only "מהי" or "מהיו", not just "מה"
-                const senderWithPartialEtmol = (hasSenderToken || hasRealSender) && /מא/.test(qlc) && !/מה/.test(qlc);
-                const senderWithPartialWeek = (hasSenderToken || hasRealSender) && /מ(הש|השב|השבו)/.test(qlc);
-                const senderWithPartialMonth = (hasSenderToken || hasRealSender) && /מ(הח|החו|החוד)$/.test(qlc);
-                const senderWithPartialYear = (hasSenderToken || hasRealSender) && /מ(השנ)$/.test(qlc); // Only "מהשנ", not "מהש"
+                const senderWithPartialHaiom = (hasSenderToken || hasRealSender) && /\s*מ(הי|היו)$/.test(qlc); // Only "מהי" or "מהיו", not just "מה"
+                const senderWithPartialEtmol = (hasSenderToken || hasRealSender) && /\s*מא/.test(qlc) && !/מה/.test(qlc);
+                const senderWithPartialWeek = (hasSenderToken || hasRealSender) && /\s*מ(הש|השב|השבו)/.test(qlc);
+                const senderWithPartialMonth = (hasSenderToken || hasRealSender) && /\s*מ(הח|החו|החוד)$/.test(qlc);
+                const senderWithPartialYear = (hasSenderToken || hasRealSender) && /\s*מ(השנ)$/.test(qlc); // Only "מהשנ", not "מהש"
                 
                 if ((senderWithHaiom || senderWithEtmol || senderWithTimeframe || senderWithPartialTimeframe || senderWithSheaver || senderWithPartialHaiom || senderWithPartialEtmol || senderWithPartialWeek || senderWithPartialMonth || senderWithPartialYear) && Array.isArray(items)) {
                     if (senderWithHaiom || senderWithPartialHaiom) {
@@ -5498,6 +5499,28 @@
                             return /\[שולח\].*מאתמול$/.test(lcCmd) || /מאתמול.*\[שולח\]/.test(lcCmd);
                         });
                         try { console.log('[HE-SENDER-TIMEFRAME-FILTER] restricted to sender+yesterday for:', qlc); } catch(e) {}
+                    } else if (wantsSheaverExact || senderWithSheaver) {
+                        // Keep only sender + base timeframe and שעבר variant
+                        const baseMatch = qlc.match(/\sמ(השבוע|החודש|השנה)/);
+                        if (baseMatch) {
+                            const base = baseMatch[1];
+                            const suffix = (base === 'השנה') ? 'שעברה' : 'שעבר';
+                            items = items.filter(function(it) {
+                                const cmd = (it && it.cmd) ? it.cmd : String(it);
+                                const lcCmd = cmd.toLowerCase();
+                                return (/\[שולח\]/.test(lcCmd) && (lcCmd.includes(`מ${base}`) || lcCmd.includes(`מ${base} ${suffix}`)));
+                            });
+                            try { console.log('[HE-SENDER-TIMEFRAME-FILTER] restricted to sender+timeframe+sheaver for:', qlc); } catch(e) {}
+                            // Reorder: put exact "שעבר/שעברה" first
+                            try {
+                                const targetEnds = `מ${base} ${suffix}`;
+                                let idx = items.findIndex(function(it){
+                                    const c = (it && it.cmd) ? it.cmd : String(it || '');
+                                    return c.endsWith(targetEnds);
+                                });
+                                if (idx > 0) { const it = items.splice(idx,1)[0]; items.unshift(it); }
+                            } catch(e) {}
+                        }
                     } else if (senderWithPartialWeek) {
                         // Keep only sender + week suggestions
                         items = items.filter(function(it) {
@@ -5506,6 +5529,16 @@
                             return /\[שולח\].*מהשבוע/.test(lcCmd);
                         });
                         try { console.log('[HE-SENDER-TIMEFRAME-FILTER] restricted to sender+week for:', qlc); } catch(e) {}
+                        // If user already typed שעבר, put that variant first
+                        try {
+                            if (/\sמהשבוע\s+שעבר$/.test(qlc)) {
+                                let idx = items.findIndex(function(it){
+                                    const c = (it && it.cmd) ? it.cmd : String(it || '');
+                                    return /מהשבוע\s+שעבר$/.test(c);
+                                });
+                                if (idx > 0) { const it = items.splice(idx,1)[0]; items.unshift(it); }
+                            }
+                        } catch(e) {}
                     } else if (senderWithPartialMonth) {
                         // Keep only sender + month suggestions
                         items = items.filter(function(it) {
@@ -5534,6 +5567,20 @@
                                 return (/\[שולח\]/.test(lcCmd) && (lcCmd.includes(`מ${base}`) || lcCmd.includes(`מ${base} ${suffix}`)));
                             });
                             try { console.log('[HE-SENDER-TIMEFRAME-FILTER] restricted to sender+timeframe+sheaver for:', qlc); } catch(e) {}
+
+                            // Reorder: put the exact "שעבר" variant first
+                            try {
+                                const preferred = `רשום מיילים מ[שולח] מ${base} ${suffix}`.replace(' ממה', ' מה');
+                                let idx = -1;
+                                for (let i = 0; i < items.length; i++) {
+                                    const c = (items[i] && items[i].cmd) ? items[i].cmd : String(items[i] || '');
+                                    if (c.toLowerCase() === preferred.toLowerCase()) { idx = i; break; }
+                                }
+                                if (idx > 0) {
+                                    const it = items.splice(idx, 1)[0];
+                                    items.unshift(it);
+                                }
+                            } catch(e) {}
                         }
                     } else {
                         // Keep only sender + timeframe suggestions that match the typed pattern
