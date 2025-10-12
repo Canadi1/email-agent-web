@@ -5607,11 +5607,12 @@
                 // Progressive typing patterns - detect when typing sender + partial timeframe
                 const senderWithPartialHaiom = (hasSenderToken || hasRealSender) && /\s*מ(הי|היו)$/.test(qlc); // Only "מהי" or "מהיו", not just "מה"
                 const senderWithPartialEtmol = (hasSenderToken || hasRealSender) && /\s*מא/.test(qlc) && !/מה/.test(qlc);
-                const senderWithPartialWeek = (hasSenderToken || hasRealSender) && /\s*מ(הש|השב|השבו)/.test(qlc);
-                const senderWithPartialMonth = (hasSenderToken || hasRealSender) && /\s*מ(הח|החו|החוד)$/.test(qlc);
+                const senderWithPartialWeekOnly = (hasSenderToken || hasRealSender) && /\s*מ(השב|השבו|השבוע)$/.test(qlc); // Only show week when typing שב/שבו/שבוע
+                const senderWithPartialMonth = (hasSenderToken || hasRealSender) && /\s*מ(הח|החו|החוד|החודש)$/.test(qlc);
                 const senderWithPartialYear = (hasSenderToken || hasRealSender) && /\s*מ(השנ)$/.test(qlc); // Only "מהשנ", not "מהש"
+                const senderWithPartialHaShin = (hasSenderToken || hasRealSender) && /\s*מהש$/.test(qlc); // Exactly "מהש" - show both week and year
                 
-                if ((senderWithHaiom || senderWithEtmol || senderWithTimeframe || senderWithPartialTimeframe || senderWithSheaver || senderWithPartialHaiom || senderWithPartialEtmol || senderWithPartialWeek || senderWithPartialMonth || senderWithPartialYear) && Array.isArray(items)) {
+                if ((senderWithHaiom || senderWithEtmol || senderWithTimeframe || senderWithPartialTimeframe || senderWithSheaver || senderWithPartialHaiom || senderWithPartialEtmol || senderWithPartialWeekOnly || senderWithPartialMonth || senderWithPartialYear || senderWithPartialHaShin) && Array.isArray(items)) {
                     if (senderWithHaiom || senderWithPartialHaiom) {
                         // Keep only sender + today suggestions
                         items = items.filter(function(it) {
@@ -5628,6 +5629,38 @@
                             return /\[שולח\].*מאתמול$/.test(lcCmd) || /מאתמול.*\[שולח\]/.test(lcCmd);
                         });
                         try { console.log('[HE-SENDER-TIMEFRAME-FILTER] restricted to sender+yesterday for:', qlc); } catch(e) {}
+                    } else if (senderWithPartialHaShin && !senderWithSheaver && !wantsSheaverExact) {
+                        // Exactly "מהש" - show both week and year (with שעבר variants)
+                        items = items.filter(function(it) {
+                            const cmd = (it && it.cmd) ? it.cmd : String(it);
+                            const lcCmd = cmd.toLowerCase();
+                            return /\[שולח\]/.test(lcCmd) && /מהש(בוע|נה)(?:\s+שעבר(ה)?)?$/.test(lcCmd);
+                        });
+                        try { console.log('[HE-SENDER-TIMEFRAME-FILTER] restricted to sender+"מהש" (week+year) for:', qlc); } catch(e) {}
+                        // Prefer week before year
+                        try {
+                            const weekIdx = items.findIndex(function(it){
+                                const c = (it && it.cmd) ? it.cmd : String(it || '');
+                                return /מהשבוע(?:\s+שעבר)?$/.test(c);
+                            });
+                            if (weekIdx > 0) { const it = items.splice(weekIdx,1)[0]; items.unshift(it); }
+                        } catch(e) {}
+                    } else if (senderWithPartialWeekOnly && !senderWithSheaver && !wantsSheaverExact) {
+                        // Progressive "מהשב/מהשבו/מהשבוע" - keep only sender + week base and שעבר variant
+                        items = items.filter(function(it) {
+                            const cmd = (it && it.cmd) ? it.cmd : String(it);
+                            const lcCmd = cmd.toLowerCase();
+                            return /\[שולח\]/.test(lcCmd) && /מהשבוע(\s+שעבר)?$/.test(lcCmd);
+                        });
+                        try { console.log('[HE-SENDER-TIMEFRAME-FILTER] restricted to sender+week (progressive) for:', qlc); } catch(e) {}
+                    } else if (senderWithPartialMonth && !senderWithSheaver && !wantsSheaverExact) {
+                        // Progressive "מהח/מהחו/מהחוד/מהחודש" - keep only sender + month base and שעבר variant
+                        items = items.filter(function(it) {
+                            const cmd = (it && it.cmd) ? it.cmd : String(it);
+                            const lcCmd = cmd.toLowerCase();
+                            return /\[שולח\]/.test(lcCmd) && /מהחודש(\s+שעבר)?$/.test(lcCmd);
+                        });
+                        try { console.log('[HE-SENDER-TIMEFRAME-FILTER] restricted to sender+month (progressive) for:', qlc); } catch(e) {}
                     } else if (wantsSheaverExact || senderWithSheaver) {
                         // Keep only sender + base timeframe and שעבר variant
                         const baseMatch = qlc.match(/\sמ(השבוע|החודש|השנה)/);
