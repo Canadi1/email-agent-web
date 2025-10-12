@@ -949,6 +949,10 @@ msgstr "רשום קודי אימות ישנים מ-[משך]"
 msgid "Lists codes by age window."
 msgstr "רשימה לפי חלון גיל."
 
+#: .\agent\templates\agent\index.html:640
+msgid "Lists codes from a specific time period ago."
+msgstr "רשימת קודים מתקופת זמן מסוימת שעברה."
+
 #: .\agent\templates\agent\index.html:641
 msgid "delete verification codes older than [duration]"
 msgstr "מחק קודי אימות ישנים מ-[משך]"
@@ -973,6 +977,10 @@ msgstr "רשום מיילי משלוח"
 #: .\agent\templates\agent\index.html:644
 msgid "Carrier updates and delivery notices."
 msgstr "עדכוני חברת משלוח והודעות מסירה."
+
+#: .\agent\templates\agent\index.html:644
+msgid "Carrier updates and delivery notices from a specific time period ago."
+msgstr "עדכוני חברת משלוח והודעות מסירה מתקופת זמן מסוימת שעברה."
 
 #: .\agent\templates\agent\index.html:644 .\agent\views.py:295
 msgid "list shipping emails older than [duration]"
@@ -1009,6 +1017,10 @@ msgstr "רשום מיילי אבטחת חשבון ישנים מ-[משך]"
 #: .\agent\templates\agent\index.html:648
 msgid "Older security notices."
 msgstr "הודעות אבטחה ישנות."
+
+#: .\agent\templates\agent\index.html:648
+msgid "Security alerts and sign-in notices from a specific time period ago."
+msgstr "התראות אבטחה והודעות כניסה מתקופת זמן מסוימת שעברה."
 
 #: .\agent\templates\agent\index.html:649
 msgid "archive account security emails older than [duration]"
