@@ -6530,6 +6530,7 @@
                 div.style.cursor = 'pointer';
                 const lc = cmd.toLowerCase();
                 const pos = lc.indexOf(input.toLowerCase());
+                let boldLen = 0; // defensive default to avoid ReferenceError during fallback bolding
                 // Category-mode robust bolding for normalized prefix
                 try {
                     const qNormB = (input || '').toLowerCase().replace(/[\u200e\u200f\u202a\u202b\u202c\u202d\u202e]/g,'').replace(/\u00a0/g,' ').replace(/\s+/g,' ').trim();
@@ -6613,12 +6614,12 @@
                         if (input && input.includes('מהשבוע')) {
                             console.log('[RENDER PATH DEBUG] Using fallback rendering for:', cmd);
                         }
-                    const ql = (input || '').toLowerCase();
-                    const lcCmd2 = cmd.toLowerCase();
-                    const tokenRegex = /\[(sender(?:\/domain)?|domain(?:\.com)?|שולח(?:\/דומיין)?|דומיין)\]/i;
-                    const tokenMatch = lcCmd2.match(tokenRegex);
-                    const tokenIdx = tokenMatch ? tokenMatch.index : -1;
-                    let boldLen;
+                        const ql = (input || '').toLowerCase();
+                        const lcCmd2 = cmd.toLowerCase();
+                        const tokenRegex = /\[(sender(?:\/domain)?|domain(?:\.com)?|שולח(?:\/דומיין)?|דומיין)\]/i;
+                        const tokenMatch = lcCmd2.match(tokenRegex);
+                        const tokenIdx = tokenMatch ? tokenMatch.index : -1;
+                        let boldLen = 0; // Initialize boldLen to prevent undefined errors
                     if (tokenIdx >= 0) {
                         // Determine fixed parts around sender token using indices to avoid ambiguity
                         const before = cmd.substring(0, tokenIdx);
@@ -6710,10 +6711,10 @@
                         boldLen = item.prefixLen || 0;
                     }
                     }
-                    const safeBoldLen = Math.max(0, Math.min(boldLen, cmd.length));
-                    const bold = escapeHtml(cmd.substring(0, safeBoldLen));
-                    const rest = escapeHtml(cmd.substring(safeBoldLen));
-                    div.innerHTML = `<strong>${bold}</strong>${rest}`;
+                        const safeBoldLen = Math.max(0, Math.min(boldLen, cmd.length));
+                        const bold = escapeHtml(cmd.substring(0, safeBoldLen));
+                        const rest = escapeHtml(cmd.substring(safeBoldLen));
+                        div.innerHTML = `<strong>${bold}</strong>${rest}`;
                     }
                     // Additionally extend into duration/timeframe ONLY after user types beyond the next fixed word
                     if (/\[(duration|time\s*frame|time\s*period|משך(?:\s*זמן)?|טווח(?:\s*זמן)?|פרק(?:\s*זמן)?)\]/i.test(cmd)) {
