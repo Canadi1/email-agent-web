@@ -5577,6 +5577,74 @@
                 }
             } catch(e) {}
             
+            // FILTER: Restrict "older than" (ישנים מ) combinations to only matching suggestions
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                
+                // Plain "older than" pattern
+                const isPlainOlderThan = /^רש(?:ו)?ם\s+מיילים\s+ישנים\s+מ/.test(qlc);
+                const isPlainOlderThanPartial = /^רש(?:ו)?ם\s+מיילים\s+י/.test(qlc);
+                
+                if ((isPlainOlderThan || isPlainOlderThanPartial) && Array.isArray(items)) {
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        // Keep only plain "older than" suggestions (no sender, no category)
+                        return /^רשום\s+מיילים\s+ישנים\s+מ/.test(lcCmd);
+                    });
+                    try { console.log('[HE-PLAIN-OLDER-THAN-FILTER] restricted to plain older-than for:', qlc); } catch(e) {}
+                }
+                
+                // Sender "older than" pattern - detect sender first, then check for "older than"
+                const hasSenderForOlderThan = /^רש(?:ו)?ם\s+מיילים\s+מ\s*[^\s]+\s+/.test(qlc) && 
+                                               !/^רש(?:ו)?ם\s+מיילים\s+מ(היום|אתמול|השבוע|החודש|השנה|ל|לפ|לפנ|לפני)/.test(qlc);
+                let senderName = '';
+                if (hasSenderForOlderThan) {
+                    const match = qlc.match(/^רש(?:ו)?ם\s+מיילים\s+מ\s*([^\s]+)\s+/);
+                    if (match && match[1] && !['היום','אתמול','השבוע','החודש','השנה','לפני'].includes(match[1])) {
+                        senderName = match[1];
+                    }
+                }
+                
+                const isSenderOlderThan = hasSenderForOlderThan && /\s+ישנים\s+מ/.test(qlc);
+                const isSenderOlderThanPartial = hasSenderForOlderThan && /\s+י/.test(qlc);
+                
+                if ((isSenderOlderThan || isSenderOlderThanPartial) && Array.isArray(items)) {
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        // Keep only sender + "older than" suggestions
+                        const hasSenderInCmd = /\[שולח\]/.test(cmd) || (senderName && lcCmd.includes('מ' + senderName));
+                        const hasOlderThanInCmd = /ישנים\s+מ/.test(lcCmd);
+                        return hasSenderInCmd && hasOlderThanInCmd;
+                    });
+                    try { console.log('[HE-SENDER-OLDER-THAN-FILTER] restricted to sender+older-than for:', qlc, 'sender:', senderName); } catch(e) {}
+                }
+                
+                // Category "older than" pattern
+                const isCategoryOlderThan = /^רש(?:ו)?ם\s+מיילי\s+(משלוח|קודי\s+אימות|אבטחת\s+חשבון)\s+ישנים\s+מ/.test(qlc);
+                const isCategoryOlderThanPartial = /^רש(?:ו)?ם\s+מיילי\s+(משלוח|קודי\s+אימות|אבטחת\s+חשבון)\s+י/.test(qlc);
+                
+                if ((isCategoryOlderThan || isCategoryOlderThanPartial) && Array.isArray(items)) {
+                    // Extract category
+                    let category = '';
+                    const catMatch = qlc.match(/^רש(?:ו)?ם\s+מיילי\s+(משלוח|קודי\s+אימות|אבטחת\s+חשבון)/);
+                    if (catMatch) {
+                        category = catMatch[1];
+                    }
+                    
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        // Keep only matching category + "older than" suggestions
+                        const hasCategoryInCmd = category && lcCmd.includes(category);
+                        const hasOlderThanInCmd = /ישנים\s+מ/.test(lcCmd);
+                        return hasCategoryInCmd && hasOlderThanInCmd;
+                    });
+                    try { console.log('[HE-CATEGORY-OLDER-THAN-FILTER] restricted to category+older-than for:', qlc, 'category:', category); } catch(e) {}
+                }
+            } catch(e) {}
+            
             // FILTER: Restrict sender+timeframe combinations to only matching suggestions
             try {
                 const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
