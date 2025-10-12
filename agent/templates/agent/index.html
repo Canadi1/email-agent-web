@@ -6467,6 +6467,45 @@
                 }
             } catch(e) {}
 
+            // FILTER: Restrict "רשום תוויות" to only label-related suggestions
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                
+                // Check for "רשום תוויות" pattern (including partial typing)
+                const isListLabels = /^רש(?:ו)?ם\s+תוויות$/.test(qlc);
+                const isPartialListLabels = /^רש(?:ו)?ם\s+תו/.test(qlc);
+                
+                if ((isListLabels || isPartialListLabels) && Array.isArray(items)) {
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        // Keep only label-related suggestions
+                        return /רשום\s+תוויות|רשום\s+labels|show\s+label|list\s+labels/i.test(lcCmd);
+                    });
+                    try { console.log('[HE-LIST-LABELS-FILTER] restricted to label-related suggestions for:', qlc); } catch(e) {}
+                }
+            } catch(e) {}
+
+            // FILTER: Restrict "רשום כל הדואר" to only general mail listing suggestions
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                
+                // Check for "רשום כל הדואר" pattern (including partial typing)
+                const isListAllMail = /^רש(?:ו)?ם\s+כל\s+הדואר$/.test(qlc);
+                const isPartialListAllMail = /^רש(?:ו)?ם\s+כל/.test(qlc);
+                
+                if ((isListAllMail || isPartialListAllMail) && Array.isArray(items)) {
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        // Keep only general mail listing suggestions (not sender-specific, not category-specific, not timeframe-specific)
+                        return /רשום\s+כל\s+הדואר|list\s+all\s+mail/i.test(lcCmd) && 
+                               !/\[שולח\]|\[sender\]|\[domain\]|\[דומיין\]|מ(היום|אתמול|השבוע|החודש|השנה)|משלוח|קודי\s+אימות|אבטחת\s+חשבון/i.test(lcCmd);
+                    });
+                    try { console.log('[HE-LIST-ALL-MAIL-FILTER] restricted to general mail listing suggestions for:', qlc); } catch(e) {}
+                }
+            } catch(e) {}
+
             // DIAG: show final suggestions head before rendering
             try {
                 var headItems = Array.isArray(items) ? items.slice(0, 10).map(function(it){ return (it && it.cmd) ? it.cmd : String(it); }) : [];
