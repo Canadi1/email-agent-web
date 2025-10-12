@@ -1906,6 +1906,7 @@
                     'רשום מיילי קודי אימות מלפני [משך]',
                     'רשום מיילי אבטחת חשבון מלפני [משך]',
                     'רשום מיילים מלפני [משך]',
+                    'רשום מיילים מ[שולח] מלפני [משך]',
                     'רשום מיילים ישנים מ[משך]',
                     'חפש מיילים עם נושא "[מילת מפתח]"',
                     'הצג סטטיסטיקות דואל',
@@ -5538,6 +5539,44 @@
                     try { console.log('[HE-DURATION-VALUE-FILTER] restricted to duration commands for:', qlc); } catch(e) {}
                 }
             } catch(e) {}
+            
+            // FILTER: Restrict sender+duration combinations to only matching suggestions
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                
+                // Check for sender + duration patterns - handle both placeholder tokens and real sender names
+                const hasSenderToken = /\[שולח\]|\[sender\]/.test(input);
+                const hasRealSender = /^רש(?:ו)?ם\s+מיילים\s+מ\s*[^\s]+\s+מ/.test(qlc) && !/^רש(?:ו)?ם\s+מיילים\s+מ(היום|אתמול|השבוע|החודש|השנה|ל|לפ|לפנ|לפני)/.test(qlc);
+                
+                // Extract sender name if it's a real sender (not a timeframe/duration keyword)
+                let senderName = '';
+                if (hasRealSender) {
+                    const match = qlc.match(/^רש(?:ו)?ם\s+מיילים\s+מ\s*([^\s]+)\s+מ/);
+                    if (match && match[1] && !['היום','אתמול','השבוע','החודש','השנה','לפני'].includes(match[1])) {
+                        senderName = match[1];
+                    }
+                }
+                
+                // Detect sender + duration patterns (progressive typing)
+                const senderWithDuration = (hasSenderToken || hasRealSender) && /\s+מלפני/.test(qlc);
+                const senderWithPartialDuration = (hasSenderToken || hasRealSender) && /\s+מ(ל|לפ|לפנ)$/.test(qlc);
+                const senderWithDurationValue = (hasSenderToken || hasRealSender) && /\s+מלפני\s+\S+/.test(qlc);
+                
+                if ((senderWithDuration || senderWithPartialDuration || senderWithDurationValue) && Array.isArray(items)) {
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        
+                        // Keep only sender + duration suggestions
+                        const hasSenderInCmd = /\[שולח\]|\[sender\]/.test(cmd) || (senderName && lcCmd.includes('מ' + senderName));
+                        const hasDurationInCmd = /מלפני\s*\[משך\]/.test(lcCmd) || /מלפני\s+\S+/.test(lcCmd);
+                        
+                        return hasSenderInCmd && hasDurationInCmd;
+                    });
+                    try { console.log('[HE-SENDER-DURATION-FILTER] restricted to sender+duration for:', qlc, 'sender:', senderName); } catch(e) {}
+                }
+            } catch(e) {}
+            
             // FILTER: Restrict sender+timeframe combinations to only matching suggestions
             try {
                 const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
