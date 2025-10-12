@@ -1908,6 +1908,10 @@
                     'רשום מיילים מלפני [משך]',
                     'רשום מיילים מ[שולח] מלפני [משך]',
                     'רשום מיילים ישנים מ[משך]',
+                    'רשום מיילים מ[שולח] ישנים מ[משך]',
+                    'רשום מיילי משלוח ישנים מ[משך]',
+                    'רשום מיילי קודי אימות ישנים מ[משך]',
+                    'רשום מיילי אבטחת חשבון ישנים מ[משך]',
                     'חפש מיילים עם נושא "[מילת מפתח]"',
                     'הצג סטטיסטיקות דואל',
                     'מחק מיילים מ[דומיין]',
@@ -2093,10 +2097,27 @@
                     if (afterM === 'מ') {
                         out.push({ cmd: durCmd, score: 993.4, type: 'he_cat_short_duration_seed' });
                     }
-                    // Only add duration hints if there's no value after 'מלפני' (to avoid duplicates with duration value handler)
-                    if (!afterDur) {
-                        if (isTypingDuration) out.unshift({ cmd: durCmd, score: 996, type: 'he_cat_short_duration' });
-                        else out.push({ cmd: durCmd, score: 993.5, type: 'he_cat_short_duration_hint' });
+                    // Also add "older than" command when typing "ישנים" pattern
+                    const isTypingOlderThan = /\sי(ש|שנ|ישנ|ישנים)/.test(qNormHe);
+                    try { console.log('[HE-CAT-OLDER-THAN]', { 
+                        qNormHe, 
+                        cat, 
+                        isTypingOlderThan, 
+                        pattern: /\sי(ש|שנ|ישנ|ישנים)/.test(qNormHe),
+                        afterDur,
+                        isTypingDuration,
+                        outLength: out.length
+                    }); } catch(e) {}
+                    if (isTypingOlderThan) {
+                        const olderThanCmd = 'רשום מיילי ' + cat + ' ישנים מ[משך]';
+                        out.unshift({ cmd: olderThanCmd, score: 996, type: 'he_cat_short_older_than' });
+                        try { console.log('[HE-CAT-OLDER-THAN] added command:', olderThanCmd, 'out now has:', out.length, 'items'); } catch(e) {}
+                    } else {
+                        // Only add duration hints if there's no value after 'מלפני' (to avoid duplicates with duration value handler)
+                        if (!afterDur) {
+                            if (isTypingDuration) out.unshift({ cmd: durCmd, score: 996, type: 'he_cat_short_duration' });
+                            else out.push({ cmd: durCmd, score: 993.5, type: 'he_cat_short_duration_hint' });
+                        }
                     }
                     return out;
                 } else {
@@ -4757,19 +4778,34 @@
                         // Check if there's a 'מ' AFTER the category name (captured in group 2 of regex)
                         // m[2] is defined when regex captures \s+מ([\u0590-\u05FF]*) - i.e., space + מ + optional letters
                         const hasTimeframeM = (m[2] !== undefined);
+                        
+                        // Detect "older than" only when a separate token starting with 'י…' appears AFTER the category
+                        // This avoids false positives for categories that end with the letter 'י' (e.g., "קודי")
+                        const isOlderThanInCat = /\sי(?:ש|שנ|ישנ|ישנים)(?:\s|$)/.test(qCat0);
                         let cat = '';
-                        for (const c of categories) { if (c.startsWith(typedCat) || typedCat.startsWith(c)) { cat = c; break; } }
-                        try { console.log('[HE-CAT-MATCH]', { typedCat, cat, hasTimeframeM, afterM, m2: m[2], qCat0 }); } catch(e) {}
+                        if (isOlderThanInCat && /\sי(?:ש|שנ|ישנ|ישנים)/.test(typedCat)) {
+                            // Extract the base category name (remove the "older than" part)
+                            const baseCat = typedCat.replace(/\s+י(ש|שנ|ישנ|ישנים).*$/, '').trim();
+                            for (const c of categories) { if (c.startsWith(baseCat) || baseCat.startsWith(c)) { cat = c; break; } }
+                        } else {
+                            for (const c of categories) { if (c.startsWith(typedCat) || typedCat.startsWith(c)) { cat = c; break; } }
+                        }
+                        
+                        try { console.log('[HE-CAT-MATCH]', { typedCat, cat, hasTimeframeM, afterM, m2: m[2], qCat0, isOlderThanInCat }); } catch(e) {}
                         if (cat) {
-                            // Duration cue inside ABS (progressive): 'מ' | 'מל' | 'מלפ' | 'מלפנ' | 'מלפני'
-                            const durPrefix = (typeof m[2] === 'string') ? m[2] : '';
-                            const isDurationCueAbs = hasTimeframeM && /^(?:|ל|לפ|לפנ|לפני)$/.test(durPrefix);
-                            // New guard: detect if a duration value exists after 'מלפני'
-                            const hasDurationValue = /\sמלפני\s+\S/.test(qCat0);
-                            if (isDurationCueAbs) {
-                                out.push({ cmd: 'רשום מיילי ' + cat + ' מלפני [משך]', score: 998 });
+                            // Check for "older than" pattern first (progressive typing)
+                            const isOlderThanPattern = isOlderThanInCat || /י(ש|שנ|ישנ|ישנים)(\s+מ)?/.test(qCat0);
+                            if (isOlderThanPattern) {
+                                out.push({ cmd: 'רשום מיילי ' + cat + ' ישנים מ[משך]', score: 998 });
                             } else {
-                                if (hasDurationValue) {
+                                // Duration cue inside ABS (progressive): 'מ' | 'מל' | 'מלפ' | 'מלפנ' | 'מלפני'
+                                const durPrefix = (typeof m[2] === 'string') ? m[2] : '';
+                                const isDurationCueAbs = hasTimeframeM && /^(?:|ל|לפ|לפנ|לפני)$/.test(durPrefix);
+                                // New guard: detect if a duration value exists after 'מלפני'
+                                const hasDurationValue = /\sמלפני\s+\S/.test(qCat0);
+                                if (isDurationCueAbs) {
+                                    out.push({ cmd: 'רשום מיילי ' + cat + ' מלפני [משך]', score: 998 });
+                                } else if (hasDurationValue) {
                                     // Do not add another placeholder here; the global duration-value handler will add it
                                 } else {
                                     // Only show base category if NO timeframe 'מ' is being typed
@@ -4824,14 +4860,20 @@
                 const qDbgCat = (input || '').toLowerCase().replace(/[\u200e\u200f\u202a\u202b\u202c\u202d\u202e]/g,'').replace(/\u00a0/g,' ').replace(/\s+/g,' ').trim();
                 const isCatFlow = heCategoryMode || /^רש(?:ו)?ם\s+מיילי(?!ם)(?:\s|$)/.test(qDbgCat);
                 if (isCatFlow && Array.isArray(items)) {
+                    try { console.log('[HE-CAT-FLOW-FILTER] before filter:', items.length, 'items:', items.map(it => it.cmd)); } catch(e) {}
                     items = items.filter(function(it){
                         const cmd = (it && it.cmd) ? it.cmd : String(it);
                         const lc = String(cmd || '').toLowerCase();
-                        if (!/^רשום\s+מיילי\b/.test(lc)) return false;
-                        if (/\bשולח\b|דומיין|\[(sender|domain|שולח|דומיין)/i.test(lc)) return false;
-                        if (/^רשום\s+מיילים\s+מ(היום|מאתמול|מהשבוע|מהחודש|מהשנה)/.test(lc)) return false;
-                        return true;
+                        const startsWithRishum = /^רשום\s+מיילי\b/.test(lc);
+                        const hasSender = /\bשולח\b|דומיין|\[(sender|domain|שולח|דומיין)/i.test(lc);
+                        const hasTimeframe = /^רשום\s+מיילים\s+מ(היום|מאתמול|מהשבוע|מהחודש|מהשנה)/.test(lc);
+                        const passes = startsWithRishum && !hasSender && !hasTimeframe;
+                        if (!passes) {
+                            try { console.log('[HE-CAT-FLOW-FILTER] filtered out:', cmd, { startsWithRishum, hasSender, hasTimeframe }); } catch(e) {}
+                        }
+                        return passes;
                     });
+                    try { console.log('[HE-CAT-FLOW-FILTER] after filter:', items.length, 'items'); } catch(e) {}
                     // Ensure duration placeholder persists for category + bare 'מ' (progressive)
                     try {
                         const mBare = qDbgCat.match(/^רש(?:ו)?ם\s+מיילי(?:ם)?\s+([\u0590-\u05FF\s]+?)\s+מ\s*$/);
@@ -5011,8 +5053,9 @@
                 // BUT keep commands that have BOTH sender AND duration (e.g., "מ[שולח] ישנים מ[משך]")
                 // Also detect partial "מלפני" typing (מל/מלפ/מלפנ/מלפני)
                 const isDurationIntent = isHeb && /(?:^|\s)(?:י(?:ש(?:נ(?:י(?:ם)?)?)?)?|מל(?:פ(?:נ(?:י)?)?)?|older\s+than|from\s+duration)/i.test(q);
+                const isDurationWithValue = isHeb && /(?:^|\s)י(?:ש(?:נ(?:י(?:ם)?)?)?)?\s+מ\s*\S+/i.test(q);
                 const hasSenderBeforeDuration = /מיילים\s+מ\s+[^\s]+\s+(?:י(?:ש(?:נ(?:י(?:ם)?)?)?)?|מל(?:פ(?:נ(?:י)?)?)?)/i.test(q);
-                if (isDurationIntent && Array.isArray(items)) {
+                if ((isDurationIntent || isDurationWithValue) && Array.isArray(items)) {
                     console.log('[HE-DURATION-FILTER] Detected duration intent, filtering sender-only commands. HasSenderBeforeDuration:', hasSenderBeforeDuration);
                     items = items.filter(it => {
                         const text = typeof it === 'string' ? it : (it && it.cmd ? it.cmd : '');
@@ -5624,21 +5667,35 @@
                 // Category "older than" pattern
                 const isCategoryOlderThan = /^רש(?:ו)?ם\s+מיילי\s+(משלוח|קודי\s+אימות|אבטחת\s+חשבון)\s+ישנים\s+מ/.test(qlc);
                 const isCategoryOlderThanPartial = /^רש(?:ו)?ם\s+מיילי\s+(משלוח|קודי\s+אימות|אבטחת\s+חשבון)\s+י/.test(qlc);
+                const isCategoryOlderThanWithValue = /^רש(?:ו)?ם\s+מיילי\s+(משלוח|קודי\s+אימות|אבטחת\s+חשבון)\s+ישנים\s+מ\s*\S+/.test(qlc);
                 
-                if ((isCategoryOlderThan || isCategoryOlderThanPartial) && Array.isArray(items)) {
+                if ((isCategoryOlderThan || isCategoryOlderThanPartial || isCategoryOlderThanWithValue) && Array.isArray(items)) {
                     // Extract category
                     let category = '';
                     const catMatch = qlc.match(/^רש(?:ו)?ם\s+מיילי\s+(משלוח|קודי\s+אימות|אבטחת\s+חשבון)/);
                     if (catMatch) {
                         category = catMatch[1];
                     }
+                    // Ensure the category older-than placeholder exists so it does not disappear while typing a value
+                    try {
+                        if (category) {
+                            const placeholderCmd = `רשום מיילי ${category} ישנים מ[משך]`;
+                            const exists = items.some(function(it){
+                                const c = (it && it.cmd) ? it.cmd : String(it || '');
+                                return c === placeholderCmd;
+                            });
+                            if (!exists) {
+                                items.unshift({ cmd: placeholderCmd, score: 996.1, type: 'he_cat_older_than_seed' });
+                            }
+                        }
+                    } catch(e) {}
                     
                     items = items.filter(function(it) {
                         const cmd = (it && it.cmd) ? it.cmd : String(it);
                         const lcCmd = cmd.toLowerCase();
                         // Keep only matching category + "older than" suggestions
                         const hasCategoryInCmd = category && lcCmd.includes(category);
-                        const hasOlderThanInCmd = /ישנים\s+מ/.test(lcCmd);
+                        const hasOlderThanInCmd = /ישנים\s+מ(\[משך\]|\S)/.test(lcCmd);
                         return hasCategoryInCmd && hasOlderThanInCmd;
                     });
                     try { console.log('[HE-CATEGORY-OLDER-THAN-FILTER] restricted to category+older-than for:', qlc, 'category:', category); } catch(e) {}
