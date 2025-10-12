@@ -5506,20 +5506,23 @@
                 }
             } catch(e) {}
 
-            // FILTER: Remove sender suggestions when typing duration commands (including partial typing)
+            // FILTER: Remove sender AND category suggestions when typing plain duration commands (including partial typing)
             try {
                 const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
-                // Match both complete and partial duration patterns
+                // Match both complete and partial duration patterns for PLAIN commands (not category)
                 const isPureDuration = /^רש(?:ו)?ם\s+מיילים\s+מלפני/.test(qlc);
                 const isPartialDuration = /^רש(?:ו)?ם\s+מיילים\s+מ(ל|לפ|לפנ|לפני)/.test(qlc);
                 
                 if ((isPureDuration || isPartialDuration) && Array.isArray(items)) {
-                    // Remove all sender-based suggestions when typing duration commands
+                    // Remove all sender-based AND category duration suggestions when typing plain duration commands
                     items = items.filter(function(it) {
                         const cmd = (it && it.cmd) ? it.cmd : String(it);
-                        return !/\[שולח\]|\[sender\]|\[domain\.com\]|\[דומיין\]/i.test(cmd);
+                        const lcCmd = cmd.toLowerCase();
+                        const hasSender = /\[שולח\]|\[sender\]|\[domain\.com\]|\[דומיין\]/i.test(cmd);
+                        const isCategoryDur = /^רשום\s+מיילי\s+(משלוח|קודי\s+אימות|אבטחת\s+חשבון)\s+מלפני/.test(lcCmd);
+                        return !hasSender && !isCategoryDur;
                     });
-                    try { console.log('[HE-PURE-DURATION-FILTER] removed sender suggestions for:', qlc); } catch(e) {}
+                    try { console.log('[HE-PURE-DURATION-FILTER] removed sender+category suggestions for:', qlc); } catch(e) {}
                 }
                 
                 // When typing actual duration value, only show the base duration command
