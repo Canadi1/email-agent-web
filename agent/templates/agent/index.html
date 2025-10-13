@@ -2347,8 +2347,9 @@
                     const inSameCategory = (cmd.toLowerCase().indexOf(categoryKey) !== -1);
                     if (!inSameCategory) return 0;
                 }
-                const partialFromCue = /\b(?:list|archive|delete)\s+emails\s+f(?:r|ro)?$/i.test(q);
-                let hasSenderCue = /\bfrom\b|\bמ(?:-|\s)/i.test(q) || partialFromCue;
+                // Treat 'from' as a sender cue only when followed by a space or a token (not at 'f/fr/fro')
+                const partialFromCue = /\b(?:list|archive|delete)\s+emails\s+from\s*$/i.test(q);
+                let hasSenderCue = /\bfrom\s+|\bמ(?:-|\s)/i.test(q) || partialFromCue;
                 // Hebrew guard: don't treat 'מ' as sender cue when it's the start of 'מלפני/מליפני/מ לפני'
                 if (hasSenderCue) {
                     const hebDurationAfterMem = /\bמ\s*לפני\b|\bמל(?:י)?פני\b/.test(q);
@@ -4339,6 +4340,15 @@
             }
 
             const typedAfterPrefix = q.length > beforeLc.length ? q.slice(beforeLc.length) : '';
+            // If the user typed exactly the fixed prefix (e.g., 'list emails from'),
+            // bold through the [sender] token to make the intent obvious
+            if (typedAfterPrefix.length === 0) {
+                const cutoffTplExactPrefix = Math.min(before.length + tokenText.length, cmd.length);
+                const boldExact = escapeHtml(cmd.substring(0, cutoffTplExactPrefix));
+                const restExact = escapeHtml(cmd.substring(cutoffTplExactPrefix));
+                div.innerHTML = `<strong>${boldExact}</strong>${restExact}`;
+                return true;
+            }
             // Determine how much of the next fixed segment (e.g., ' from ') the user already typed (k)
             const afterFixedLc = (afterFixed || '').toLowerCase();
             let k = 0;
@@ -6551,15 +6561,27 @@
                     if (isHeb) {
                         // Mirror English behavior for Hebrew unconditionally for sender templates
                         if (renderSenderMaterialized(div, cmd, input)) {
-                            // rendered; proceed to append
+                            // Ensure we actually produced bold; if not, fall back to simple prefix bold
+                            if (!div.innerHTML || div.innerHTML.indexOf('<strong>') === -1) {
+                                const qlPrefix = (input || '').toLowerCase();
+                                const lcCmdPrefix = cmd.toLowerCase();
+                                if (lcCmdPrefix.startsWith(qlPrefix)) {
+                                    const bold = escapeHtml(cmd.substring(0, qlPrefix.length));
+                                    const rest = escapeHtml(cmd.substring(qlPrefix.length));
+                                    div.innerHTML = `<strong>${bold}</strong>${rest}`;
+                                } else {
+                                    div.textContent = cmd;
+                                }
+                            }
                         } else {
                             div.textContent = cmd;
                         }
                     } else {
                         // English: apply only when a sender cue is typed
                         const qlAll = (input || '').toLowerCase();
-                        const partialFromCue = /\blist\s+emails\s+f(?:r|ro)?$/i.test(qlAll);
-                        let hasSenderCue = /\bfrom\b/.test(qlAll) || partialFromCue;
+                        // Consider 'from' a cue only when followed by space or a token; do NOT trigger on 'f/fr/fro'
+                        const partialFromCue = /\blist\s+emails\s+from\s*$/i.test(qlAll);
+                        let hasSenderCue = /\bfrom\s+/.test(qlAll) || partialFromCue;
                         // If a timeframe token follows a full 'from', suppress sender cue
                         try {
                             const mTok = qlAll.match(/\bfrom\s+([a-z0-9\.\-]+)/i);
@@ -6604,6 +6626,18 @@
                         } else {
                     // Try materialized rendering first; if it succeeds, we're done for this item
                     if (renderSenderMaterialized(div, cmd, input)) {
+                        // Ensure we actually produced bold; if not, fall back to simple prefix bold
+                        if (!div.innerHTML || div.innerHTML.indexOf('<strong>') === -1) {
+                            const qlPrefix = (input || '').toLowerCase();
+                            const lcCmdPrefix = cmd.toLowerCase();
+                            if (lcCmdPrefix.startsWith(qlPrefix)) {
+                                const bold = escapeHtml(cmd.substring(0, qlPrefix.length));
+                                const rest = escapeHtml(cmd.substring(qlPrefix.length));
+                                div.innerHTML = `<strong>${bold}</strong>${rest}`;
+                            } else {
+                                div.textContent = cmd;
+                            }
+                        }
                         // DEBUG: Log when materialized rendering is used
                         if (input && input.includes('מהשבוע')) {
                             console.log('[RENDER PATH DEBUG] Using materialized rendering for:', cmd);
@@ -6711,10 +6745,25 @@
                         boldLen = item.prefixLen || 0;
                     }
                     }
-                        const safeBoldLen = Math.max(0, Math.min(boldLen, cmd.length));
-                        const bold = escapeHtml(cmd.substring(0, safeBoldLen));
-                        const rest = escapeHtml(cmd.substring(safeBoldLen));
-                        div.innerHTML = `<strong>${bold}</strong>${rest}`;
+                    // Global safety net for sender templates: ensure some bolding is present
+                    try {
+                        if (!div.innerHTML || div.innerHTML.indexOf('<strong>') === -1) {
+                            const qlPrefix = (input || '').toLowerCase();
+                            const lcCmdPrefix = cmd.toLowerCase();
+                            if (qlPrefix.length > 0 && lcCmdPrefix.startsWith(qlPrefix)) {
+                                const bold = escapeHtml(cmd.substring(0, qlPrefix.length));
+                                const rest = escapeHtml(cmd.substring(qlPrefix.length));
+                                div.innerHTML = `<strong>${bold}</strong>${rest}`;
+                            }
+                        }
+                    } catch (e) {}
+                        // Only apply this fallback bolding if nothing has rendered bold yet
+                        if (!div.innerHTML || div.innerHTML.indexOf('<strong>') === -1) {
+                            const safeBoldLen = Math.max(0, Math.min(boldLen, cmd.length));
+                            const bold = escapeHtml(cmd.substring(0, safeBoldLen));
+                            const rest = escapeHtml(cmd.substring(safeBoldLen));
+                            div.innerHTML = `<strong>${bold}</strong>${rest}`;
+                        }
                     }
                     // Additionally extend into duration/timeframe ONLY after user types beyond the next fixed word
                     if (/\[(duration|time\s*frame|time\s*period|משך(?:\s*זמן)?|טווח(?:\s*זמן)?|פרק(?:\s*זמן)?)\]/i.test(cmd)) {
