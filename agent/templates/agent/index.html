@@ -6522,6 +6522,22 @@
                 console.log('[HE-DIAG][final-head] len=', Array.isArray(items)?items.length:'n/a', headItems);
             } catch (e) {}
 
+            // FINAL PRIORITIZATION: Move 'list emails from [sender]' to top when typing 'list e...' through 'list emails from'
+            try {
+                const listEmailsFromPattern = /^\s*list\s+e/i;
+                if (listEmailsFromPattern.test(q) && !/^\s*list\s+emails\s+from\s+\S/i.test(q) && Array.isArray(items) && items.length > 0) {
+                    const idxPlainSender = items.findIndex(function(it){
+                        const s = (it && it.cmd ? String(it.cmd).toLowerCase() : '');
+                        return /^list\s+emails\s+from\s+\[sender\]/i.test(s);
+                    });
+                    if (idxPlainSender > 0) {
+                        console.log('[FINAL PRIORITIZATION] Moving "list emails from [sender]" to top');
+                        const item = items.splice(idxPlainSender, 1)[0];
+                        items.unshift(item);
+                    }
+                }
+            } catch (e) {}
+
             // Category fallback: if category flow and items got wiped by a guard, restore override items
             try {
                 const qCatChk = (input || '').toLowerCase().replace(/[\u200e\u200f\u202a\u202b\u202c\u202d\u202e]/g,'').replace(/\u00a0/g,' ').replace(/\s+/g,' ').trim();
