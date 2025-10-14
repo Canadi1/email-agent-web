@@ -6522,6 +6522,54 @@
                 console.log('[HE-DIAG][final-head] len=', Array.isArray(items)?items.length:'n/a', headItems);
             } catch (e) {}
 
+            // FILTER: Restrict basic English commands to only relevant suggestions
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                
+                // Check for "list all mail" pattern (including partial typing)
+                const isListAllMail = /^list\s+all\s+mail$/.test(qlc);
+                const isPartialListAllMail = /^list\s+al/.test(qlc);
+                
+                if ((isListAllMail || isPartialListAllMail) && Array.isArray(items)) {
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        // Keep only general mail listing suggestions (not sender-specific, not category-specific, not timeframe-specific)
+                        return /list\s+all\s+mail/i.test(lcCmd) && 
+                               !/\[sender\]|\[domain\]|from\s+(today|yesterday|this|last|week|month|year)|shipping|verification|security|older\s+than/i.test(lcCmd);
+                    });
+                    try { console.log('[EN-LIST-ALL-MAIL-FILTER] restricted to general mail listing suggestions for:', qlc); } catch(e) {}
+                }
+                
+                // Check for "list archived emails" pattern (including partial typing)
+                const isListArchived = /^list\s+archived\s+emails$/.test(qlc);
+                const isPartialListArchived = /^list\s+ar/.test(qlc);
+                
+                if ((isListArchived || isPartialListArchived) && Array.isArray(items)) {
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        // Keep only archive-related suggestions
+                        return /archive/i.test(lcCmd);
+                    });
+                    try { console.log('[EN-LIST-ARCHIVED-FILTER] restricted to archive-related suggestions for:', qlc); } catch(e) {}
+                }
+                
+                // Check for "list recent emails" pattern (including partial typing)
+                const isListRecent = /^list\s+recent\s+emails$/.test(qlc);
+                const isPartialListRecent = /^list\s+r/.test(qlc);
+                
+                if ((isListRecent || isPartialListRecent) && Array.isArray(items)) {
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        // Keep only "list recent emails" suggestion when typing "list r"
+                        return /^list\s+recent\s+emails$/i.test(lcCmd);
+                    });
+                    try { console.log('[EN-RECENT-EMAILS-FILTER] restricted to recent emails suggestion for:', qlc); } catch(e) {}
+                }
+            } catch(e) {}
+
             // FINAL PRIORITIZATION: Move 'list emails from [sender]' to top when typing 'list e...' through 'list emails from'
             try {
                 const listEmailsFromPattern = /^\s*list\s+e/i;
