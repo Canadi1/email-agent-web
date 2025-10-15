@@ -6576,11 +6576,11 @@
 
                 // Full + progressive partials for "from [timeframe]"
                 const fromTfFull = /^list\s+emails\s+from\s+(today|yesterday|this\s+(week|month|year)|last\s+(week|month|year))$/.test(qlc);
-                // Gate on any valid timeframe family prefix after 'from '
+                // Gate on any valid timeframe family prefix or bare unit after 'from '
                 const mGate = qlc.match(/^list\s+emails\s+from\s+(.+)$/i);
                 const remGate = mGate ? mGate[1] : '';
-                // Allow deep partials for 'yesterday' including 'yesterd' and 'yesterda'
-                const fromTfPartial = !!remGate && /^(t|to|tod|toda|today|y|ye|yes|yest|yeste|yester|yesterd|yesterda|yesterday|th|thi|this(\s+.*)?|la|las|last(\s+.*)?)$/i.test(remGate);
+                // Allow deep partials for yesterday and accept bare unit tokens (week/month/year)
+                const fromTfPartial = !!remGate && /^(t|to|tod|toda|today|y|ye|yes|yest|yeste|yester|yesterd|yesterda|yesterday|th|thi|this(\s+.*)?|la|las|last(\s+.*)?|w|we|wee|week|m|mo|mon|mont|month|ye|yea|year)$/i.test(remGate);
 
                 if ((fromTfFull || fromTfPartial) && Array.isArray(items)) {
                     // Determine which timeframe variants are allowed based on the typed remainder after 'from '
@@ -6611,11 +6611,11 @@
                             // But if user typed just 'y', keep only yesterday (no ambiguity with 'year' since it's not prefixed by 'this/last')
                         } else if (/^this\b/i.test(r)) {
                             // this + unit narrowing
-                            if (/^this\s*w/i.test(r)) {
+                            if (/^this\s*w/i.test(r) || /^this\s+we/i.test(r) || /^this\s+week/i.test(r)) {
                                 allowed = ['this week'];
-                            } else if (/^this\s*m/i.test(r)) {
+                            } else if (/^this\s*m/i.test(r) || /^this\s+mo/i.test(r) || /^this\s+month/i.test(r)) {
                                 allowed = ['this month'];
-                            } else if (/^this\s*y/i.test(r)) {
+                            } else if (/^this\s*y/i.test(r) || /^this\s+ye/i.test(r) || /^this\s+year/i.test(r)) {
                                 allowed = ['this year'];
                             } else {
                                 allowed = ['this week','this month','this year'];
@@ -6623,13 +6623,22 @@
                         } else if (/^last\b/i.test(r)) {
                             if (/^last\s*w/i.test(r)) {
                                 allowed = ['last week'];
-                            } else if (/^last\s*m/i.test(r)) {
+                            } else if (/^last\s*m/i.test(r) || /^last\s+mo/i.test(r) || /^last\s+month/i.test(r)) {
                                 allowed = ['last month'];
-                            } else if (/^last\s*y/i.test(r)) {
+                            } else if (/^last\s*y/i.test(r) || /^last\s+ye/i.test(r) || /^last\s+year/i.test(r)) {
                                 allowed = ['last year'];
                             } else {
                                 allowed = ['last week','last month','last year'];
                             }
+                        } else if (/^w/i.test(r)) {
+                            // Bare 'week' token -> both this and last week
+                            allowed = ['this week','last week'];
+                        } else if (/^m/i.test(r)) {
+                            // Bare 'month' token -> both this and last month
+                            allowed = ['this month','last month'];
+                        } else if (/^ye/i.test(r)) {
+                            // Bare 'year' token -> both this and last year
+                            allowed = ['this year','last year'];
                         }
                     }
 
@@ -6656,6 +6665,46 @@
                         const item = items.splice(idxPlainSender, 1)[0];
                         items.unshift(item);
                     }
+                }
+            } catch (e) {}
+
+            // FINAL ENFORCEMENT: If input is an exact timeframe phrase, keep only that exact suggestion
+            try {
+                const qlcFinal = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const mExactTf = qlcFinal.match(/^list\s+emails\s+from\s+(today|yesterday|this\s+week|last\s+week|this\s+month|last\s+month|this\s+year|last\s+year)$/i);
+                if (mExactTf && Array.isArray(items)) {
+                    const exactCmd = 'list emails from ' + mExactTf[1].toLowerCase();
+                    items = items.filter(function(it){
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        return cmd.toLowerCase() === exactCmd;
+                    });
+                    console.log('[EN-TF-FINAL] enforced exact timeframe suggestion for:', exactCmd);
+                }
+            } catch (e) {}
+
+            // FINAL ENFORCEMENT (PROGRESSIVE): If input clearly targets a specific timeframe via partial unit, keep only that
+            try {
+                const qlp = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                let exactTarget = '';
+                if (/^list\s+emails\s+from\s+this\s+w/i.test(qlp)) {
+                    exactTarget = 'list emails from this week';
+                } else if (/^list\s+emails\s+from\s+this\s+m(\b|$)/i.test(qlp) || /^list\s+emails\s+from\s+this\s+mo/i.test(qlp) || /^list\s+emails\s+from\s+this\s+mon/i.test(qlp) || /^list\s+emails\s+from\s+this\s+mont/i.test(qlp) || /^list\s+emails\s+from\s+this\s+month/i.test(qlp)) {
+                    exactTarget = 'list emails from this month';
+                } else if (/^list\s+emails\s+from\s+this\s+y/i.test(qlp) || /^list\s+emails\s+from\s+this\s+ye/i.test(qlp) || /^list\s+emails\s+from\s+this\s+yea/i.test(qlp) || /^list\s+emails\s+from\s+this\s+year/i.test(qlp)) {
+                    exactTarget = 'list emails from this year';
+                } else if (/^list\s+emails\s+from\s+last\s+w/i.test(qlp)) {
+                    exactTarget = 'list emails from last week';
+                } else if (/^list\s+emails\s+from\s+last\s+mo/i.test(qlp) || /^list\s+emails\s+from\s+last\s+mon/i.test(qlp) || /^list\s+emails\s+from\s+last\s+mont/i.test(qlp) || /^list\s+emails\s+from\s+last\s+month/i.test(qlp)) {
+                    exactTarget = 'list emails from last month';
+                } else if (/^list\s+emails\s+from\s+last\s+y/i.test(qlp) || /^list\s+emails\s+from\s+last\s+ye/i.test(qlp) || /^list\s+emails\s+from\s+last\s+yea/i.test(qlp) || /^list\s+emails\s+from\s+last\s+year/i.test(qlp)) {
+                    exactTarget = 'list emails from last year';
+                }
+                if (exactTarget && Array.isArray(items)) {
+                    items = items.filter(function(it){
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        return cmd.toLowerCase() === exactTarget;
+                    });
+                    console.log('[EN-TF-PROGRESSIVE-FINAL] enforced single timeframe for:', exactTarget);
                 }
             } catch (e) {}
 
