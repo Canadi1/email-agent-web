@@ -6655,6 +6655,90 @@
                 }
             } catch(e) {}
 
+            // FILTER: Restrict English sender+timeframe commands: "list emails from [sender] from [timeframe]"
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                // Capture remainder after the SECOND 'from'
+                const mSenderFrom = qlc.match(/^list\s+emails\s+from\s+(.+?)\s+from\s+(.*)$/i);
+                if (mSenderFrom && Array.isArray(items)) {
+                    let rem = (mSenderFrom[2] || '').trim();
+                    // Decide allowed timeframe variants based on partial remainder
+                    let allowedTf = [
+                        'today','yesterday','this week','this month','this year','last week','last month','last year'
+                    ];
+                    if (rem) {
+                        if (/^to/i.test(rem)) {
+                            allowedTf = ['today'];
+                        } else if (/^t(?!o)/i.test(rem)) {
+                            // bare 't' -> today + this ...
+                            allowedTf = ['today','this week','this month','this year'];
+                        } else if (/^ye|^yes|^yest|^yeste|^yester|^yesterd|^yesterda|^yesterday|^y$/i.test(rem)) {
+                            allowedTf = ['yesterday'];
+                        } else if (/^this\b/i.test(rem)) {
+                            if (/^this\s*w/i.test(rem) || /^this\s+we/i.test(rem) || /^this\s+week/i.test(rem)) {
+                                allowedTf = ['this week'];
+                            } else if (/^this\s*m/i.test(rem) || /^this\s+mo/i.test(rem) || /^this\s+month/i.test(rem)) {
+                                allowedTf = ['this month'];
+                            } else if (/^this\s*y/i.test(rem) || /^this\s+ye/i.test(rem) || /^this\s+year/i.test(rem)) {
+                                allowedTf = ['this year'];
+                            } else {
+                                allowedTf = ['this week','this month','this year'];
+                            }
+                        } else if (/^l(?!i)/i.test(rem)) { // l/la/las/last...
+                            if (/^last\s*w/i.test(rem)) {
+                                allowedTf = ['last week'];
+                            } else if (/^last\s*m/i.test(rem) || /^last\s+mo/i.test(rem) || /^last\s+month/i.test(rem)) {
+                                allowedTf = ['last month'];
+                            } else if (/^last\s*y/i.test(rem) || /^last\s+ye/i.test(rem) || /^last\s+year/i.test(rem)) {
+                                allowedTf = ['last year'];
+                            } else {
+                                allowedTf = ['last week','last month','last year'];
+                            }
+                        } else if (/^w|^we|^wee|^week$/i.test(rem)) {
+                            allowedTf = ['this week','last week'];
+                        } else if (/^m|^mo|^mon|^mont|^month$/i.test(rem)) {
+                            allowedTf = ['this month','last month'];
+                        } else if (/^ye|^yea|^year$/i.test(rem)) {
+                            allowedTf = ['this year','last year'];
+                        }
+                    }
+                    // Build predicates to match commands containing sender + timeframe
+                    const tfSet = new Set(allowedTf);
+                    items = items.filter(function(it){
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        if (!/^list\s+emails\s+from\s+.+\s+from\s+/.test(lcCmd)) return false;
+                        // Extract the trailing timeframe phrase
+                        const m = lcCmd.match(/from\s+(today|yesterday|this\s+week|last\s+week|this\s+month|last\s+month|this\s+year|last\s+year)$/);
+                        if (!m) return false;
+                        return tfSet.has(m[1]);
+                    });
+                    // Prioritize 'today' first when remainder starts with 't' (before 'this ...')
+                    if (/^t(?!o)/i.test(rem) || /^to/i.test(rem)) {
+                        const idxToday = Array.isArray(items) ? items.findIndex(function(it){
+                            const s = (it && it.cmd) ? String(it.cmd).toLowerCase() : '';
+                            return /\blist\s+emails\s+from\s+.+\s+from\s+today$/.test(s);
+                        }) : -1;
+                        if (idxToday > 0) {
+                            const itToday = items.splice(idxToday, 1)[0];
+                            items.unshift(itToday);
+                        }
+                    }
+                    // Prioritize 'yesterday' when remainder starts with 'y' or 'ye'
+                    if (/^y/i.test(rem) || /^ye/i.test(rem)) {
+                        const idxYest = Array.isArray(items) ? items.findIndex(function(it){
+                            const s = (it && it.cmd) ? String(it.cmd).toLowerCase() : '';
+                            return /\blist\s+emails\s+from\s+.+\s+from\s+yesterday$/.test(s);
+                        }) : -1;
+                        if (idxYest > 0) {
+                            const itY = items.splice(idxYest, 1)[0];
+                            items.unshift(itY);
+                        }
+                    }
+                    try { console.log('[EN-SENDER-TF-FILTER] narrowed sender+timeframe suggestions for:', qlc, '->', Array.from(allowedTf)); } catch(e) {}
+                }
+            } catch(e) {}
+
             // FINAL PRIORITIZATION: Move 'list emails from [sender]' to top when typing 'list e...' through 'list emails from'
             try {
                 const listEmailsFromPattern = /^\s*list\s+e/i;
