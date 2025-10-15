@@ -6570,6 +6570,79 @@
                 }
             } catch(e) {}
 
+            // FILTER: Restrict English timeframe commands (ONLY "from [timeframe]") to matching suggestions
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+
+                // Full + progressive partials for "from [timeframe]"
+                const fromTfFull = /^list\s+emails\s+from\s+(today|yesterday|this\s+(week|month|year)|last\s+(week|month|year))$/.test(qlc);
+                // Gate on any valid timeframe family prefix after 'from '
+                const mGate = qlc.match(/^list\s+emails\s+from\s+(.+)$/i);
+                const remGate = mGate ? mGate[1] : '';
+                // Allow deep partials for 'yesterday' including 'yesterd' and 'yesterda'
+                const fromTfPartial = !!remGate && /^(t|to|tod|toda|today|y|ye|yes|yest|yeste|yester|yesterd|yesterda|yesterday|th|thi|this(\s+.*)?|la|las|last(\s+.*)?)$/i.test(remGate);
+
+                if ((fromTfFull || fromTfPartial) && Array.isArray(items)) {
+                    // Determine which timeframe variants are allowed based on the typed remainder after 'from '
+                    let allowed = [
+                        'today',
+                        'yesterday',
+                        'this week','this month','this year',
+                        'last week','last month','last year'
+                    ];
+                    const mFrom = qlc.match(/^list\s+emails\s+from\s*(.*)$/);
+                    const rem = (mFrom && mFrom[1]) ? mFrom[1].trim() : '';
+
+                    if (rem) {
+                        const r = rem;
+                        // today/yesterday direct prefixes
+                        if (/^to/i.test(r)) {
+                            // Explicit 'to' prefix -> only 'today'
+                            allowed = ['today'];
+                        } else if (/^t/i.test(r)) {
+                            // Bare 't' (not 'to') -> allow 'today' and all 'this ...' until narrowed further
+                            allowed = ['today','this week','this month','this year'];
+                        } else if (/^yes/i.test(r)) {
+                            // Prefix 'yes' should still only keep 'yesterday'
+                            allowed = ['yesterday'];
+                        } else if (/^y/i.test(r)) {
+                            // Narrow to yesterday if prefix starts with 'y'
+                            allowed = ['yesterday'];
+                            // But if user typed just 'y', keep only yesterday (no ambiguity with 'year' since it's not prefixed by 'this/last')
+                        } else if (/^this\b/i.test(r)) {
+                            // this + unit narrowing
+                            if (/^this\s*w/i.test(r)) {
+                                allowed = ['this week'];
+                            } else if (/^this\s*m/i.test(r)) {
+                                allowed = ['this month'];
+                            } else if (/^this\s*y/i.test(r)) {
+                                allowed = ['this year'];
+                            } else {
+                                allowed = ['this week','this month','this year'];
+                            }
+                        } else if (/^last\b/i.test(r)) {
+                            if (/^last\s*w/i.test(r)) {
+                                allowed = ['last week'];
+                            } else if (/^last\s*m/i.test(r)) {
+                                allowed = ['last month'];
+                            } else if (/^last\s*y/i.test(r)) {
+                                allowed = ['last year'];
+                            } else {
+                                allowed = ['last week','last month','last year'];
+                            }
+                        }
+                    }
+
+                    const allowedSet = new Set(allowed.map(function(v){ return 'list emails from ' + v; }));
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        return allowedSet.has(lcCmd);
+                    });
+                    try { console.log('[EN-TF-FROM-FILTER] narrowed timeframe-from suggestions for:', qlc, '->', Array.from(allowedSet)); } catch(e) {}
+                }
+            } catch(e) {}
+
             // FINAL PRIORITIZATION: Move 'list emails from [sender]' to top when typing 'list e...' through 'list emails from'
             try {
                 const listEmailsFromPattern = /^\s*list\s+e/i;
