@@ -6743,6 +6743,62 @@
                 }
             } catch(e) {}
 
+            // FILTER: Restrict plain English duration commands: "list emails from [duration] ago"
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                // Gate only when we have either:
+                // 1) a numeric quantity, or
+                // 2) the article 'a'/'an' FOLLOWED by at least one unit character (so plain 'a' keeps sender suggestions)
+                let numToken = null;
+                let unitPrefix = '';
+                const mDurNum = qlc.match(/^list\s+emails\s+from\s+(\d+)\s*([a-z]*)/i);
+                const mDurArt = qlc.match(/^list\s+emails\s+from\s+(a|an)\s+([a-z]+)/i);
+                if (mDurNum) {
+                    numToken = mDurNum[1];
+                    unitPrefix = (mDurNum[2] || '').trim();
+                } else if (mDurArt) {
+                    numToken = mDurArt[1];
+                    unitPrefix = (mDurArt[2] || '').trim();
+                }
+                if (numToken !== null && Array.isArray(items)) {
+                    let allowedUnits = ['day','days','week','weeks','month','months','year','years'];
+                    if (unitPrefix) {
+                        if (/^d/i.test(unitPrefix)) allowedUnits = ['day','days'];
+                        else if (/^w/i.test(unitPrefix)) allowedUnits = ['week','weeks'];
+                        else if (/^m/i.test(unitPrefix)) allowedUnits = ['month','months'];
+                        else if (/^y/i.test(unitPrefix)) allowedUnits = ['year','years'];
+                    }
+                    const unitSet = new Set(allowedUnits);
+                    // Keep only suggestions that match the progressive duration typing
+                    items = items.filter(function(it){
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lc = cmd.toLowerCase();
+                        // Exact numeric pattern with optional 'ago'
+                        const m = lc.match(/^list\s+emails\s+from\s+((?:\d+)|a|an)\s+(day|days|week|weeks|month|months|year|years)(?:\s+ago)?$/i);
+                        if (m) {
+                            // Quantity must match: numeric equals or 'a/an' token
+                            if (String(m[1]) !== String(numToken)) return false;
+                            return unitSet.has(m[2]);
+                        }
+                        // Allow the template placeholder during early typing
+                        if (/^list\s+emails\s+from\s+\[duration\]\s+ago$/i.test(lc)) return true;
+                        return false;
+                    });
+                    // If a single unit is implied and 'ago' is being typed, prioritize the exact '... ago' variant
+                    if (/\s+ago$/i.test(qlc) || /\s+a$/i.test(qlc)) {
+                        const idxAgo = items.findIndex(function(it){
+                            const s = (it && it.cmd) ? String(it.cmd).toLowerCase() : '';
+                            return /^list\s+emails\s+from\s+\d+\s+(day|days|week|weeks|month|months|year|years)\s+ago$/.test(s);
+                        });
+                        if (idxAgo > 0) {
+                            const itAgo = items.splice(idxAgo, 1)[0];
+                            items.unshift(itAgo);
+                        }
+                    }
+                    try { console.log('[EN-DURATION-PLAIN-FILTER] qty=', numToken, 'units=', Array.from(unitSet)); } catch(e) {}
+                }
+            } catch(e) {}
+
             // FINAL PRIORITIZATION: Move 'list emails from [sender]' to top when typing 'list e...' through 'list emails from'
             try {
                 const listEmailsFromPattern = /^\s*list\s+e/i;
@@ -6798,6 +6854,54 @@
                     console.log('[EN-TF-PROGRESSIVE-FINAL] enforced single timeframe for:', exactTarget);
                 }
             } catch (e) {}
+
+            // PRIORITIZATION: If typing 'list emails from <single-letter>', put 'list emails from [sender]' first
+            try {
+                const qlcShort = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                if (/^list\s+emails\s+from\s+[a-z]$/i.test(qlcShort) && Array.isArray(items) && items.length > 0) {
+                    const idx = items.findIndex(function(it){
+                        const s = (it && it.cmd ? String(it.cmd).toLowerCase() : '');
+                        return /^list\s+emails\s+from\s+\[sender\]/i.test(s);
+                    });
+                    if (idx > 0) {
+                        const it0 = items.splice(idx, 1)[0];
+                        items.unshift(it0);
+                        console.log('[PRIORITY] Promoted sender template for single-letter cue');
+                    }
+                }
+            } catch(e) {}
+
+            // FILTER: While typing a sender only (no second 'from'), hide plain timeframe suggestions
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isSingleFromWithSender = /^list\s+emails\s+from\s+\S+$/i.test(qlc) && !/\s+from\s+.+\s+from\s+/i.test(qlc);
+                if (isSingleFromWithSender && Array.isArray(items)) {
+                    items = items.filter(function(it){
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lc = cmd.toLowerCase();
+                        // Exclude plain timeframe suggestions like 'list emails from today/yesterday/this .../last ...'
+                        if (/^list\s+emails\s+from\s+(today|yesterday|this\b|last\b)/i.test(lc)) return false;
+                        return true;
+                    });
+                    try { console.log('[EN-SENDER-ONLY-FILTER] removed plain timeframe items while typing sender:', qlc); } catch(e) {}
+                }
+            } catch(e) {}
+
+            // FILTER: While typing a single-letter sender (not 'a'), hide duration suggestions
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const mSingle = qlc.match(/^list\s+emails\s+from\s+([a-z])$/i);
+                if (mSingle && mSingle[1] && mSingle[1] !== 'a' && Array.isArray(items)) {
+                    items = items.filter(function(it){
+                        const s = (it && it.cmd) ? String(it.cmd).toLowerCase() : '';
+                        // Remove duration templates and numeric/an duration suggestions
+                        if (/^list\s+emails\s+from\s+\[duration\]\s+ago$/.test(s)) return false;
+                        if (/^list\s+emails\s+from\s+((?:\d+)|a|an)\s+(day|days|week|weeks|month|months|year|years)(?:\s+ago)?$/.test(s)) return false;
+                        return true;
+                    });
+                    try { console.log('[EN-SENDER-SINGLE-LETTER-FILTER] removed duration items for non-a single letter:', qlc); } catch(e) {}
+                }
+            } catch(e) {}
 
             // Category fallback: if category flow and items got wiped by a guard, restore override items
             try {
