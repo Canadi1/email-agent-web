@@ -6667,13 +6667,10 @@
                         'today','yesterday','this week','this month','this year','last week','last month','last year'
                     ];
                     if (rem) {
-                        if (/^to/i.test(rem)) {
-                            allowedTf = ['today'];
-                        } else if (/^t(?!o)/i.test(rem)) {
-                            // bare 't' -> today + this ...
-                            allowedTf = ['today','this week','this month','this year'];
-                        } else if (/^ye|^yes|^yest|^yeste|^yester|^yesterd|^yesterda|^yesterday|^y$/i.test(rem)) {
-                            allowedTf = ['yesterday'];
+                        // Check explicit family tokens before generic single-letter prefixes
+                        if (/^thi|^th\b/i.test(rem)) {
+                            // Early 'th'/'thi' should already narrow to 'this ...' family
+                            allowedTf = ['this week','this month','this year'];
                         } else if (/^this\b/i.test(rem)) {
                             if (/^this\s*w/i.test(rem) || /^this\s+we/i.test(rem) || /^this\s+week/i.test(rem)) {
                                 allowedTf = ['this week'];
@@ -6694,6 +6691,13 @@
                             } else {
                                 allowedTf = ['last week','last month','last year'];
                             }
+                        } else if (/^to/i.test(rem)) {
+                            allowedTf = ['today'];
+                        } else if (/^t$/i.test(rem)) {
+                            // bare 't' only -> today + this ...
+                            allowedTf = ['today','this week','this month','this year'];
+                        } else if (/^ye|^yes|^yest|^yeste|^yester|^yesterd|^yesterda|^yesterday|^y$/i.test(rem)) {
+                            allowedTf = ['yesterday'];
                         } else if (/^w|^we|^wee|^week$/i.test(rem)) {
                             allowedTf = ['this week','last week'];
                         } else if (/^m|^mo|^mon|^mont|^month$/i.test(rem)) {
@@ -6714,7 +6718,7 @@
                         return tfSet.has(m[1]);
                     });
                     // Prioritize 'today' first when remainder starts with 't' (before 'this ...')
-                    if (/^t(?!o)/i.test(rem) || /^to/i.test(rem)) {
+                    if (/^to/i.test(rem) || /^t$/i.test(rem)) {
                         const idxToday = Array.isArray(items) ? items.findIndex(function(it){
                             const s = (it && it.cmd) ? String(it.cmd).toLowerCase() : '';
                             return /\blist\s+emails\s+from\s+.+\s+from\s+today$/.test(s);
