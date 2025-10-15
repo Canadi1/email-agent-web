@@ -6580,7 +6580,7 @@
                 const mGate = qlc.match(/^list\s+emails\s+from\s+(.+)$/i);
                 const remGate = mGate ? mGate[1] : '';
                 // Allow deep partials for yesterday and accept bare unit tokens (week/month/year)
-                const fromTfPartial = !!remGate && /^(t|to|tod|toda|today|y|ye|yes|yest|yeste|yester|yesterd|yesterda|yesterday|th|thi|this(\s+.*)?|la|las|last(\s+.*)?|w|we|wee|week|m|mo|mon|mont|month|ye|yea|year)$/i.test(remGate);
+                const fromTfPartial = !!remGate && /^(t|to|tod|toda|today|y|ye|yes|yest|yeste|yester|yesterd|yesterda|yesterday|th|thi|this(\s+.*)?|l|la|las|last(\s+.*)?|w|we|wee|week|m|mo|mon|mont|month|ye|yea|year)$/i.test(remGate);
 
                 if ((fromTfFull || fromTfPartial) && Array.isArray(items)) {
                     // Determine which timeframe variants are allowed based on the typed remainder after 'from '
@@ -6609,6 +6609,9 @@
                             // Narrow to yesterday if prefix starts with 'y'
                             allowed = ['yesterday'];
                             // But if user typed just 'y', keep only yesterday (no ambiguity with 'year' since it's not prefixed by 'this/last')
+                        } else if (/^l/i.test(r)) {
+                            // Bare 'l'/'la'/'las' leading to 'last ...' family
+                            allowed = ['last week','last month','last year'];
                         } else if (/^this\b/i.test(r)) {
                             // this + unit narrowing
                             if (/^this\s*w/i.test(r) || /^this\s+we/i.test(r) || /^this\s+week/i.test(r)) {
@@ -6694,7 +6697,7 @@
                     exactTarget = 'list emails from this year';
                 } else if (/^list\s+emails\s+from\s+last\s+w/i.test(qlp)) {
                     exactTarget = 'list emails from last week';
-                } else if (/^list\s+emails\s+from\s+last\s+mo/i.test(qlp) || /^list\s+emails\s+from\s+last\s+mon/i.test(qlp) || /^list\s+emails\s+from\s+last\s+mont/i.test(qlp) || /^list\s+emails\s+from\s+last\s+month/i.test(qlp)) {
+                } else if (/^list\s+emails\s+from\s+last\s+m(\b|$)/i.test(qlp) || /^list\s+emails\s+from\s+last\s+mo/i.test(qlp) || /^list\s+emails\s+from\s+last\s+mon/i.test(qlp) || /^list\s+emails\s+from\s+last\s+mont/i.test(qlp) || /^list\s+emails\s+from\s+last\s+month/i.test(qlp)) {
                     exactTarget = 'list emails from last month';
                 } else if (/^list\s+emails\s+from\s+last\s+y/i.test(qlp) || /^list\s+emails\s+from\s+last\s+ye/i.test(qlp) || /^list\s+emails\s+from\s+last\s+yea/i.test(qlp) || /^list\s+emails\s+from\s+last\s+year/i.test(qlp)) {
                     exactTarget = 'list emails from last year';
