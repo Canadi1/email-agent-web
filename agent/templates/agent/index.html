@@ -6938,6 +6938,253 @@
                 }
             } catch (e) {}
 
+            // PRIORITIZATION: In category flow, when typing '... emails from' make '[duration] ago' the FIRST suggestion
+            try {
+                const qlcCat = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const mCatFrom = qlcCat.match(/^list\s+(.+?)\s+emails\s+from$/i);
+                if (mCatFrom && Array.isArray(items) && items.length > 0) {
+                    const catPhrase = mCatFrom[1] || '';
+                    // Build a regex to find the matching category duration placeholder
+                    const esc = catPhrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                    const re = new RegExp('^list\\s+' + esc + '\\s+emails\\s+from\\s+\\[duration\\]\\s+ago$', 'i');
+                    const idxCatDur = items.findIndex(function(it){
+                        const s = (it && it.cmd ? String(it.cmd).toLowerCase() : '');
+                        return re.test(s);
+                    });
+                    if (idxCatDur > 0) {
+                        const it = items.splice(idxCatDur, 1)[0];
+                        items.unshift(it);
+                        console.log('[FINAL PRIORITIZATION] Category: placed duration placeholder first for', catPhrase);
+                    }
+                }
+            } catch (e) {}
+
+            // PRIORITIZATION: In category flow, while typing partial 'list <category> e' up to 'list <category> emails from'
+            try {
+                const qlcCatP = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                // Match 'list <category> e', 'list <category> em', ..., 'list <category> emails' without a trailing token 'from'
+                const mCatE = qlcCatP.match(/^list\s+(.+?)\s+e(m(a(i(l(s?)?)?)?)?)?$/i);
+                if (mCatE && !/\semails\s+from\s+\S/i.test(qlcCatP) && Array.isArray(items) && items.length > 0) {
+                    const catPhrase = mCatE[1] || '';
+                    const esc = catPhrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                    const reDur = new RegExp('^list\\s+' + esc + '\\s+emails\\s+from\\s+\\[duration\\]\\s+ago$', 'i');
+                    const reOlder = new RegExp('^list\\s+' + esc + '\\s+emails\\s+older\\s+than\\s+\\[duration\\]$', 'i');
+                    const idx = items.findIndex(function(it){
+                        const s = (it && it.cmd ? String(it.cmd).toLowerCase() : '');
+                        return reDur.test(s);
+                    });
+                    if (idx > -1 && idx !== 1) {
+                        const it = items.splice(idx, 1)[0];
+                        // Keep the base category command as first; place duration as second
+                        items.splice(1, 0, it);
+                        console.log('[FINAL PRIORITIZATION] Category(partial): duration placeholder second for', catPhrase);
+                    }
+                    // Ensure 'older than [duration]' follows right after duration (index 2)
+                    const idxOlder = items.findIndex(function(it){
+                        const s = (it && it.cmd ? String(it.cmd).toLowerCase() : '');
+                        return reOlder.test(s);
+                    });
+                    if (idxOlder > -1 && idxOlder !== 2) {
+                        const itOlder = items.splice(idxOlder, 1)[0];
+                        items.splice(2, 0, itOlder);
+                        console.log('[FINAL PRIORITIZATION] Category(partial): older-than placed third for', catPhrase);
+                    }
+                }
+            } catch (e) {}
+
+            // PRIORITIZATION: In category flow very early ('list s' ... progressing to 'list shipping') place category duration as second
+            try {
+                const qlcCatS = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                // Specifically handle shipping prefix starting at just 's'
+                const mShip = qlcCatS.match(/^list\s+s(h(i(p(p(i(n(g)?)?)?)?)?)?)?$/i);
+                if (mShip && Array.isArray(items) && items.length > 0) {
+                    const catPhrase = 'shipping';
+                    const reDur = /^list\s+shipping\s+emails\s+from\s+\[duration\]\s+ago$/i;
+                    const reOlder = /^list\s+shipping\s+emails\s+older\s+than\s+\[duration\]$/i;
+                    const idx = items.findIndex(function(it){
+                        const s = (it && it.cmd ? String(it.cmd).toLowerCase() : '');
+                        return reDur.test(s);
+                    });
+                    if (idx > -1 && idx !== 1) {
+                        const it = items.splice(idx, 1)[0];
+                        items.splice(1, 0, it);
+                        console.log('[FINAL PRIORITIZATION] Category(early s): duration placeholder second for shipping');
+                    }
+                    // Place 'older than [duration]' just after duration (index 2)
+                    const idxOlder = items.findIndex(function(it){
+                        const s = (it && it.cmd ? String(it.cmd).toLowerCase() : '');
+                        return reOlder.test(s);
+                    });
+                    if (idxOlder > -1 && idxOlder !== 2) {
+                        const itOlder = items.splice(idxOlder, 1)[0];
+                        items.splice(2, 0, itOlder);
+                        console.log('[FINAL PRIORITIZATION] Category(early s): older-than placeholder third for shipping');
+                    }
+                }
+            } catch (e) {}
+
+            // PRIORITIZATION: In category flow very early ('list v' ... progressing to 'list verification codes')
+            try {
+                const qlcCatV = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const mVer = qlcCatV.match(/^list\s+v(e(r(i(f(i(c(a(t(i(o(n)?)?)?)?)?)?)?)?)?)?)?$/i);
+                if (mVer && Array.isArray(items) && items.length > 0) {
+                    // Ensure the correct category phrase 'verification codes'
+                    const reDur = /^list\s+verification\s+codes\s+from\s+\[duration\]\s+ago$/i;
+                    const reOlder = /^list\s+verification\s+codes\s+older\s+than\s+\[duration\]$/i;
+                    // Inject placeholders if missing at early typing stage
+                    const hasDur = items.some(function(it){
+                        const s = (it && it.cmd ? String(it.cmd).toLowerCase() : '');
+                        return reDur.test(s);
+                    });
+                    if (!hasDur) {
+                        items.push({ cmd: 'list verification codes from [duration] ago', score: 1002, type: 'en_cat_ver_duration_placeholder' });
+                    }
+                    const hasOlder = items.some(function(it){
+                        const s = (it && it.cmd ? String(it.cmd).toLowerCase() : '');
+                        return reOlder.test(s);
+                    });
+                    if (!hasOlder) {
+                        items.push({ cmd: 'list verification codes older than [duration]', score: 1001, type: 'en_cat_ver_older_placeholder' });
+                    }
+                    const idx = items.findIndex(function(it){
+                        const s = (it && it.cmd ? String(it.cmd).toLowerCase() : '');
+                        return reDur.test(s);
+                    });
+                    if (idx > -1 && idx !== 1) {
+                        const it = items.splice(idx, 1)[0];
+                        items.splice(1, 0, it);
+                        console.log('[FINAL PRIORITIZATION] Category(early v): duration placeholder second for verification');
+                    }
+                    const idxOlder = items.findIndex(function(it){
+                        const s = (it && it.cmd ? String(it.cmd).toLowerCase() : '');
+                        return reOlder.test(s);
+                    });
+                    if (idxOlder > -1 && idxOlder !== 2) {
+                        const itOlder = items.splice(idxOlder, 1)[0];
+                        items.splice(2, 0, itOlder);
+                        console.log('[FINAL PRIORITIZATION] Category(early v): older-than placeholder third for verification');
+                    }
+                }
+            } catch (e) {}
+
+            // PRIORITIZATION: While typing 'codes' in 'list verification codes', ensure duration 2nd and older-than 3rd
+            try {
+                const qlcVerCodes = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const mVerCodes = qlcVerCodes.match(/^list\s+verification\s+c(o(d(e(s?)?)?)?)?$/i);
+                const noFromToken = !/\bverification\s+codes\s+from\s+\S/i.test(qlcVerCodes);
+                if (mVerCodes && noFromToken && Array.isArray(items) && items.length > 0) {
+                    const reDur = /^list\s+verification\s+codes\s+from\s+\[duration\]\s+ago$/i;
+                    const reOlder = /^list\s+verification\s+codes\s+older\s+than\s+\[duration\]$/i;
+
+                    // Inject placeholders if not present
+                    let hasDur = items.some(function(it){
+                        const s = (it && it.cmd ? String(it.cmd).toLowerCase() : '');
+                        return reDur.test(s);
+                    });
+                    if (!hasDur) {
+                        items.push({ cmd: 'list verification codes from [duration] ago', score: 1002, type: 'en_cat_ver_duration_placeholder' });
+                    }
+                    let hasOlder = items.some(function(it){
+                        const s = (it && it.cmd ? String(it.cmd).toLowerCase() : '');
+                        return reOlder.test(s);
+                    });
+                    if (!hasOlder) {
+                        items.push({ cmd: 'list verification codes older than [duration]', score: 1001, type: 'en_cat_ver_older_placeholder' });
+                    }
+
+                    // Place duration at index 1 (second)
+                    const idxDur = items.findIndex(function(it){
+                        const s = (it && it.cmd ? String(it.cmd).toLowerCase() : '');
+                        return reDur.test(s);
+                    });
+                    if (idxDur > -1 && idxDur !== 1) {
+                        const itDur = items.splice(idxDur, 1)[0];
+                        items.splice(1, 0, itDur);
+                        console.log('[FINAL PRIORITIZATION] Verification(codes typing): duration second');
+                    }
+                    // Place older-than at index 2 (third)
+                    const idxOlder = items.findIndex(function(it){
+                        const s = (it && it.cmd ? String(it.cmd).toLowerCase() : '');
+                        return reOlder.test(s);
+                    });
+                    if (idxOlder > -1 && idxOlder !== 2) {
+                        const itOlder = items.splice(idxOlder, 1)[0];
+                        items.splice(2, 0, itOlder);
+                        console.log('[FINAL PRIORITIZATION] Verification(codes typing): older-than third');
+                    }
+                }
+            } catch (e) {}
+
+            // PRIORITIZATION: In category flow early ('list ac' ... progressing to 'account security')
+            try {
+                const qlcCatA = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                // Require at least 'ac' before we prioritize duration/older placeholders for account security
+                const mAcc = qlcCatA.match(/^list\s+ac(c(o(u(n(t(\s+s(e(c(u(r(i(t(y)?)?)?)?)?)?)?)?)?)?)?)?)?$/i);
+                if (mAcc && Array.isArray(items) && items.length > 0) {
+                    const reDur = /^list\s+account\s+security\s+emails\s+from\s+\[duration\]\s+ago$/i;
+                    const reOlder = /^list\s+account\s+security\s+emails\s+older\s+than\s+\[duration\]$/i;
+                    const idx = items.findIndex(function(it){
+                        const s = (it && it.cmd ? String(it.cmd).toLowerCase() : '');
+                        return reDur.test(s);
+                    });
+                    if (idx > -1 && idx !== 1) {
+                        const it = items.splice(idx, 1)[0];
+                        items.splice(1, 0, it);
+                        console.log('[FINAL PRIORITIZATION] Category(early a): duration placeholder second for account security');
+                    }
+                    const idxOlder = items.findIndex(function(it){
+                        const s = (it && it.cmd ? String(it.cmd).toLowerCase() : '');
+                        return reOlder.test(s);
+                    });
+                    if (idxOlder > -1 && idxOlder !== 2) {
+                        const itOlder = items.splice(idxOlder, 1)[0];
+                        items.splice(2, 0, itOlder);
+                        console.log('[FINAL PRIORITIZATION] Category(early a): older-than placeholder third for account security');
+                    }
+                }
+            } catch (e) {}
+
+            // PRIORITIZATION: In category flow, while typing the beginning of 'from' (e.g., 'f', 'fr', 'fro', 'from') make duration FIRST
+            try {
+                const qlcCatF = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                // Match: list <category> emails f/ fr/ fro/ from (but no token after 'from')
+                const mCatFromPartial = qlcCatF.match(/^list\s+(.+?)\s+emails\s+f(r(o(m)?)?)?$/i);
+                const noTokenAfterFrom = !/\semails\s+from\s+\S/i.test(qlcCatF);
+                if (mCatFromPartial && noTokenAfterFrom && Array.isArray(items) && items.length > 0) {
+                    const catPhrase = mCatFromPartial[1] || '';
+                    const esc = catPhrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                    const re = new RegExp('^list\\s+' + esc + '\\s+emails\\s+from\\s+\\[duration\\]\\s+ago$', 'i');
+                    const idx = items.findIndex(function(it){
+                        const s = (it && it.cmd ? String(it.cmd).toLowerCase() : '');
+                        return re.test(s);
+                    });
+                    if (idx > 0) {
+                        const it = items.splice(idx, 1)[0];
+                        items.unshift(it);
+                        console.log('[FINAL PRIORITIZATION] Category(from partial): duration placeholder first for', catPhrase);
+                    }
+                }
+            } catch (e) {}
+
+            // PRIORITIZATION: Verification category — while typing start of 'from' make duration FIRST
+            try {
+                const qlcVerFrom = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                // Match: list verification codes f/ fr/ fro/ from (no token after 'from')
+                const mVerFrom = /^list\s+verification\s+codes\s+f(r(o(m)?)?)?$/i.test(qlcVerFrom) && !/\bcodes\s+from\s+\S/i.test(qlcVerFrom);
+                if (mVerFrom && Array.isArray(items) && items.length > 0) {
+                    const reDur = /^list\s+verification\s+codes\s+from\s+\[duration\]\s+ago$/i;
+                    const idx = items.findIndex(function(it){
+                        const s = (it && it.cmd ? String(it.cmd).toLowerCase() : '');
+                        return reDur.test(s);
+                    });
+                    if (idx > 0) {
+                        const it = items.splice(idx, 1)[0];
+                        items.unshift(it);
+                        console.log('[FINAL PRIORITIZATION] Verification(from partial): duration placeholder first');
+                    }
+                }
+            } catch (e) {}
+
             // FINAL ENFORCEMENT: If input is an exact timeframe phrase, keep only that exact suggestion
             try {
                 const qlcFinal = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
