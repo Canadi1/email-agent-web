@@ -2473,6 +2473,109 @@
                 }
             } catch (e) {}
 
+            // FINAL ENFORCEMENT (TYPO-TOLERANT): If unit is invalid while typing 'ago', keep only the category duration placeholder
+            try {
+                const qlcTypo = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                // Extract category, presence of 'emails' optional (verification codes has no 'emails')
+                let mTypo = qlcTypo.match(/^list\s+(shipping|account\s+security)\s+emails\s+from\s+((?:\d+)|a|an)\s+([a-z]+)\s+a(g(o)?)?$/i);
+                let emailsMode = true;
+                if (!mTypo) {
+                    mTypo = qlcTypo.match(/^list\s+(verification\s+codes)\s+from\s+((?:\d+)|a|an)\s+([a-z]+)\s+a(g(o)?)?$/i);
+                    emailsMode = false;
+                }
+                if (mTypo && Array.isArray(items)) {
+                    const cat = (mTypo[1] || '').toLowerCase();
+                    const unitTok = (mTypo[3] || '').toLowerCase();
+                    // Valid unit prefixes
+                    const isValidPrefix = /^d/.test(unitTok) || /^w/.test(unitTok) || /^mo?/.test(unitTok) || /^y/.test(unitTok);
+                    if (!isValidPrefix) {
+                        const catEsc = cat.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+                        const prefix = emailsMode ? ('^list\\s+' + catEsc + '\\s+emails\\s+from\\s+') : ('^list\\s+' + catEsc + '\\s+from\\s+');
+                        const reTpl = new RegExp(prefix + '\\[duration\\]\\s+ago$','i');
+                        // Keep only the placeholder to guide the user; drop unrelated suggestions
+                        items = items.filter(function(it){
+                            const s = (it && it.cmd ? String(it.cmd).toLowerCase() : '');
+                            return reTpl.test(s);
+                        });
+                        // If the placeholder is missing, inject it
+                        if (!items.length) {
+                            const cmd = emailsMode ? ('list ' + cat + ' emails from [duration] ago') : ('list ' + cat + ' from [duration] ago');
+                            items.push({ cmd: cmd, score: 1002, type: 'en_cat_duration_placeholder_typo' });
+                        }
+                        console.log('[EN-CAT-DURATION-TYPO] invalid unit prefix, restricting to placeholder for', cat, 'unit=', unitTok);
+                    }
+                }
+            } catch (e) {}
+
+            // FILTER: Category + duration typing: "list <category> emails from [duration] ago" (or "list verification codes from ...") with progressive narrowing
+            try {
+                const qlcCatDur = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                // Capture category and remainder after the 'from'
+                const mCatEmails = qlcCatDur.match(/^list\s+(shipping|account\s+security)\s+emails\s+from\s+(.*)$/i);
+                const mVerOnly = qlcCatDur.match(/^list\s+(verification\s+codes)\s+from\s+(.*)$/i);
+                if ((mCatEmails || mVerOnly) && Array.isArray(items)) {
+                    const cat = ((mCatEmails ? mCatEmails[1] : mVerOnly[1]) || '').toLowerCase();
+                    const rem = ((mCatEmails ? mCatEmails[2] : mVerOnly[2]) || '').trim();
+                    const usesEmailsWord = cat !== 'verification codes';
+                    // Quantity detection: number or 'a/an' optionally followed by unit letters
+                    let qtyToken = null;
+                    let unitPrefix = '';
+                    const mNum = rem.match(/^(\d+)\s*([a-z]*)/i);
+                    const mArt = rem.match(/^(a|an)(?:\s+([a-z]*))?/i);
+                    if (mNum) {
+                        qtyToken = mNum[1];
+                        unitPrefix = (mNum[2] || '').trim();
+                    } else if (mArt) {
+                        qtyToken = mArt[1];
+                        unitPrefix = (mArt[2] || '').trim();
+                    }
+                    if (qtyToken !== null) {
+                        // Determine allowed units by prefix
+                        let allowedUnits = ['day','days','week','weeks','month','months','year','years'];
+                        if (unitPrefix) {
+                            if (/^d/i.test(unitPrefix)) allowedUnits = ['day','days'];
+                            else if (/^w/i.test(unitPrefix)) allowedUnits = ['week','weeks'];
+                            else if (/^mo?/i.test(unitPrefix)) allowedUnits = ['month','months'];
+                            else if (/^y/i.test(unitPrefix)) allowedUnits = ['year','years'];
+                        }
+                        const unitSet = new Set(allowedUnits);
+                        const catEsc = cat.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+                        const prefix = usesEmailsWord ? ('^list\\s+' + catEsc + '\\s+emails\\s+from\\s+') : ('^list\\s+' + catEsc + '\\s+from\\s+');
+                        const reDur = new RegExp(prefix + '((?:\\d+)|a|an)\\s+(day|days|week|weeks|month|months|year|years)(?:\\s+ago)?$','i');
+                        // Keep only matching category duration suggestions (and its placeholder)
+                        items = items.filter(function(it){
+                            const s = (it && it.cmd ? String(it.cmd).toLowerCase() : '');
+                            const m = s.match(reDur);
+                            if (m) {
+                                if (String(m[1]) !== String(qtyToken)) return false;
+                                return unitSet.has(m[2]);
+                            }
+                            // Allow the category duration placeholder during early typing
+                            const reTpl = new RegExp(prefix + '\\[duration\\]\\s+ago$','i');
+                            return reTpl.test(s);
+                        });
+                        // Prioritize the concrete '... ago' variant if user typed ' ago' or trailing ' a'
+                        if (/\s+ago$/i.test(qlcCatDur) || /\s+a$/i.test(qlcCatDur)) {
+                            const reExactAgo = new RegExp(prefix + '((?:\\d+)|a|an)\\s+(day|days|week|weeks|month|months|year|years)\\s+ago$','i');
+                            const idx = items.findIndex(function(it){
+                                const s = (it && it.cmd ? String(it.cmd).toLowerCase() : '');
+                                return reExactAgo.test(s);
+                            });
+                            if (idx > 0) {
+                                const itAgo = items.splice(idx, 1)[0];
+                                items.unshift(itAgo);
+                            }
+                        }
+                        // If filter wiped out suggestions, keep the category duration placeholder
+                        if (items.length === 0) {
+                            const cmd = usesEmailsWord ? ('list ' + cat + ' emails from [duration] ago') : ('list ' + cat + ' from [duration] ago');
+                            items.push({ cmd: cmd, score: 1002, type: 'en_cat_duration_placeholder_fallback' });
+                        }
+                        try { console.log('[EN-CAT-DURATION-FILTER]', cat, 'qty=', qtyToken, 'units=', Array.from(unitSet)); } catch(e) {}
+                    }
+                }
+            } catch(e) {}
+
             // Seed core sender templates when typing exactly 'רשום מיילים מ'
             try {
                 const qSeed = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
@@ -7196,6 +7299,82 @@
                         return cmd.toLowerCase() === exactCmd;
                     });
                     console.log('[EN-TF-FINAL] enforced exact timeframe suggestion for:', exactCmd);
+                }
+            } catch (e) {}
+
+            // FINAL ENFORCEMENT: Category duration typing should hide non-duration category suggestions (supports 'verification codes')
+            try {
+                const qlcCatFinal = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                // Try emails categories first
+                let cat = '';
+                let emailsMode = true;
+                let mGate = qlcCatFinal.match(/^list\s+(shipping|account\s+security)\s+emails\s+from\s+((?:\d+)|a|an)(?:\s+[a-z]*)?(?:\s+ago)?$/i);
+                if (!mGate) {
+                    // verification codes without 'emails'
+                    mGate = qlcCatFinal.match(/^list\s+(verification\s+codes)\s+from\s+((?:\d+)|a|an)(?:\s+[a-z]*)?(?:\s+ago)?$/i);
+                    emailsMode = false;
+                }
+                if (mGate && Array.isArray(items)) {
+                    cat = (mGate[1] || '').toLowerCase();
+                    const catEsc = cat.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+                    const prefix = emailsMode ? ('^list\\s+' + catEsc + '\\s+emails\\s+from\\s+') : ('^list\\s+' + catEsc + '\\s+from\\s+');
+                    const reKeepTpl = new RegExp(prefix + '\\[duration\\]\\s+ago$','i');
+                    const reKeepDur = new RegExp(prefix + '((?:\\d+)|a|an)\\s+(day|days|week|weeks|month|months|year|years)(?:\\s+ago)?$','i');
+                    items = items.filter(function(it){
+                        const s = (it && it.cmd ? String(it.cmd).toLowerCase() : '');
+                        return reKeepTpl.test(s) || reKeepDur.test(s);
+                    });
+                    console.log('[EN-CAT-DURATION-FINAL] enforcing duration-only suggestions for category:', cat);
+                }
+            } catch (e) {}
+
+            // FINAL ENFORCEMENT (PROGRESSIVE): While typing 'ago' (a/ag/ago) for category durations, keep only duration suggestions (supports 'verification codes')
+            try {
+                const qlcCatAgo = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                // Try emails categories first
+                let catAgo = '';
+                let emailsModeAgo = true;
+                let mCatAgo = qlcCatAgo.match(/^list\s+(shipping|account\s+security)\s+emails\s+from\s+((?:\d+)|a|an)\s+(day|days|week|weeks|month|months|year|years)\s+a(g(o)?)?$/i);
+                if (!mCatAgo) {
+                    mCatAgo = qlcCatAgo.match(/^list\s+(verification\s+codes)\s+from\s+((?:\d+)|a|an)\s+(day|days|week|weeks|month|months|year|years)\s+a(g(o)?)?$/i);
+                    emailsModeAgo = false;
+                }
+                if (mCatAgo && Array.isArray(items)) {
+                    catAgo = (mCatAgo[1] || '').toLowerCase();
+                    const catEsc = catAgo.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+                    const prefix = emailsModeAgo ? ('^list\\s+' + catEsc + '\\s+emails\\s+from\\s+') : ('^list\\s+' + catEsc + '\\s+from\\s+');
+                    const reTpl = new RegExp(prefix + '\\[duration\\]\\s+ago$','i');
+                    const reDurNoAgo = new RegExp(prefix + '((?:\\d+)|a|an)\\s+(day|days|week|weeks|month|months|year|years)$','i');
+                    const reDurAgo = new RegExp(prefix + '((?:\\d+)|a|an)\\s+(day|days|week|weeks|month|months|year|years)\\s+ago$','i');
+                    items = items.filter(function(it){
+                        const s = (it && it.cmd ? String(it.cmd).toLowerCase() : '');
+                        return reTpl.test(s) || reDurNoAgo.test(s) || reDurAgo.test(s);
+                    });
+                    console.log('[EN-CAT-DURATION-AGO] enforced duration-only while typing ago for category:', catAgo);
+                }
+            } catch (e) {}
+
+            // FINAL ENFORCEMENT (CATCH-ALL): Any category + '... from <anything> a|ag|ago' must ONLY show duration placeholder or valid duration
+            try {
+                const qlcCatAnyAgo = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const mAnyAgo = qlcCatAnyAgo.match(/^list\s+(shipping|verification\s+codes|account\s+security)(\s+emails)?\s+from\s+.+\s+a(g(o)?)?$/i);
+                if (mAnyAgo && Array.isArray(items)) {
+                    const cat = (mAnyAgo[1] || '').toLowerCase();
+                    const hasEmailsWord = !!mAnyAgo[2];
+                    const catEsc = cat.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+                    const prefix = hasEmailsWord ? ('^list\\s+' + catEsc + '\\s+emails\\s+from\\s+') : ('^list\\s+' + catEsc + '\\s+from\\s+');
+                    const reTpl = new RegExp(prefix + '\\[duration\\]\\s+ago$','i');
+                    const reDur = new RegExp(prefix + '((?:\\d+)|a|an)\\s+(day|days|week|weeks|month|months|year|years)(?:\\s+ago)?$','i');
+                    items = items.filter(function(it){
+                        const s = (it && it.cmd ? String(it.cmd).toLowerCase() : '');
+                        return reTpl.test(s) || reDur.test(s);
+                    });
+                    // Ensure placeholder exists if all were removed
+                    if (!items.length) {
+                        const cmd = hasEmailsWord ? ('list ' + cat + ' emails from [duration] ago') : ('list ' + cat + ' from [duration] ago');
+                        items.push({ cmd: cmd, score: 1002, type: 'en_cat_duration_placeholder_anyago' });
+                    }
+                    console.log('[EN-CAT-DURATION-ANYAGO] catch-all enforced for category:', cat);
                 }
             } catch (e) {}
 
