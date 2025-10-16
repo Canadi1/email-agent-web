@@ -6904,6 +6904,40 @@
                 }
             } catch (e) {}
 
+            // PRIORITIZATION: While typing exactly 'list emails from', ensure duration placeholder is second
+            try {
+                const qExactFrom = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                if (/^list\s+emails\s+from$/.test(qExactFrom) && Array.isArray(items) && items.length > 1) {
+                    const idxDur = items.findIndex(function(it){
+                        const s = (it && it.cmd ? String(it.cmd).toLowerCase() : '');
+                        return /^list\s+emails\s+from\s+\[duration\]\s+ago$/.test(s);
+                    });
+                    if (idxDur > -1 && idxDur !== 1) {
+                        const dur = items.splice(idxDur, 1)[0];
+                        // Keep sender (index 0) first, place duration at index 1
+                        items.splice(1, 0, dur);
+                        console.log('[FINAL PRIORITIZATION] Placed duration placeholder as second under sender');
+                    }
+                }
+            } catch (e) {}
+
+            // PRIORITIZATION: While typing partial 'list e' up to 'list emails from' (no token after 'from'), ensure duration is second
+            try {
+                const qPartial = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isPartialFrom = /^list\s+e/i.test(qPartial) && !/^list\s+emails\s+from\s+\S/i.test(qPartial);
+                if (isPartialFrom && Array.isArray(items) && items.length > 1) {
+                    const idxDur = items.findIndex(function(it){
+                        const s = (it && it.cmd ? String(it.cmd).toLowerCase() : '');
+                        return /^list\s+emails\s+from\s+\[duration\]\s+ago$/.test(s);
+                    });
+                    if (idxDur > -1 && idxDur !== 1) {
+                        const dur = items.splice(idxDur, 1)[0];
+                        items.splice(1, 0, dur);
+                        console.log('[FINAL PRIORITIZATION] Placed duration as second during partial "list e"');
+                    }
+                }
+            } catch (e) {}
+
             // FINAL ENFORCEMENT: If input is an exact timeframe phrase, keep only that exact suggestion
             try {
                 const qlcFinal = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
