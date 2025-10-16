@@ -6580,7 +6580,7 @@
                 const mGate = qlc.match(/^list\s+emails\s+from\s+(.+)$/i);
                 const remGate = mGate ? mGate[1] : '';
                 // Allow deep partials for yesterday and accept bare unit tokens (week/month/year)
-                const fromTfPartial = !!remGate && /^(t|to|tod|toda|today|y|ye|yes|yest|yeste|yester|yesterd|yesterda|yesterday|th|thi|this(\s+.*)?|l|la|las|last(\s+.*)?|w|we|wee|week|m|mo|mon|mont|month|ye|yea|year)$/i.test(remGate);
+                const fromTfPartial = !!remGate && /^(t|to|tod|toda|today|y|ye|yes|yest|yeste|yester|yesterd|yesterda|yesterday|th|thi|this(\s+.*)?|l|la|las|last(\s+.*)?|we|wee|week|mo|mon|mont|month|ye|yea|year)$/i.test(remGate);
 
                 if ((fromTfFull || fromTfPartial) && Array.isArray(items)) {
                     // Determine which timeframe variants are allowed based on the typed remainder after 'from '
@@ -6633,11 +6633,11 @@
                             } else {
                                 allowed = ['last week','last month','last year'];
                             }
-                        } else if (/^w/i.test(r)) {
-                            // Bare 'week' token -> both this and last week
+                        } else if (/^we/i.test(r)) {
+                            // 'we...' token -> both this and last week
                             allowed = ['this week','last week'];
-                        } else if (/^m/i.test(r)) {
-                            // Bare 'month' token -> both this and last month
+                        } else if (/^mo/i.test(r)) {
+                            // 'mo...' token -> both this and last month
                             allowed = ['this month','last month'];
                         } else if (/^ye/i.test(r)) {
                             // Bare 'year' token -> both this and last year
@@ -6871,11 +6871,42 @@
                 }
             } catch(e) {}
 
+            // RE-INSERTION SAFEGUARD: For 'from w' or 'from m', ensure sender template is present (timeframe filter may have wiped it)
+            try {
+                const qlcEnsure = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                if (/^list\s+emails\s+from\s+[wm]$/i.test(qlcEnsure) && Array.isArray(items)) {
+                    const hasSenderTpl = items.some(function(it){
+                        const s = (it && it.cmd ? String(it.cmd).toLowerCase() : '');
+                        return /^list\s+emails\s+from\s+\[sender\]/i.test(s);
+                    });
+                    if (!hasSenderTpl) {
+                        items.unshift({ cmd: 'list emails from [sender]', score: 1001, type: 'en_sender_template_reinsert' });
+                        console.log('[ENSURE] Reinserted sender template for single-letter w/m');
+                    }
+                }
+            } catch(e) {}
+
             // FILTER: While typing a sender only (no second 'from'), hide plain timeframe suggestions
+            // EXCEPTION: Do NOT hide when the token after 'from' looks like a timeframe/duration cue (t/y/l/w/m, numbers, or 'a/an').
             try {
                 const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
                 const isSingleFromWithSender = /^list\s+emails\s+from\s+\S+$/i.test(qlc) && !/\s+from\s+.+\s+from\s+/i.test(qlc);
-                if (isSingleFromWithSender && Array.isArray(items)) {
+                let skipSenderOnlyGuard = false;
+                if (isSingleFromWithSender) {
+                    const mTok = qlc.match(/^list\s+emails\s+from\s+(\S+)$/i);
+                    const tok = mTok ? mTok[1] : '';
+                    // If token clearly starts a timeframe (today/yesterday/this/last) or unit family (w/m/ye) or is numeric or 'a/an', skip this guard
+                    if (tok) {
+                        if (/^(t|to|tod|y|ye|yes|l|la|las|thi|this|w|we|wee|week|m|mo|mon|mont|month|ye|yea|year)$/i.test(tok)) {
+                            skipSenderOnlyGuard = true;
+                        } else if (/^\d+$/.test(tok)) {
+                            skipSenderOnlyGuard = true;
+                        } else if (/^(a|an)$/i.test(tok)) {
+                            skipSenderOnlyGuard = true;
+                        }
+                    }
+                }
+                if (isSingleFromWithSender && !skipSenderOnlyGuard && Array.isArray(items)) {
                     items = items.filter(function(it){
                         const cmd = (it && it.cmd) ? it.cmd : String(it);
                         const lc = cmd.toLowerCase();
