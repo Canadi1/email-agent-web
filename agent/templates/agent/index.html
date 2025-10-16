@@ -6662,6 +6662,12 @@
                 const mSenderFrom = qlc.match(/^list\s+emails\s+from\s+(.+?)\s+from\s+(.*)$/i);
                 if (mSenderFrom && Array.isArray(items)) {
                     let rem = (mSenderFrom[2] || '').trim();
+                    // If remainder looks like a duration cue (number, 'a'/'an', or 'a/an' + unit), SKIP timeframe filtering entirely
+                    const looksLikeDuration = /^(\d+)\s*[a-z]*$/i.test(rem) || /^(a|an)(\s+[a-z]+)?$/i.test(rem);
+                    if (looksLikeDuration) {
+                        // Do not run timeframe narrowing; let the sender+duration filter handle this case
+                        try { console.log('[EN-SENDER-TF-FILTER] skipped due to duration cue:', rem); } catch(e) {}
+                    } else {
                     // Decide allowed timeframe variants based on partial remainder
                     let allowedTf = [
                         'today','yesterday','this week','this month','this year','last week','last month','last year'
@@ -6740,6 +6746,88 @@
                         }
                     }
                     try { console.log('[EN-SENDER-TF-FILTER] narrowed sender+timeframe suggestions for:', qlc, '->', Array.from(allowedTf)); } catch(e) {}
+                    }
+                }
+            } catch(e) {}
+
+            // FILTER: Restrict English sender+duration commands: "list emails from [sender] from [duration] ago"
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                // Capture sender and the remainder after the SECOND 'from'
+                const mSenderDur = qlc.match(/^list\s+emails\s+from\s+(.+?)\s+from\s+(.*)$/i);
+                if (mSenderDur && Array.isArray(items)) {
+                    let rem = (mSenderDur[2] || '').trim();
+                    let qtyToken = null;
+                    let unitPrefix = '';
+                    const mNum = rem.match(/^(\d+)\s*([a-z]*)/i);
+                    const mArt = rem.match(/^(a|an)\s+([a-z]+)/i); // require at least one unit letter for a/an
+                    if (mNum) {
+                        qtyToken = mNum[1];
+                        unitPrefix = (mNum[2] || '').trim();
+                    } else if (mArt) {
+                        qtyToken = mArt[1];
+                        unitPrefix = (mArt[2] || '').trim();
+                    }
+
+                    if (qtyToken !== null) {
+                        let allowedUnits = ['day','days','week','weeks','month','months','year','years'];
+                        if (unitPrefix) {
+                            if (/^d/i.test(unitPrefix)) allowedUnits = ['day','days'];
+                            else if (/^w/i.test(unitPrefix)) allowedUnits = ['week','weeks'];
+                            else if (/^mo?/i.test(unitPrefix)) allowedUnits = ['month','months'];
+                            else if (/^y/i.test(unitPrefix)) allowedUnits = ['year','years'];
+                        }
+                        const unitSet = new Set(allowedUnits);
+
+                        items = items.filter(function(it){
+                            const cmd = (it && it.cmd) ? it.cmd : String(it);
+                            const lc = cmd.toLowerCase();
+                            // Exact pattern for sender+duration (+ optional 'ago')
+                            const m = lc.match(/^list\s+emails\s+from\s+.+\s+from\s+((?:\d+)|a|an)\s+(day|days|week|weeks|month|months|year|years)(?:\s+ago)?$/i);
+                            if (m) {
+                                if (String(m[1]) !== String(qtyToken)) return false;
+                                return unitSet.has(m[2]);
+                            }
+                            // Allow the template placeholder during early typing
+                            if (/^list\s+emails\s+from\s+\[sender\].*\s+from\s+\[duration\]\s+ago$/i.test(lc)) return true;
+                            return false;
+                        });
+
+                        // Prioritize the concrete '... ago' variant when 'ago' or trailing ' a' is present
+                        if (/\s+ago$/i.test(qlc) || /\s+a$/i.test(qlc)) {
+                            const idxAgo = items.findIndex(function(it){
+                                const s = (it && it.cmd) ? String(it.cmd).toLowerCase() : '';
+                                return /^list\s+emails\s+from\s+.+\s+from\s+((?:\d+)|a|an)\s+(day|days|week|weeks|month|months|year|years)\s+ago$/.test(s);
+                            });
+                            if (idxAgo > 0) {
+                                const itAgo = items.splice(idxAgo, 1)[0];
+                                items.unshift(itAgo);
+                            }
+                        }
+                        // SAFEGUARD: if duration is detected but filtering produced no items, keep the generic sender-duration placeholder
+                        if (Array.isArray(items) && items.length === 0) {
+                            items.push({ cmd: 'list emails from [sender] from [duration] ago', score: 1002, type: 'en_sender_duration_placeholder_fallback' });
+                            try { console.log('[EN-DURATION-SENDER-FILTER] fallback placeholder injected'); } catch(e) {}
+                        }
+                        try { console.log('[EN-DURATION-SENDER-FILTER] qty=', qtyToken, 'units=', Array.from(unitSet)); } catch(e) {}
+                    } else if (/^a$/i.test(rem) || /^an$/i.test(rem)) {
+                        // Special case: exactly '... from a' or '... from an' -> show ONLY sender-duration placeholder (filter out unrelated commands)
+                        if (Array.isArray(items)) {
+                            // Keep only the sender-duration placeholder if it already exists
+                            items = items.filter(function(it){
+                                const s = (it && it.cmd) ? String(it.cmd).toLowerCase() : '';
+                                return /^list\s+emails\s+from\s+\[sender\].*\s+from\s+\[duration\]\s+ago$/i.test(s);
+                            });
+                            const hasPlaceholder = items.some(function(it){
+                                const s = (it && it.cmd) ? String(it.cmd).toLowerCase() : '';
+                                return /^list\s+emails\s+from\s+\[sender\].*\s+from\s+\[duration\]\s+ago$/i.test(s);
+                            });
+                            if (!hasPlaceholder) {
+                                items.push({ cmd: 'list emails from [sender] from [duration] ago', score: 1002, type: 'en_sender_duration_placeholder_a' });
+                            }
+                        }
+                        try { console.log('[EN-DURATION-SENDER-FILTER] enforcing sender-duration-only view for "a/an"'); } catch(e) {}
+                    }
                 }
             } catch(e) {}
 
@@ -6798,6 +6886,7 @@
                     try { console.log('[EN-DURATION-PLAIN-FILTER] qty=', numToken, 'units=', Array.from(unitSet)); } catch(e) {}
                 }
             } catch(e) {}
+
 
             // FINAL PRIORITIZATION: Move 'list emails from [sender]' to top when typing 'list e...' through 'list emails from'
             try {
