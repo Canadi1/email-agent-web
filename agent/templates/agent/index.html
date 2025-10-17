@@ -6034,6 +6034,190 @@
             } catch(e) {}
 
 
+            // FILTER: Restrict plain English "older than" commands: "list emails older than [duration]"
+            try {
+                const qlcOlder = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                // EARLY PREFIX GATE: as soon as user types 'list emails o...'(older), keep only the placeholder until a quantity appears
+                const isOlderPrefix = /^list\s+emails\s+o(l(d(e(r)?)?)?)?(?:\s+t(h(a(n)?)?)?)?\s*$/i.test(qlcOlder);
+                if (isOlderPrefix && Array.isArray(items)) {
+                    items = items.filter(function(it){
+                        const s = (it && it.cmd) ? String(it.cmd).toLowerCase() : '';
+                        return /^list\s+emails\s+older\s+than\s+\[duration\]$/i.test(s);
+                    });
+                    const hasPh = items.some(function(it){
+                        const s = (it && it.cmd) ? String(it.cmd).toLowerCase() : '';
+                        return /^list\s+emails\s+older\s+than\s+\[duration\]$/i.test(s);
+                    });
+                    if (!hasPh) {
+                        items.push({ cmd: 'list emails older than [duration]', score: 1002, type: 'en_older_plain_placeholder_prefix' });
+                    }
+                    console.log('[EN-OLDER-PREFIX] placeholder-only for older-than prefix');
+                }
+                // Gate when we have either a number or 'a/an' followed by at least one unit letter
+                let qtyTok = null;
+                let unitPrefix = '';
+                const mOlderNum = qlcOlder.match(/^list\s+emails\s+older\s+than\s+(\d+)\s*([a-z]*)/i);
+                const mOlderArt = qlcOlder.match(/^list\s+emails\s+older\s+than\s+(a|an)\s+([a-z]+)/i);
+                if (mOlderNum) {
+                    qtyTok = mOlderNum[1];
+                    unitPrefix = (mOlderNum[2] || '').trim();
+                } else if (mOlderArt) {
+                    qtyTok = mOlderArt[1];
+                    unitPrefix = (mOlderArt[2] || '').trim();
+                }
+                if (qtyTok !== null && Array.isArray(items)) {
+                    let allowedUnits = ['day','days','week','weeks','month','months','year','years'];
+                    if (unitPrefix) {
+                        if (/^d/i.test(unitPrefix)) allowedUnits = ['day','days'];
+                        else if (/^w/i.test(unitPrefix)) allowedUnits = ['week','weeks'];
+                        else if (/^m/i.test(unitPrefix)) allowedUnits = ['month','months'];
+                        else if (/^y/i.test(unitPrefix)) allowedUnits = ['year','years'];
+                    }
+                    const unitSet = new Set(allowedUnits);
+                    items = items.filter(function(it){
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lc = cmd.toLowerCase();
+                        const m = lc.match(/^list\s+emails\s+older\s+than\s+((?:\d+)|a|an)\s+(day|days|week|weeks|month|months|year|years)$/i);
+                        if (m) {
+                            if (String(m[1]) !== String(qtyTok)) return false;
+                            return unitSet.has(m[2]);
+                        }
+                        if (/^list\s+emails\s+older\s+than\s+\[duration\]$/i.test(lc)) return true;
+                        return false;
+                    });
+                    try { console.log('[EN-OLDER-PLAIN-FILTER]', { qtyTok, units: Array.from(unitSet) }); } catch(e) {}
+                } else if (/^list\s+emails\s+older\s+than\s+(a|an)\s*$/i.test(qlcOlder) && Array.isArray(items)) {
+                    // Exactly 'older than a' or 'older than an' => keep only the placeholder
+                    items = items.filter(function(it){
+                        const s = (it && it.cmd) ? String(it.cmd).toLowerCase() : '';
+                        return /^list\s+emails\s+older\s+than\s+\[duration\]$/i.test(s);
+                    });
+                    const hasPlaceholder = items.some(function(it){
+                        const s = (it && it.cmd) ? String(it.cmd).toLowerCase() : '';
+                        return /^list\s+emails\s+older\s+than\s+\[duration\]$/i.test(s);
+                    });
+                    if (!hasPlaceholder) {
+                        items.push({ cmd: 'list emails older than [duration]', score: 1002, type: 'en_older_plain_placeholder_a' });
+                    }
+                    try { console.log('[EN-OLDER-PLAIN-FILTER] enforcing placeholder for a/an'); } catch(e) {}
+                }
+            } catch(e) {}
+
+            // FILTER: Restrict English sender+older-than commands: "list emails from [sender] older than [duration]"
+            try {
+                const qlcSenderOlder = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const mSender = qlcSenderOlder.match(/^list\s+emails\s+from\s+([^].*?)\s+older\s+than\s*(.*)$/i);
+                if (mSender && Array.isArray(items)) {
+                    const rem = (mSender[2] || '').trim();
+                    let qtyTok = null;
+                    let unitPrefix = '';
+                    const mNum = rem.match(/^(\d+)\s*([a-z]*)/i);
+                    const mArt = rem.match(/^(a|an)\s+([a-z]+)/i);
+                    if (mNum) {
+                        qtyTok = mNum[1];
+                        unitPrefix = (mNum[2] || '').trim();
+                    } else if (mArt) {
+                        qtyTok = mArt[1];
+                        unitPrefix = (mArt[2] || '').trim();
+                    }
+                    if (qtyTok !== null) {
+                        let allowedUnits = ['day','days','week','weeks','month','months','year','years'];
+                        if (unitPrefix) {
+                            if (/^d/i.test(unitPrefix)) allowedUnits = ['day','days'];
+                            else if (/^w/i.test(unitPrefix)) allowedUnits = ['week','weeks'];
+                            else if (/^m/i.test(unitPrefix)) allowedUnits = ['month','months'];
+                            else if (/^y/i.test(unitPrefix)) allowedUnits = ['year','years'];
+                        }
+                        const unitSet = new Set(allowedUnits);
+                        items = items.filter(function(it){
+                            const cmd = (it && it.cmd) ? it.cmd : String(it);
+                            const lc = cmd.toLowerCase();
+                            const m = lc.match(/^list\s+emails\s+from\s+.+\s+older\s+than\s+((?:\d+)|a|an)\s+(day|days|week|weeks|month|months|year|years)$/i);
+                            if (m) {
+                                if (String(m[1]) !== String(qtyTok)) return false;
+                                return unitSet.has(m[2]);
+                            }
+                            if (/^list\s+emails\s+from\s+\[sender\].*\s+older\s+than\s+\[duration\]$/i.test(lc)) return true;
+                            return false;
+                        });
+                        try { console.log('[EN-OLDER-SENDER-FILTER]', { qtyTok, units: Array.from(unitSet) }); } catch(e) {}
+                    } else if (/^(a|an)$/i.test(rem)) {
+                        // Exactly 'older than a' for sender flow => keep only sender older-than placeholder
+                        items = items.filter(function(it){
+                            const s = (it && it.cmd) ? String(it.cmd).toLowerCase() : '';
+                            return /^list\s+emails\s+from\s+\[sender\].*\s+older\s+than\s+\[duration\]$/i.test(s);
+                        });
+                        const hasPh = items.some(function(it){
+                            const s = (it && it.cmd) ? String(it.cmd).toLowerCase() : '';
+                            return /^list\s+emails\s+from\s+\[sender\].*\s+older\s+than\s+\[duration\]$/i.test(s);
+                        });
+                        if (!hasPh) {
+                            items.push({ cmd: 'list emails from [sender] older than [duration]', score: 1002, type: 'en_older_sender_placeholder_a' });
+                        }
+                        try { console.log('[EN-OLDER-SENDER-FILTER] enforcing sender placeholder for a/an'); } catch(e) {}
+                    }
+                }
+            } catch(e) {}
+
+            // FILTER: Category + older-than typing: "list <category> emails older than [duration]" with progressive narrowing
+            try {
+                const qlcCatOlder = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                // Match either 'list <cat> emails older than ...' or 'list verification codes older than ...'
+                const mCatOlder = qlcCatOlder.match(/^list\s+(.+?)\s+emails\s+older\s+than\s*(.*)$/i) || qlcCatOlder.match(/^list\s+(verification\s+codes)\s+older\s+than\s*(.*)$/i);
+                if (mCatOlder && Array.isArray(items)) {
+                    const catPhrase = (mCatOlder[1] || '').trim();
+                    const rem = (mCatOlder[2] || '').trim();
+                    let qtyTok = null;
+                    let unitPrefix = '';
+                    const mNum = rem.match(/^(\d+)\s*([a-z]*)/i);
+                    const mArt = rem.match(/^(a|an)\s+([a-z]+)/i);
+                    if (mNum) {
+                        qtyTok = mNum[1];
+                        unitPrefix = (mNum[2] || '').trim();
+                    } else if (mArt) {
+                        qtyTok = mArt[1];
+                        unitPrefix = (mArt[2] || '').trim();
+                    }
+                    const esc = catPhrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                    const reOlder = new RegExp('^list\\s+' + esc + '\\s+emails\\s+older\\s+than\\s+((?:\\d+)|a|an)\\s+(day|days|week|weeks|month|months|year|years)$','i');
+                    const rePlaceholder = new RegExp('^list\\s+' + esc + '\\s+emails\\s+older\\s+than\\s+\\[duration\\]$','i');
+                    if (qtyTok !== null) {
+                        let allowedUnits = ['day','days','week','weeks','month','months','year','years'];
+                        if (unitPrefix) {
+                            if (/^d/i.test(unitPrefix)) allowedUnits = ['day','days'];
+                            else if (/^w/i.test(unitPrefix)) allowedUnits = ['week','weeks'];
+                            else if (/^m/i.test(unitPrefix)) allowedUnits = ['month','months'];
+                            else if (/^y/i.test(unitPrefix)) allowedUnits = ['year','years'];
+                        }
+                        const unitSet = new Set(allowedUnits);
+                        items = items.filter(function(it){
+                            const s = (it && it.cmd) ? String(it.cmd).toLowerCase() : '';
+                            const m = s.match(reOlder);
+                            if (m) {
+                                if (String(m[1]) !== String(qtyTok)) return false;
+                                return unitSet.has(m[2]);
+                            }
+                            return rePlaceholder.test(s);
+                        });
+                        try { console.log('[EN-CAT-OLDER-FILTER]', catPhrase, { qtyTok, units: Array.from(unitSet) }); } catch(e) {}
+                    } else if (/^(a|an)$/i.test(rem)) {
+                        // Keep only the category older-than placeholder
+                        items = items.filter(function(it){
+                            const s = (it && it.cmd) ? String(it.cmd).toLowerCase() : '';
+                            return rePlaceholder.test(s);
+                        });
+                        const hasPh = items.some(function(it){
+                            const s = (it && it.cmd) ? String(it.cmd).toLowerCase() : '';
+                            return rePlaceholder.test(s);
+                        });
+                        if (!hasPh) {
+                            items.push({ cmd: 'list ' + catPhrase + ' emails older than [duration]', score: 1002, type: 'en_cat_older_placeholder_a' });
+                        }
+                        try { console.log('[EN-CAT-OLDER-FILTER] enforcing placeholder for a/an in category', catPhrase); } catch(e) {}
+                    }
+                }
+            } catch(e) {}
+
             // FINAL TIMEFRAME FILTER: Apply specific timeframe restrictions at the very end
             try {
                 const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
