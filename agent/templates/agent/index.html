@@ -7222,6 +7222,17 @@
                         items.splice(1, 0, dur);
                         console.log('[FINAL PRIORITIZATION] Placed duration as second during partial "list e"');
                     }
+                    
+                    // Also place "older than [duration]" as third suggestion
+                    const idxOlder = items.findIndex(function(it){
+                        const s = (it && it.cmd ? String(it.cmd).toLowerCase() : '');
+                        return /^list\s+emails\s+older\s+than\s+\[duration\]$/.test(s);
+                    });
+                    if (idxOlder > -1 && idxOlder !== 2) {
+                        const older = items.splice(idxOlder, 1)[0];
+                        items.splice(2, 0, older);
+                        console.log('[FINAL PRIORITIZATION] Placed older-than as third during partial "list e"');
+                    }
                 }
             } catch (e) {}
 
