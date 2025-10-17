@@ -6234,6 +6234,42 @@
                 }
             } catch(e) {}
 
+            // FILTER: Category + timeframe typing: "list <category> emails from [timeframe]" with progressive narrowing
+            try {
+                const qlcCatTime = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                // Match 'list <cat> emails from ...' or 'list verification codes from ...'
+                const mCatTime = qlcCatTime.match(/^list\s+(.+?)\s+emails\s+from\s+(.*)$/i) || qlcCatTime.match(/^list\s+(verification\s+codes)\s+from\s+(.*)$/i);
+                if (mCatTime && Array.isArray(items)) {
+                    const catPhrase = (mCatTime[1] || '').trim();
+                    const rem = (mCatTime[2] || '').trim();
+                    const esc = catPhrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                    const hasEmailsWord = !!qlcCatTime.match(/\s+emails\s+from/i);
+                    
+                    // Today filtering (start at 'to' to avoid clashing with 'this')
+                    if (/^to(day)?$|^tod(a(y)?)?$/i.test(rem)) {
+                        const reToday = hasEmailsWord 
+                            ? new RegExp('^list\\s+' + esc + '\\s+emails\\s+from\\s+today$','i')
+                            : /^list\s+verification\s+codes\s+from\s+today$/i;
+                        items = items.filter(function(it){
+                            const s = (it && it.cmd) ? String(it.cmd).toLowerCase() : '';
+                            return reToday.test(s);
+                        });
+                        try { console.log('[EN-CAT-TIMEFRAME-FILTER] today for', catPhrase); } catch(e) {}
+                    }
+                    // Yesterday filtering
+                    else if (/^y(e(s(t(e(r(d(a(y)?)?)?)?)?)?)?)?$/i.test(rem)) {
+                        const reYesterday = hasEmailsWord
+                            ? new RegExp('^list\\s+' + esc + '\\s+emails\\s+from\\s+yesterday$','i')
+                            : /^list\s+verification\s+codes\s+from\s+yesterday$/i;
+                        items = items.filter(function(it){
+                            const s = (it && it.cmd) ? String(it.cmd).toLowerCase() : '';
+                            return reYesterday.test(s);
+                        });
+                        try { console.log('[EN-CAT-TIMEFRAME-FILTER] yesterday for', catPhrase); } catch(e) {}
+                    }
+                }
+            } catch(e) {}
+
             // FINAL TIMEFRAME FILTER: Apply specific timeframe restrictions at the very end
             try {
                 const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
