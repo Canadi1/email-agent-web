@@ -6244,7 +6244,31 @@
                     const rem = (mCatTime[2] || '').trim();
                     const esc = catPhrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
                     const hasEmailsWord = !!qlcCatTime.match(/\s+emails\s+from/i);
+
+                    // Drop base list commands once 'from' is present (keep only 'from ...' variants)
+                    items = items.filter(function(it){
+                        const s = (it && it.cmd) ? String(it.cmd).toLowerCase() : '';
+                        // Remove any plain 'list ... emails' (no 'from') when typing category 'from'
+                        if (/^list\s+.+\s+emails$/i.test(s)) return false;
+                        // Remove plain 'list verification codes'
+                        if (/^list\s+verification\s+codes$/i.test(s)) return false;
+                        return true;
+                    });
                     
+                    // Early gate for single 't': allow only today and this-*
+                    if (/^t$/i.test(rem)) {
+                        const reToday = hasEmailsWord 
+                            ? new RegExp('^list\\s+' + esc + '\\s+emails\\s+from\\s+today$','i')
+                            : /^list\s+verification\s+codes\s+from\s+today$/i;
+                        const reThisAny = hasEmailsWord
+                            ? new RegExp('^list\\s+' + esc + '\\s+emails\\s+from\\s+this\\s+(week|month|year)$','i')
+                            : /^list\s+verification\s+codes\s+from\s+this\s+(week|month|year)$/i;
+                        items = items.filter(function(it){
+                            const s = (it && it.cmd) ? String(it.cmd).toLowerCase() : '';
+                            return reToday.test(s) || reThisAny.test(s);
+                        });
+                        try { console.log('[EN-CAT-TIMEFRAME-FILTER] single-t gate for', catPhrase); } catch(e) {}
+                    }
                     // Today filtering (start at 'to' to avoid clashing with 'this')
                     if (/^to(day)?$|^tod(a(y)?)?$/i.test(rem)) {
                         const reToday = hasEmailsWord 
@@ -6266,6 +6290,82 @@
                             return reYesterday.test(s);
                         });
                         try { console.log('[EN-CAT-TIMEFRAME-FILTER] yesterday for', catPhrase); } catch(e) {}
+                    }
+                    // This ... (start at 'th') -> allow only this week/month/year
+                    else if (/^th(i(s)?)?(?:\s+.*)?$/i.test(rem)) {
+                        // Narrow by unit when provided
+                        const isAny = /^th(i(s)?)?$/i.test(rem);
+                        const isWeek = /^this\s+w(e(e(k)?)?)?$/i.test(rem);
+                        const isMonth = /^this\s+m(o(n(t(h)?)?)?)?$/i.test(rem);
+                        const isYear = /^this\s+y(e(a(r)?)?)?$/i.test(rem);
+
+                        const reThisAnyEmails = new RegExp('^list\\s+' + esc + '\\s+emails\\s+from\\s+this\\s+(week|month|year)$','i');
+                        const reThisWeekEmails = new RegExp('^list\\s+' + esc + '\\s+emails\\s+from\\s+this\\s+week$','i');
+                        const reThisMonthEmails = new RegExp('^list\\s+' + esc + '\\s+emails\\s+from\\s+this\\s+month$','i');
+                        const reThisYearEmails = new RegExp('^list\\s+' + esc + '\\s+emails\\s+from\\s+this\\s+year$','i');
+
+                        const reThisAnyCodes = /^list\s+verification\s+codes\s+from\s+this\s+(week|month|year)$/i;
+                        const reThisWeekCodes = /^list\s+verification\s+codes\s+from\s+this\s+week$/i;
+                        const reThisMonthCodes = /^list\s+verification\s+codes\s+from\s+this\s+month$/i;
+                        const reThisYearCodes = /^list\s+verification\s+codes\s+from\s+this\s+year$/i;
+
+                        items = items.filter(function(it){
+                            const s = (it && it.cmd) ? String(it.cmd).toLowerCase() : '';
+                            if (hasEmailsWord) {
+                                if (isAny) return reThisAnyEmails.test(s);
+                                if (isWeek) return reThisWeekEmails.test(s);
+                                if (isMonth) return reThisMonthEmails.test(s);
+                                if (isYear) return reThisYearEmails.test(s);
+                                // If user typed 'this ' with ambiguous unit, keep any of the three
+                                if (/^this\s+$/i.test(rem)) return reThisAnyEmails.test(s);
+                            } else {
+                                if (isAny) return reThisAnyCodes.test(s);
+                                if (isWeek) return reThisWeekCodes.test(s);
+                                if (isMonth) return reThisMonthCodes.test(s);
+                                if (isYear) return reThisYearCodes.test(s);
+                                if (/^this\s+$/i.test(rem)) return reThisAnyCodes.test(s);
+                            }
+                            return false;
+                        });
+                        try { console.log('[EN-CAT-TIMEFRAME-FILTER] this-* for', catPhrase, { rem }); } catch(e) {}
+                    }
+                    // Last ...
+                    else if (/^l(a(s(t)?)?)?(?:\s+.*)?$/i.test(rem)) {
+                        // Early single 'l' gate: only last week/month/year
+                        const isSingleL = /^l$/i.test(rem);
+                        const isAny = /^la(s(t)?)?$/i.test(rem) || isSingleL;
+                        const isWeek = /^last\s+w(e(e(k)?)?)?$/i.test(rem);
+                        const isMonth = /^last\s+m(o(n(t(h)?)?)?)?$/i.test(rem);
+                        const isYear = /^last\s+y(e(a(r)?)?)?$/i.test(rem);
+
+                        const reLastAnyEmails = new RegExp('^list\\s+' + esc + '\\s+emails\\s+from\\s+last\\s+(week|month|year)$','i');
+                        const reLastWeekEmails = new RegExp('^list\\s+' + esc + '\\s+emails\\s+from\\s+last\\s+week$','i');
+                        const reLastMonthEmails = new RegExp('^list\\s+' + esc + '\\s+emails\\s+from\\s+last\\s+month$','i');
+                        const reLastYearEmails = new RegExp('^list\\s+' + esc + '\\s+emails\\s+from\\s+last\\s+year$','i');
+
+                        const reLastAnyCodes = /^list\s+verification\s+codes\s+from\s+last\s+(week|month|year)$/i;
+                        const reLastWeekCodes = /^list\s+verification\s+codes\s+from\s+last\s+week$/i;
+                        const reLastMonthCodes = /^list\s+verification\s+codes\s+from\s+last\s+month$/i;
+                        const reLastYearCodes = /^list\s+verification\s+codes\s+from\s+last\s+year$/i;
+
+                        items = items.filter(function(it){
+                            const s = (it && it.cmd) ? String(it.cmd).toLowerCase() : '';
+                            if (hasEmailsWord) {
+                                if (isAny) return reLastAnyEmails.test(s);
+                                if (isWeek) return reLastWeekEmails.test(s);
+                                if (isMonth) return reLastMonthEmails.test(s);
+                                if (isYear) return reLastYearEmails.test(s);
+                                if (/^last\s+$/i.test(rem)) return reLastAnyEmails.test(s);
+                            } else {
+                                if (isAny) return reLastAnyCodes.test(s);
+                                if (isWeek) return reLastWeekCodes.test(s);
+                                if (isMonth) return reLastMonthCodes.test(s);
+                                if (isYear) return reLastYearCodes.test(s);
+                                if (/^last\s+$/i.test(rem)) return reLastAnyCodes.test(s);
+                            }
+                            return false;
+                        });
+                        try { console.log('[EN-CAT-TIMEFRAME-FILTER] last-* for', catPhrase, { rem }); } catch(e) {}
                     }
                 }
             } catch(e) {}
@@ -7660,6 +7760,84 @@
             // FINAL ENFORCEMENT (PROGRESSIVE): If input clearly targets a specific timeframe via partial unit, keep only that
             try {
                 const qlp = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                // EARLY GATE: plain English 't' -> allow today or this-*
+                if (/^list\s+emails\s+from\s+t$/i.test(qlp) && Array.isArray(items)) {
+                    const reToday = /^list\s+emails\s+from\s+today$/i;
+                    const reThisAny = /^list\s+emails\s+from\s+this\s+(week|month|year)$/i;
+                    items = items.filter(function(it){
+                        const s = (it && it.cmd ? String(it.cmd).toLowerCase() : '');
+                        return reToday.test(s) || reThisAny.test(s);
+                    });
+                    if (!items.length) {
+                        items.push({ cmd: 'list emails from today', score: 1002, type: 'en_tf_today_inject_t' });
+                        items.push({ cmd: 'list emails from this week', score: 1002, type: 'en_tf_this_inject_t' });
+                        items.push({ cmd: 'list emails from this month', score: 1001, type: 'en_tf_this_inject_t' });
+                        items.push({ cmd: 'list emails from this year', score: 1000, type: 'en_tf_this_inject_t' });
+                    }
+                    try { console.log('[EN-TF-T-GATE] kept today/this-* for input:', qlp); } catch(e) {}
+                }
+                // EARLY GATE: today progressive (to/tod/toda/today)
+                if (/^list\s+emails\s+from\s+to(day)?$|^list\s+emails\s+from\s+tod(a(y)?)?$/i.test(qlp) && Array.isArray(items)) {
+                    const reTodayOnly = /^list\s+emails\s+from\s+today$/i;
+                    items = items.filter(function(it){
+                        const s = (it && it.cmd ? String(it.cmd).toLowerCase() : '');
+                        return reTodayOnly.test(s);
+                    });
+                    if (!items.length) items.push({ cmd: 'list emails from today', score: 1002, type: 'en_tf_today_inject' });
+                    try { console.log('[EN-TF-TODAY-GATE] kept today for input:', qlp); } catch(e) {}
+                }
+                // EARLY GATE: yesterday progressive (y/ye/yes/.../yesterday)
+                if (/^list\s+emails\s+from\s+y(e(s(t(e(r(d(a(y)?)?)?)?)?)?)?)?$/i.test(qlp) && Array.isArray(items)) {
+                    const reYesterdayOnly = /^list\s+emails\s+from\s+yesterday$/i;
+                    items = items.filter(function(it){
+                        const s = (it && it.cmd ? String(it.cmd).toLowerCase() : '');
+                        return reYesterdayOnly.test(s);
+                    });
+                    if (!items.length) items.push({ cmd: 'list emails from yesterday', score: 1002, type: 'en_tf_yesterday_inject' });
+                    try { console.log('[EN-TF-YESTERDAY-GATE] kept yesterday for input:', qlp); } catch(e) {}
+                }
+                // EARLY GATE: this- progressive (th/this [w|m|y])
+                if (/^list\s+emails\s+from\s+th(i(s)?)?(?:\s+.*)?$/i.test(qlp) && Array.isArray(items)) {
+                    const isAny = /^list\s+emails\s+from\s+th(i(s)?)?$/i.test(qlp) || /^list\s+emails\s+from\s+this\s+$/i.test(qlp);
+                    const isWeek = /^list\s+emails\s+from\s+this\s+w/i.test(qlp);
+                    const isMonth = /^list\s+emails\s+from\s+this\s+m/i.test(qlp);
+                    const isYear = /^list\s+emails\s+from\s+this\s+y/i.test(qlp);
+                    const reThisAny = /^list\s+emails\s+from\s+this\s+(week|month|year)$/i;
+                    const reThisWeek = /^list\s+emails\s+from\s+this\s+week$/i;
+                    const reThisMonth = /^list\s+emails\s+from\s+this\s+month$/i;
+                    const reThisYear = /^list\s+emails\s+from\s+this\s+year$/i;
+                    items = items.filter(function(it){
+                        const s = (it && it.cmd ? String(it.cmd).toLowerCase() : '');
+                        if (isAny) return reThisAny.test(s);
+                        if (isWeek) return reThisWeek.test(s);
+                        if (isMonth) return reThisMonth.test(s);
+                        if (isYear) return reThisYear.test(s);
+                        return reThisAny.test(s);
+                    });
+                    if (!items.length) {
+                        items.push({ cmd: 'list emails from this week', score: 1002, type: 'en_tf_this_inject' });
+                        items.push({ cmd: 'list emails from this month', score: 1001, type: 'en_tf_this_inject' });
+                        items.push({ cmd: 'list emails from this year', score: 1000, type: 'en_tf_this_inject' });
+                    }
+                    try { console.log('[EN-TF-THIS-GATE] kept this-* for input:', qlp); } catch(e) {}
+                }
+                // EARLY GATE: For plain English flow, when typing exactly 'list emails from last' (or partial 'la/las/last'),
+                // keep only the three 'last week/month/year' suggestions so the list does not disappear
+                if (/^list\s+emails\s+from\s+la(?:s(?:t)?)?\s*$/i.test(qlp) && Array.isArray(items)) {
+                    const reWeek = /^list\s+emails\s+from\s+last\s+week$/i;
+                    const reMonth = /^list\s+emails\s+from\s+last\s+month$/i;
+                    const reYear = /^list\s+emails\s+from\s+last\s+year$/i;
+                    items = items.filter(function(it){
+                        const s = (it && it.cmd ? String(it.cmd).toLowerCase() : '');
+                        return reWeek.test(s) || reMonth.test(s) || reYear.test(s);
+                    });
+                    if (!items.length) {
+                        items.push({ cmd: 'list emails from last week', score: 1002, type: 'en_tf_last_inject' });
+                        items.push({ cmd: 'list emails from last month', score: 1001, type: 'en_tf_last_inject' });
+                        items.push({ cmd: 'list emails from last year', score: 1000, type: 'en_tf_last_inject' });
+                    }
+                    try { console.log('[EN-TF-LAST-GATE] restricted to last week/month/year for input:', qlp); } catch(e) {}
+                }
                 let exactTarget = '';
                 if (/^list\s+emails\s+from\s+this\s+w/i.test(qlp)) {
                     exactTarget = 'list emails from this week';
@@ -7725,7 +7903,7 @@
                     const tok = mTok ? mTok[1] : '';
                     // If token clearly starts a timeframe (today/yesterday/this/last) or unit family (w/m/ye) or is numeric or 'a/an', skip this guard
                     if (tok) {
-                        if (/^(t|to|tod|y|ye|yes|l|la|las|thi|this|w|we|wee|week|m|mo|mon|mont|month|ye|yea|year)$/i.test(tok)) {
+                        if (/^(t|to|tod|toda|today|th|thi|this|y|ye|yes|yest|yeste|yester|yesterd|yesterda|yesterday|l|la|las|last|w|we|wee|week|m|mo|mon|mont|month|ye|yea|year)$/i.test(tok)) {
                             skipSenderOnlyGuard = true;
                         } else if (/^\d+$/.test(tok)) {
                             skipSenderOnlyGuard = true;
