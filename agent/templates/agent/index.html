@@ -7381,6 +7381,38 @@
                 }
             } catch (e) {}
 
+            // EARLY PREFIX GATE: Category older-than placeholder when typing 'o/ol/old/older[/ than]'
+            try {
+                const qlcCatOlderPrefix = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                // Matches 'list <category> emails o...' and 'list verification codes o...'
+                const mCatEmailsPrefix = qlcCatOlderPrefix.match(/^list\s+(.+?)\s+emails\s+o(l(d(e(r)?)?)?)?(?:\s+t(h(a(n)?)?)?)?\s*$/i);
+                const mVerCodesPrefix = qlcCatOlderPrefix.match(/^list\s+(verification\s+codes)\s+o(l(d(e(r)?)?)?)?(?:\s+t(h(a(n)?)?)?)?\s*$/i);
+                const mPrefix = mCatEmailsPrefix || mVerCodesPrefix;
+                if (mPrefix && Array.isArray(items)) {
+                    const catPhrase = (mPrefix[1] || '').trim();
+                    const hasEmailsWord = !!mCatEmailsPrefix;
+                    const esc = catPhrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                    const reOlderPlaceholder = hasEmailsWord
+                        ? new RegExp('^list\\s+' + esc + '\\s+emails\\s+older\\s+than\\s+\\[duration\\]$','i')
+                        : /^list\s+verification\s+codes\s+older\s+than\s+\[duration\]$/i;
+                    items = items.filter(function(it){
+                        const s = (it && it.cmd) ? String(it.cmd).toLowerCase() : '';
+                        return reOlderPlaceholder.test(s);
+                    });
+                    const hasPh = items.some(function(it){
+                        const s = (it && it.cmd) ? String(it.cmd).toLowerCase() : '';
+                        return reOlderPlaceholder.test(s);
+                    });
+                    if (!hasPh) {
+                        const cmd = hasEmailsWord
+                            ? ('list ' + catPhrase + ' emails older than [duration]')
+                            : 'list verification codes older than [duration]';
+                        items.push({ cmd: cmd, score: 1002, type: 'en_cat_older_placeholder_prefix' });
+                    }
+                    console.log('[EN-CAT-OLDER-PREFIX] placeholder-only for category older-than prefix:', catPhrase);
+                }
+            } catch (e) {}
+
             // PRIORITIZATION: While typing 'codes' in 'list verification codes', ensure duration 2nd and older-than 3rd
             try {
                 const qlcVerCodes = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
