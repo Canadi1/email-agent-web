@@ -8183,7 +8183,7 @@
 
                 // Force placeholder-aware bolding for sender, label and duration/timeframe tokens
                 const hasSenderToken = /\[(sender(?:\/domain)?|domain(?:\.com)?|שולח(?:\/דומיין)?|דומיין)\]/i.test(cmd);
-                const hasLabelToken = /\[label\]/i.test(cmd);
+                const hasLabelToken = /\[(label|תווית)\]/i.test(cmd);
                 const hasDurationToken = /\[(duration|time\s*frame|time\s*period|משך(?:\s*זמן)?|טווח(?:\s*זמן)?|פרק(?:\s*זמן)?)\]/i.test(cmd);
                 if (hasLabelToken) {
                     // Label bolding policy:
@@ -8191,7 +8191,7 @@
                     // - Otherwise, use normal prefix bolding
                     try {
                         const ql = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
-                        const typedAfterLabel = /^show\s+label\s+.+/i.test(ql);
+                        const typedAfterLabel = /^show\s+label\s+.+/i.test(ql) || /^הצג\s+תווית\s+.+/.test(ql);
                         if (typedAfterLabel) {
                             div.innerHTML = `<strong>${escapeHtml(cmd)}</strong>`;
                         } else {
