@@ -1276,7 +1276,96 @@
                                         {% endfor %}
                                     </ul>
                                 </div>
-                            {% endif %}
+            {% elif result.total_inbox is not None %}
+                <div class="stat-card">
+                    <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+                        <h3 class="stats-title" style="margin:0;">{% trans 'Email Statistics' %}</h3>
+                        <button type="button" id="full-stats-btn" class="cancel-btn" style="background:#4a90e2;color:#fff;">{% trans 'Full analysis' %}</button>
+                    </div>
+                    <p><strong>{% trans 'Total Inbox Emails:' %}</strong> {{ result.total_inbox }}</p>
+                    <p><strong>{% trans 'Sample Analyzed:' %}</strong> {{ result.sample_analyzed }} {% if result.analysis_scope == 'full' %}({% trans 'full' %}){% else %}({% trans 'sample' %}){% endif %}
+                    <details style="margin-top:6px;">
+                        <summary style="cursor:pointer;color:#555;">{% trans 'What is "sample analyzed"?' %}</summary>
+                        <div style="margin-top:6px;color:#666;">{% trans 'Number of recent emails examined to compute stats quickly. Choose "Full analysis" to analyze all emails.' %}</div>
+                    </details></p>
+                    
+                    {% if result.analysis_limited %}
+                    <div style="background:#fff3cd; border:1px solid #ffeaa7; border-radius:4px; padding:12px; margin:12px 0; color:#856404;">
+                        <strong>📊 {% trans 'Analysis Note:' %}</strong> {{ result.analysis_limit_note }}
+                    </div>
+                    {% endif %}
+                    <div class="stats-grid">
+                        <div>
+                            <h4>{% trans 'Top Senders' %}</h4>
+                            <ul class="stat-list">
+                                {% for sender, count in result.top_senders %}
+                                <li dir="auto">{{ sender }}: {{ count }}</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                        <div>
+                            <h4>{% trans 'Top Domains' %}</h4>
+                            <ul class="stat-list">
+                                {% for domain, count in result.top_domains %}
+                                <li>{{ domain }}: {{ count }}</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="stats-grid" style="margin-top:12px;">
+                        <div>
+                            <h4>{% trans 'Top Subject Terms' %}</h4>
+                            <ul class="stat-list">
+                                {% for term, count in result.top_subject_terms %}
+                                <li>{{ term }}: {{ count }}</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                        <div>
+                            <h4>{% trans 'Emails by Hour' %}</h4>
+                            <details>
+                                <summary style="cursor:pointer;color:#555;">{% trans 'What is this?' %}</summary>
+                                <div style="margin-top:6px;color:#666;">{% trans 'Count of analyzed emails by the hour of day they were received (local time).' %}</div>
+                            </details>
+                            <ul class="bar-list">
+                                {% for hb in result.hour_bars %}
+                                <li class="bar-item">
+                                    <div class="bar-label">{{ hb.hour }}:00</div>
+                                    <div class="bar-track">
+                                        <div class="bar-fill" data-width="{{ hb.pct }}"></div>
+                                    </div>
+                                    <div style="width:36px; text-align:right; font-size:0.9em; color:#666;">{{ hb.count }}</div>
+                                </li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    </div>
+                    <h4 style="margin-top:12px;">{% trans 'Label Distribution' %}</h4>
+                    <details>
+                        <summary style="cursor:pointer;color:#555;">{% trans 'What does this show?' %}</summary>
+                        <div style="margin-top:6px;color:#666;">{% trans 'Friendly label names (e.g., Inbox, Promotions) and how many analyzed emails had each label.' %}</div>
+                    </details>
+                    <ul class="bar-list">
+                        {% for lb in result.label_bars %}
+                        <li class="bar-item">
+                            <div class="bar-label bar-label-wide">
+                                <span class="pill" title="{{ lb.name }}"><span class="pill-swatch" data-color="{{ lb.color }}"></span>{{ lb.name }}</span>
+                            </div>
+                            <div class="bar-track">
+                                <div class="bar-fill" data-color="{{ lb.color }}" data-width="{{ lb.pct }}"></div>
+                            </div>
+                            <div style="width:36px; text-align:right; font-size:0.9em; color:#666;">{{ lb.count }}</div>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    <h4>{% trans 'Insights' %}</h4>
+                    <ul>
+                        {% for insight in result.insights %}
+                        <li dir="auto">{{ insight }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            {% endif %}
                         {% elif result.status == 'error' %}
                             <div class="error-message">
                                 <p>{{ result.message }}</p>
