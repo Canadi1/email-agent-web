@@ -7057,11 +7057,36 @@
                     });
                     // Inject missing canonical suggestions during partial typing
                     const have = new Set(items.map(function(it){ return (it && it.cmd) ? it.cmd.toLowerCase() : String(it).toLowerCase(); }));
-                    if (!have.has('show email stats')) {
-                        items.unshift({ cmd: 'show email stats', score: 1002, type: 'en_show_inject_stats' });
+                    const wantsLabelFirst = /^show\s+l/i.test(qlc);
+                    const needStats = !have.has('show email stats');
+                    const needLabel = !Array.from(have).some(function(s){ return /^show\s+label\b/.test(s); });
+                    if (wantsLabelFirst) {
+                        if (needLabel) items.unshift({ cmd: 'show label "[label]"', score: 1002, type: 'en_show_inject_label' });
+                        if (needStats) items.splice(1, 0, { cmd: 'show email stats', score: 1001, type: 'en_show_inject_stats' });
+                    } else {
+                        if (needStats) items.unshift({ cmd: 'show email stats', score: 1002, type: 'en_show_inject_stats' });
+                        if (needLabel) items.push({ cmd: 'show label "[label]"', score: 1001, type: 'en_show_inject_label' });
                     }
-                    if (!Array.from(have).some(function(s){ return /^show\s+label\b/.test(s); })) {
-                        items.push({ cmd: 'show label "[label]"', score: 1001, type: 'en_show_inject_label' });
+                    // Reorder if both exist and typing starts with 'show l' => label first
+                    if (wantsLabelFirst && Array.isArray(items) && items.length) {
+                        const idxLabel = items.findIndex(function(it){ const s=(it&&it.cmd?it.cmd:'').toLowerCase(); return /^show\s+label\b/.test(s); });
+                        if (idxLabel > 0) { const it = items.splice(idxLabel,1)[0]; items.unshift(it); }
+                        const idxStats = items.findIndex(function(it){ const s=(it&&it.cmd?it.cmd:'').toLowerCase(); return /^show\s+email\s+stats$/.test(s); });
+                        if (idxStats > 1) { const it = items.splice(idxStats,1)[0]; items.splice(1,0,it); }
+                    }
+                    // While typing 'show l...' to 'show label', keep ONLY label suggestion (progressive)
+                    if (/^show\s+l/i.test(qlc)) {
+                        items = items.filter(function(it){
+                            const s = (it && it.cmd ? it.cmd : String(it)).toLowerCase();
+                            return /^show\s+label\b/.test(s);
+                        });
+                    }
+                    // While typing 'show e...' to 'show email stats', keep ONLY stats suggestion (progressive)
+                    if (/^show\s+e/i.test(qlc)) {
+                        items = items.filter(function(it){
+                            const s = (it && it.cmd ? it.cmd : String(it)).toLowerCase();
+                            return /^show\s+email\s+stats$/.test(s);
+                        });
                     }
                     try { console.log('[EN-SHOW-FILTER] restricted to show label and show email stats for:', qlc); } catch(e) {}
                 }
@@ -8035,6 +8060,22 @@
                 }
             } catch(e) {}
 
+            // FINAL ENFORCEMENT (SHOW): After all other filters, ensure exclusive suggestions while typing
+            try {
+                const qShow = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                if (/^show\s+l(\b|\s|$)/i.test(qShow) && Array.isArray(items)) {
+                    items = items.filter(function(it){
+                        const s = (it && it.cmd ? it.cmd : String(it)).toLowerCase();
+                        return /^show\s+label\b/.test(s);
+                    });
+                } else if (/^show\s+e(\b|\s|$)/i.test(qShow) && Array.isArray(items)) {
+                    items = items.filter(function(it){
+                        const s = (it && it.cmd ? it.cmd : String(it)).toLowerCase();
+                        return /^show\s+email\s+stats$/.test(s);
+                    });
+                }
+            } catch(e) {}
+
             items.forEach((item, idx) => {
                 const { cmd, type } = item;
                 const div = document.createElement('div');
@@ -8056,10 +8097,33 @@
                     }
                 } catch(e) {}
 
-                // Force placeholder-aware bolding for sender and duration/timeframe tokens
+                // Force placeholder-aware bolding for sender, label and duration/timeframe tokens
                 const hasSenderToken = /\[(sender(?:\/domain)?|domain(?:\.com)?|שולח(?:\/דומיין)?|דומיין)\]/i.test(cmd);
+                const hasLabelToken = /\[label\]/i.test(cmd);
                 const hasDurationToken = /\[(duration|time\s*frame|time\s*period|משך(?:\s*זמן)?|טווח(?:\s*זמן)?|פרק(?:\s*זמן)?)\]/i.test(cmd);
-                if (hasSenderToken) {
+                if (hasLabelToken) {
+                    // Label bolding policy:
+                    // - If user typed anything after 'show label', bold the entire suggestion
+                    // - Otherwise, use normal prefix bolding
+                    try {
+                        const ql = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                        const typedAfterLabel = /^show\s+label\s+.+/i.test(ql);
+                        if (typedAfterLabel) {
+                            div.innerHTML = `<strong>${escapeHtml(cmd)}</strong>`;
+                        } else {
+                            const qlp = (input || '').toLowerCase();
+                            const lc2 = cmd.toLowerCase();
+                            if (qlp.length > 0 && lc2.startsWith(qlp)) {
+                                const bold = escapeHtml(cmd.substring(0, qlp.length));
+                                const rest = escapeHtml(cmd.substring(qlp.length));
+                                div.innerHTML = `<strong>${bold}</strong>${rest}`;
+                            }
+                        }
+                    } catch (_) { /* fallback handled below */ }
+                }
+                // Do not override prior specialized rendering (e.g., label materialization)
+                if (!div.innerHTML) {
+                    if (hasSenderToken) {
                     const isHeb = document.documentElement.lang === 'he';
                     if (isHeb) {
                         // Mirror English behavior for Hebrew unconditionally for sender templates
@@ -8379,6 +8443,7 @@
                     } else {
                         div.textContent = cmd;
                     }
+                }
                 }
                 div.addEventListener('mouseenter', () => {
                     setActive(idx);

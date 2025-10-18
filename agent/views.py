@@ -1,6 +1,7 @@
 from django.shortcuts import render
 from django.http import JsonResponse, StreamingHttpResponse
 from django.utils.translation import gettext as _
+from datetime import datetime
 from django.utils import translation
 from .email_ai_agent import GmailAIAgent
 import os
@@ -644,6 +645,28 @@ def index(request):
                     per_page = request.session.get('per_page', 50)
                     res = agent_instance.get_emails_by_label(label, max_results=per_page, page_token=token)
                     emails = res.get('emails', []) if isinstance(res, dict) else []
+                    # Ensure a human-readable 'date' is present for label listings
+                    try:
+                        for em in emails:
+                            if isinstance(em, dict) and not em.get('date'):
+                                # Prefer existing string-like fields
+                                date_str = em.get('date_str') or em.get('received_at') or em.get('received') or em.get('datetime')
+                                if not date_str:
+                                    # Try epoch millis under common keys
+                                    epoch_ms = em.get('internalDate') or em.get('internal_date') or em.get('timestamp') or em.get('ts')
+                                    try:
+                                        if epoch_ms is not None:
+                                            ms = int(str(epoch_ms))
+                                            if ms > 0:
+                                                date_str = datetime.fromtimestamp(ms/1000.0).strftime('%Y-%m-%d %H:%M')
+                                    except Exception:
+                                        pass
+                                if not date_str:
+                                    # As last resort, keep subject-only without date
+                                    date_str = ''
+                                em['date'] = date_str
+                    except Exception:
+                        pass
                     next_token = res.get('next_page_token') if isinstance(res, dict) else None
                     return JsonResponse({"data": emails, "next_page_token": next_token})
                 if mode == 'date_range':
