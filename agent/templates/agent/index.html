@@ -7013,9 +7013,11 @@
             try {
                 const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
                 const isListLabels = /^list\s+labels$/.test(qlc);
-                const isPartialListLabels = /^list\s+lab/i.test(qlc);
+                // Activate early at 'list l' (not only 'list lab')
+                const isPartialListLabels = /^list\s+l/i.test(qlc);
                 const isShowLabel = /^show\s+label\b/.test(qlc);
-                const isPartialShowLabel = /^show\s+lab/i.test(qlc);
+                // Activate early at 'show l' (not only 'show lab')
+                const isPartialShowLabel = /^show\s+l/i.test(qlc);
                 const isShowLabels = /^show\s+labels\b/.test(qlc);
                 if ((isListLabels || isPartialListLabels || isShowLabel || isPartialShowLabel || isShowLabels) && Array.isArray(items)) {
                     // Keep only 'list labels' and 'show label "[label]"' suggestions
@@ -7035,6 +7037,33 @@
                         items.push({ cmd: 'show label "[label]"', score: 1001, type: 'en_labels_inject_show' });
                     }
                     try { console.log('[EN-LABELS-FILTER] restricted to label-related suggestions for:', qlc); } catch(e) {}
+                }
+            } catch(e) {}
+
+            // FILTER: English "show" commands - restrict to show label and show email stats
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isShowLabel = /^show\s+label\b/.test(qlc);
+                const isShowStats = /^show\s+email\s+stats$/.test(qlc);
+                const isPartialShow = /^sho/i.test(qlc);
+                if ((isShowLabel || isShowStats || isPartialShow) && Array.isArray(items)) {
+                    // Keep only 'show label "[label]"' and 'show email stats' suggestions
+                    items = items.filter(function(it){
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lc = String(cmd || '').toLowerCase();
+                        if (/^show\s+label\b/.test(lc)) return true;
+                        if (/^show\s+email\s+stats$/.test(lc)) return true;
+                        return false;
+                    });
+                    // Inject missing canonical suggestions during partial typing
+                    const have = new Set(items.map(function(it){ return (it && it.cmd) ? it.cmd.toLowerCase() : String(it).toLowerCase(); }));
+                    if (!have.has('show email stats')) {
+                        items.unshift({ cmd: 'show email stats', score: 1002, type: 'en_show_inject_stats' });
+                    }
+                    if (!Array.from(have).some(function(s){ return /^show\s+label\b/.test(s); })) {
+                        items.push({ cmd: 'show label "[label]"', score: 1001, type: 'en_show_inject_label' });
+                    }
+                    try { console.log('[EN-SHOW-FILTER] restricted to show label and show email stats for:', qlc); } catch(e) {}
                 }
             } catch(e) {}
 

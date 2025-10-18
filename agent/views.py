@@ -877,6 +877,23 @@ def index(request):
                 result['list_context_json'] = ''
 
         if result is not None:
+            # Ensure a snackbar-friendly message for label commands if backend omitted it
+            try:
+                if isinstance(result, dict):
+                    msg = result.get('message') or ''
+                    # Default status if missing so snackbar can render
+                    if not result.get('status'):
+                        result['status'] = 'success'
+                    # 'list labels' view
+                    if (result.get('type') == 'label_list') and not msg:
+                        result['message'] = _("Your Labels")
+                    # 'show label "<label>"' view (email list by label)
+                    lc = result.get('list_context') or {}
+                    if lc.get('mode') == 'label' and not result.get('message'):
+                        label_name = lc.get('label') or ''
+                        result['message'] = (_("Showing label:") + f" {label_name}") if label_name else _("Showing label emails")
+            except Exception:
+                pass
             context['result'] = result
         if last_command:
             context['last_command'] = last_command
