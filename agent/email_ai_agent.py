@@ -2398,6 +2398,18 @@ class GmailAIAgent:
             if re.search(r'\b(list|show|view|get)\b', command_lower) and (
                 'archived' in command_lower or 'not in inbox' in command_lower or 'hidden' in command_lower
             ):
+                # Prefer archived-from-sender if a sender follows 'from'
+                if ' from ' in command_lower:
+                    sender_any_match = re.search(r'from\s+([a-zA-Z0-9._\-+@\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff ]+?)\s*$', command_lower)
+                    if sender_any_match:
+                        sender_keyword = sender_any_match.group(1).strip()
+                        if sender_keyword not in ['emails','all','the','my','any','this','that','these','those']:
+                            return {
+                                "action": "list",
+                                "target_type": "archived_sender",
+                                "target": sender_keyword,
+                                "confirmation_required": False
+                            }
                 return {
                     "action": "list",
                     "target_type": "archived",
