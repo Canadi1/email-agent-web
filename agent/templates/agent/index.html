@@ -7009,6 +7009,35 @@
                 }
             } catch(e) {}
 
+            // FILTER: English labels commands - restrict to label-related suggestions
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isListLabels = /^list\s+labels$/.test(qlc);
+                const isPartialListLabels = /^list\s+lab/i.test(qlc);
+                const isShowLabel = /^show\s+label\b/.test(qlc);
+                const isPartialShowLabel = /^show\s+lab/i.test(qlc);
+                const isShowLabels = /^show\s+labels\b/.test(qlc);
+                if ((isListLabels || isPartialListLabels || isShowLabel || isPartialShowLabel || isShowLabels) && Array.isArray(items)) {
+                    // Keep only 'list labels' and 'show label "[label]"' suggestions
+                    items = items.filter(function(it){
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lc = String(cmd || '').toLowerCase();
+                        if (/^list\s+labels$/.test(lc)) return true;
+                        if (/^show\s+label\b/.test(lc)) return true;
+                        return false;
+                    });
+                    // Inject missing canonical suggestions during partial typing
+                    const have = new Set(items.map(function(it){ return (it && it.cmd) ? it.cmd.toLowerCase() : String(it).toLowerCase(); }));
+                    if ((isListLabels || isPartialListLabels) && !have.has('list labels')) {
+                        items.unshift({ cmd: 'list labels', score: 1002, type: 'en_labels_inject_list' });
+                    }
+                    if ((isShowLabel || isPartialShowLabel || isShowLabels) && !Array.from(have).some(function(s){ return /^show\s+label\b/.test(s); })) {
+                        items.push({ cmd: 'show label "[label]"', score: 1001, type: 'en_labels_inject_show' });
+                    }
+                    try { console.log('[EN-LABELS-FILTER] restricted to label-related suggestions for:', qlc); } catch(e) {}
+                }
+            } catch(e) {}
+
             // FILTER: Restrict English timeframe commands (ONLY "from [timeframe]") to matching suggestions
             try {
                 const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
@@ -7664,6 +7693,33 @@
                         items.unshift(it);
                         console.log('[FINAL PRIORITIZATION] Verification(from partial): duration placeholder first');
                     }
+                }
+            } catch (e) {}
+
+            // FINAL SUPPRESSION (EN CATEGORY): During 'list <category> emails f/fr/fro/from...' or 'list verification codes f/...',
+            // remove the plain base category command so it never reappears after dedupe/reordering
+            try {
+                const qlcCatBase = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const mEmailsFromAny = qlcCatBase.match(/^list\s+(.+?)\s+emails\s+from(?:\s+\S.*)?$/i);
+                const isCodesFromAny = /^list\s+verification\s+codes\s+from(?:\s+\S.*)?$/i.test(qlcCatBase);
+                // Partial 'from' typing: f / fr / fro (no token after)
+                const mEmailsFromPartial = qlcCatBase.match(/^list\s+(.+?)\s+emails\s+f(r(o(m)?)?)?$/i);
+                const isCodesFromPartial = /^list\s+verification\s+codes\s+f(r(o(m)?)?)?$/i.test(qlcCatBase);
+                if ((mEmailsFromAny || isCodesFromAny || mEmailsFromPartial || isCodesFromPartial) && Array.isArray(items) && items.length) {
+                    items = items.filter(function(it){
+                        const s = (it && it.cmd ? String(it.cmd).toLowerCase() : '');
+                        if (mEmailsFromAny || mEmailsFromPartial) {
+                            const cat = ((mEmailsFromAny ? mEmailsFromAny[1] : (mEmailsFromPartial ? mEmailsFromPartial[1] : '')) || '').trim();
+                            const esc = cat.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                            const reBase = new RegExp('^list\\s+' + esc + '\\s+emails$', 'i');
+                            if (reBase.test(s)) return false;
+                        } 
+                        if (isCodesFromAny || isCodesFromPartial) {
+                            if (/^list\s+verification\s+codes$/i.test(s)) return false;
+                        }
+                        return true;
+                    });
+                    try { console.log('[EN-CAT-SUPPRESS-BASE] suppressed base category during partial/full from-flow'); } catch(e) {}
                 }
             } catch (e) {}
 
