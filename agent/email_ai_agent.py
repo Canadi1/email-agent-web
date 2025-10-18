@@ -2690,6 +2690,13 @@ class GmailAIAgent:
 
         # List filters
         if best_match_action == "list":
+            # Archived + sender (English): "list archived emails from <sender>"
+            if ("archived" in command_lower or "not in inbox" in command_lower or "hidden" in command_lower) and " from " in command_lower:
+                sender_any_match = re.search(r'from\s+([a-zA-Z0-9._\-+@\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff ]+?)\s*$', command_lower)
+                if sender_any_match:
+                    sender_keyword = sender_any_match.group(1).strip()
+                    if sender_keyword not in ['emails','all','the','my','any','this','that','these','those']:
+                        return {"action": "list", "target_type": "archived_sender", "target": sender_keyword, "confirmation_required": False}
             # Hebrew sender+timeframe parsing FIRST (before standalone timeframe)
             # Require the intent phrase 'רשום מיילים' before sender to avoid falling back to global date ranges
             hebrew_sender_time_match = re.search(r'רש(?:ו)?ם\s+מיילים\s+מ-?([a-zA-Z0-9\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff ]+?)\s+(מהיום|מאתמול|מהשבוע|מהחודש|מהשנה|מהשבוע\s+שעבר|מהחודש\s+שעבר|מהשנה\s+שעברה)', command_lower)
@@ -3172,6 +3179,19 @@ class GmailAIAgent:
                     return {"status": "success", "data": emails, "type": "email_list", "message": msg, "next_page_token": res.get("next_page_token"), "list_context": {"mode": "all_mail"}}
                 elif target_type == "labels" or parsed.get("target") == "labels":
                     labels = self.list_labels()
+                elif target_type == "archived_sender":
+                    res = self.list_archived_emails_by_sender(target, older_than_days=older_than_days, date_range=parsed.get("date_range"))
+                    emails = res.get("emails", []) if isinstance(res, dict) else []
+                    next_token = res.get("next_page_token") if isinstance(res, dict) else None
+                    if not emails:
+                        return {"status": "success", "message": _("No archived emails found from %(sender)s.") % {"sender": target}}
+                    lc = {"mode": "archived_sender", "target": target}
+                    if older_than_days is not None:
+                        lc["older_than_days"] = older_than_days
+                    if parsed.get("date_range") is not None:
+                        lc["date_range"] = parsed.get("date_range")
+                    msg = _("Found %(count)d archived emails from %(who)s.") % {"count": len(emails), "who": target}
+                    return {"status": "success", "data": emails, "type": "email_list", "message": msg, "next_page_token": next_token, "list_context": lc}
                     if not labels: return {"status": "success", "message": _("You have no custom labels.")}
                     return {"status": "success", "data": labels, "type": "label_list"}
                 elif target_type == "category":
@@ -4278,6 +4298,63 @@ class GmailAIAgent:
             return {"emails": archived_emails, "next_page_token": next_token}
         
         return {"emails": [], "next_page_token": next_token}
+
+    def list_archived_emails_by_sender(self, sender_keyword, max_results=None, page_token=None, older_than_days=None, date_range=None):
+        """List archived emails (not in Inbox) from a specific sender with pagination."""
+        try:
+            if max_results is None:
+                max_results = self.default_max_results
+            sender_term = f'"{sender_keyword}"' if ' ' in str(sender_keyword).strip() else sender_keyword
+            # Archived = not in INBOX; also exclude common non-inbox/system buckets
+            q = f"from:{sender_term} -in:inbox -in:spam -in:trash -in:chats -in:sent -in:drafts"
+            if older_than_days:
+                try:
+                    cutoff_date = (datetime.utcnow() - timedelta(days=int(older_than_days))).strftime('%Y/%m/%d')
+                    q = f"{q} before:{cutoff_date}"
+                except Exception:
+                    pass
+            if date_range:
+                try:
+                    start_dt, end_dt = self._compute_precise_date_range_window(str(date_range).strip().lower())
+                    if start_dt and end_dt:
+                        q = f"{q} after:{start_dt.strftime('%Y/%m/%d')} before:{end_dt.strftime('%Y/%m/%d')}"
+                except Exception:
+                    pass
+            kwargs = {"userId": 'me', "q": q, "maxResults": max_results, "fields": 'messages/id,nextPageToken'}
+            if page_token:
+                kwargs["pageToken"] = page_token
+            results = self.api_list_messages(**kwargs)
+            messages = results.get('messages', []) or []
+            next_token = results.get('nextPageToken')
+            emails = []
+            total_emails = len(messages)
+            if hasattr(self, 'command_id') and self.command_id:
+                from agent.views import update_email_progress
+                update_email_progress(self.command_id, 0, total_emails)
+            for i, message in enumerate(messages):
+                msg = self.api_get_message(
+                    message['id'],
+                    format='metadata', metadataHeaders=['From','Subject'],
+                    fields='payload/headers,id,internalDate'
+                )
+                headers = msg.get('payload', {}).get('headers', [])
+                subject = next((h.get('value') for h in headers if h.get('name') == 'Subject'), 'No Subject')
+                sender = next((h.get('value') for h in headers if h.get('name') == 'From'), 'Unknown Sender')
+                # Add date information
+                date_str = ''
+                try:
+                    ts_ms = int(msg.get('internalDate', '0') or '0')
+                    if ts_ms:
+                        date_str = datetime.fromtimestamp(ts_ms/1000).strftime('%Y-%m-%d %H:%M')
+                except Exception:
+                    date_str = ''
+                emails.append({'id': message['id'], 'subject': subject, 'sender': sender, 'date': date_str, 'snippet': ''})
+                # Progress
+                if hasattr(self, 'command_id') and self.command_id:
+                    update_email_progress(self.command_id, i + 1, total_emails)
+            return {"emails": emails, "next_page_token": next_token}
+        except Exception:
+            return {"emails": [], "next_page_token": None}
 
     def list_all_emails(self, max_results=None, page_token=None):
         """List all emails in All Mail (excludes Spam/Trash/Chats)."""

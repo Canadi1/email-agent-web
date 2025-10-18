@@ -669,6 +669,13 @@ def index(request):
                         pass
                     next_token = res.get('next_page_token') if isinstance(res, dict) else None
                     return JsonResponse({"data": emails, "next_page_token": next_token})
+                if mode == 'archived_sender':
+                    target = list_context.get('target')
+                    per_page = request.session.get('per_page', 50)
+                    res = agent_instance.list_archived_emails_by_sender(target, max_results=per_page, page_token=token)
+                    emails = res.get('emails', []) if isinstance(res, dict) else []
+                    next_token = res.get('next_page_token') if isinstance(res, dict) else None
+                    return JsonResponse({"data": emails, "next_page_token": next_token})
                 if mode == 'date_range':
                     target = list_context.get('target')
                     per_page = request.session.get('per_page', 50)
@@ -1003,6 +1010,7 @@ def index(request):
         _("list emails older than [duration]"),
         _("delete all emails older than [duration]"),
         _("list archived emails"),
+        _("list archived emails from [sender]"),
         _("list all mail"),
         _("list emails from [sender] older than [duration]"),
         _("list emails from [sender] from today"),
@@ -1103,6 +1111,7 @@ def index(request):
                 "רשום מיילים ישנים מ[משך]",
                 "מחק כל המיילים ישנים מ[משך]",
                 "רשום מיילים מארכיון",
+                "רשום מיילים מארכיון מ[שולח]",
                 "רשום כל הדואר",
                 "רשום מיילים מ[שולח] מהיום",
                 "רשום מיילים מ[שולח] מאתמול",
