@@ -6379,9 +6379,10 @@
                 // Activate early at 'רשום ת'
                 const isPartialListLabelsHe = /^רש(?:ו)?ם\s+ת/i.test(qlc);
                 const isShowLabelHe = /^הצג\s+תווית\b/.test(qlc);
+                const isShowLabelsHe = /^הצג\s+תוויות\b/.test(qlc);
                 // Activate early at 'הצג ת'
                 const isPartialShowLabelHe = /^הצג\s+ת/i.test(qlc);
-                if (isHeb && (isListLabelsHe || isPartialListLabelsHe || isShowLabelHe || isPartialShowLabelHe) && Array.isArray(items)) {
+                if (isHeb && (isListLabelsHe || isPartialListLabelsHe || isShowLabelHe || isPartialShowLabelHe || isShowLabelsHe) && Array.isArray(items)) {
                     // Keep only 'רשום תוויות' and 'הצג תווית "[תווית]"'
                     items = items.filter(function(it){
                         const cmd = (it && it.cmd) ? it.cmd : String(it);
@@ -6395,8 +6396,12 @@
                     if ((isListLabelsHe || isPartialListLabelsHe) && !have.has('רשום תוויות')) {
                         items.unshift({ cmd: 'רשום תוויות', score: 1002, type: 'he_labels_inject_list' });
                     }
-                    if ((isShowLabelHe || isPartialShowLabelHe) && !Array.from(have).some(function(s){ return /^הצג\s+תווית\b/.test(s); })) {
+                    if ((isShowLabelHe || isPartialShowLabelHe || isShowLabelsHe) && !Array.from(have).some(function(s){ return /^הצג\s+תווית\b/.test(s); })) {
                         items.push({ cmd: 'הצג תווית "[תווית]"', score: 1001, type: 'he_labels_inject_show' });
+                    }
+                    // If user typed 'הצג תוויות', also inject the correct 'רשום תוויות' to guide them
+                    if (isShowLabelsHe && !have.has('רשום תוויות')) {
+                        items.unshift({ cmd: 'רשום תוויות', score: 1003, type: 'he_labels_inject_on_show_plural' });
                     }
                     try { console.log('[HE-LABELS-FILTER] restricted to Hebrew label suggestions for:', qlc); } catch(e) {}
                 }
@@ -6406,10 +6411,10 @@
             try {
                 const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
                 const isHeb = (document.documentElement.getAttribute('lang') || '').toLowerCase().startsWith('he');
-                const isShowAnyHe = /^הצ/.test(qlc);
-                const isShowStatsHe = /^הצג\s+סטטיסטיק/.test(qlc) || /^סטטיסטיק/.test(qlc);
+                const isShowAnyHe = /^הצ/.test(qlc) || /^סטטיסטיק/.test(qlc);
+                const isShowStatsHe = /^הצג\s+סטטיסטיק/.test(qlc) || /^סטטיסטיק/.test(qlc) || /^הצג\s+ס/i.test(qlc);
                 const isShowLHe = /^הצג\s+ת/i.test(qlc);
-                const isShowSHe = /^הצג\s+ס/i.test(qlc) || /^סטטיסטיק/.test(qlc);
+                const isShowSHe = isShowStatsHe;
                 if (isHeb && isShowAnyHe && Array.isArray(items)) {
                     if (isShowLHe && !isShowSHe) {
                         items = items.filter(function(it){
@@ -6417,6 +6422,14 @@
                             const lc = String(cmd || '').toLowerCase();
                             return /^הצג\s+תווית\b/.test(lc);
                         });
+                        // Ensure at least one label suggestion exists; also guide from 'הצג תוויות'
+                        const have = new Set(items.map(function(it){ return (it && it.cmd) ? it.cmd.toLowerCase() : String(it).toLowerCase(); }));
+                        if (!Array.from(have).some(function(s){ return /^הצג\s+תווית\b/.test(s); })) {
+                            items.unshift({ cmd: 'הצג תווית "[תווית]"', score: 1002, type: 'he_show_label_inject_strict' });
+                        }
+                        if (/^הצג\s+תוויות\b/.test(qlc) && !have.has('רשום תוויות')) {
+                            items.push({ cmd: 'רשום תוויות', score: 1001, type: 'he_show_label_suggest_list' });
+                        }
                     } else if (isShowSHe && !isShowLHe) {
                         items = items.filter(function(it){
                             const cmd = (it && it.cmd) ? it.cmd : String(it);
