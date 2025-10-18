@@ -6371,6 +6371,76 @@
                 }
             } catch(e) {}
 
+            // FILTER: Hebrew labels commands - restrict to label-related suggestions and start early at 'רשום ת'
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isHeb = (document.documentElement.getAttribute('lang') || '').toLowerCase().startsWith('he');
+                const isListLabelsHe = /^רש(?:ו)?ם\s+תוויות$/.test(qlc);
+                // Activate early at 'רשום ת'
+                const isPartialListLabelsHe = /^רש(?:ו)?ם\s+ת/i.test(qlc);
+                const isShowLabelHe = /^הצג\s+תווית\b/.test(qlc);
+                // Activate early at 'הצג ת'
+                const isPartialShowLabelHe = /^הצג\s+ת/i.test(qlc);
+                if (isHeb && (isListLabelsHe || isPartialListLabelsHe || isShowLabelHe || isPartialShowLabelHe) && Array.isArray(items)) {
+                    // Keep only 'רשום תוויות' and 'הצג תווית "[תווית]"'
+                    items = items.filter(function(it){
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lc = String(cmd || '').toLowerCase();
+                        if (/^רש(?:ו)?ם\s+תוויות$/.test(lc)) return true;
+                        if (/^הצג\s+תווית\b/.test(lc)) return true;
+                        return false;
+                    });
+                    // Inject missing suggestions when partially typed
+                    const have = new Set(items.map(function(it){ return (it && it.cmd) ? it.cmd.toLowerCase() : String(it).toLowerCase(); }));
+                    if ((isListLabelsHe || isPartialListLabelsHe) && !have.has('רשום תוויות')) {
+                        items.unshift({ cmd: 'רשום תוויות', score: 1002, type: 'he_labels_inject_list' });
+                    }
+                    if ((isShowLabelHe || isPartialShowLabelHe) && !Array.from(have).some(function(s){ return /^הצג\s+תווית\b/.test(s); })) {
+                        items.push({ cmd: 'הצג תווית "[תווית]"', score: 1001, type: 'he_labels_inject_show' });
+                    }
+                    try { console.log('[HE-LABELS-FILTER] restricted to Hebrew label suggestions for:', qlc); } catch(e) {}
+                }
+            } catch(e) {}
+
+            // FILTER: Hebrew "show" commands - progressive exclusivity between stats and label
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isHeb = (document.documentElement.getAttribute('lang') || '').toLowerCase().startsWith('he');
+                const isShowAnyHe = /^הצ/.test(qlc);
+                const isShowStatsHe = /^הצג\s+סטטיסטיק/.test(qlc) || /^סטטיסטיק/.test(qlc);
+                const isShowLHe = /^הצג\s+ת/i.test(qlc);
+                const isShowSHe = /^הצג\s+ס/i.test(qlc) || /^סטטיסטיק/.test(qlc);
+                if (isHeb && isShowAnyHe && Array.isArray(items)) {
+                    if (isShowLHe && !isShowSHe) {
+                        items = items.filter(function(it){
+                            const cmd = (it && it.cmd) ? it.cmd : String(it);
+                            const lc = String(cmd || '').toLowerCase();
+                            return /^הצג\s+תווית\b/.test(lc);
+                        });
+                    } else if (isShowSHe && !isShowLHe) {
+                        items = items.filter(function(it){
+                            const cmd = (it && it.cmd) ? it.cmd : String(it);
+                            const lc = String(cmd || '').toLowerCase();
+                            return /^הצג\s+סטטיסטיק/.test(lc) || /^סטטיסטיק/.test(lc);
+                        });
+                    } else {
+                        items = items.filter(function(it){
+                            const cmd = (it && it.cmd) ? it.cmd : String(it);
+                            const lc = String(cmd || '').toLowerCase();
+                            return /^הצג\s+תווית\b/.test(lc) || /^הצג\s+סטטיסטיק/.test(lc) || /^סטטיסטיק/.test(lc);
+                        });
+                        const have = new Set(items.map(function(it){ return (it && it.cmd) ? it.cmd.toLowerCase() : String(it).toLowerCase(); }));
+                        if (!Array.from(have).some(function(s){ return /^הצג\s+סטטיסטיק/.test(s) || /^סטטיסטיק/.test(s); })) {
+                            items.unshift({ cmd: 'הצג סטטיסטיקות דואל', score: 1002, type: 'he_show_inject_stats' });
+                        }
+                        if (!Array.from(have).some(function(s){ return /^הצג\s+תווית\b/.test(s); })) {
+                            items.push({ cmd: 'הצג תווית "[תווית]"', score: 1001, type: 'he_show_inject_label' });
+                        }
+                    }
+                    try { console.log('[HE-SHOW-FILTER] restricted to Hebrew show commands for:', qlc); } catch(e) {}
+                }
+            } catch(e) {}
+
             // FINAL TIMEFRAME FILTER: Apply specific timeframe restrictions at the very end
             try {
                 const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
