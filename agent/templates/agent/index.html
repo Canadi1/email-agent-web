@@ -1250,8 +1250,9 @@
                                     <li class="email-item">
                                         <div class="email-sender" dir="auto">{{ email.sender }}</div>
                                         <div class="email-subject" dir="auto">{{ email.subject }}</div>
-                                        {% if email.date %}
-                                        <div class="email-date">{{ email.date }}</div>
+                                        {% firstof email.date email.date_str email.received_at email.received email.datetime email.internal_date email.internalDate "" as dt %}
+                                        {% if dt %}
+                                        <div class="email-date">{{ dt }}</div>
                                         {% endif %}
                                     </li>
                                 {% endfor %}

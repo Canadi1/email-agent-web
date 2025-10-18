@@ -4853,15 +4853,28 @@ class GmailAIAgent:
                 return {"emails": [], "next_page_token": None}
             email_list = []
             for message in messages:
-                msg = self.service.users().messages().get(
-                    userId='me', id=message['id']).execute()
-                headers = msg['payload']['headers']
-                subject = next((h['value'] for h in headers if h['name'] == 'Subject'), 'No Subject')
-                sender = next((h['value'] for h in headers if h['name'] == 'From'), 'Unknown Sender')
+                # Fetch minimal metadata including internalDate for date rendering
+                msg = self.api_get_message(
+                    message['id'],
+                    format='metadata', metadataHeaders=['From','Subject'],
+                    fields='payload/headers,id,internalDate,snippet'
+                )
+                headers = msg.get('payload', {}).get('headers', [])
+                subject = next((h.get('value') for h in headers if h.get('name') == 'Subject'), 'No Subject')
+                sender = next((h.get('value') for h in headers if h.get('name') == 'From'), 'Unknown Sender')
+                # Convert Gmail internalDate (ms) to human-readable string
+                date_str = ''
+                try:
+                    ts_ms = int(msg.get('internalDate', '0') or '0')
+                    if ts_ms:
+                        date_str = datetime.fromtimestamp(ts_ms/1000).strftime('%Y-%m-%d %H:%M')
+                except Exception:
+                    date_str = ''
                 email_list.append({
                     'id': message['id'],
                     'subject': subject,
                     'sender': sender,
+                    'date': date_str,
                     'snippet': msg.get('snippet', '')
                 })
             return {"emails": email_list, "next_page_token": next_token}

@@ -912,9 +912,35 @@ def index(request):
                         result['message'] = _("Your Labels")
                     # 'show label "<label>"' view (email list by label)
                     lc = result.get('list_context') or {}
-                    if lc.get('mode') == 'label' and not result.get('message'):
-                        label_name = lc.get('label') or ''
-                        result['message'] = (_("Showing label:") + f" {label_name}") if label_name else _("Showing label emails")
+                    if lc.get('mode') == 'label':
+                        # Ensure dates exist on initial load as well
+                        try:
+                            data_list = result.get('data') or []
+                            for em in data_list:
+                                if isinstance(em, dict) and not em.get('date'):
+                                    date_str = em.get('date_str') or em.get('received_at') or em.get('received') or em.get('datetime')
+                                    if not date_str:
+                                        epoch_ms = em.get('internalDate') or em.get('internal_date') or em.get('timestamp') or em.get('ts')
+                                        try:
+                                            if epoch_ms is not None:
+                                                ms = int(str(epoch_ms))
+                                                if ms > 0:
+                                                    date_str = datetime.fromtimestamp(ms/1000.0).strftime('%Y-%m-%d %H:%M')
+                                        except Exception:
+                                            pass
+                                    if date_str is None:
+                                        date_str = ''
+                                    em['date'] = date_str
+                        except Exception:
+                            pass
+                        if not result.get('message'):
+                            label_name = lc.get('label') or ''
+                            count = len(result.get('data') or [])
+                            if label_name:
+                                # Example: "Showing 25 emails from label: Gaming"
+                                result['message'] = f"{_('Showing')} {count} {(_('emails') if _('emails') != 'emails' else 'emails')} {_('from label:')} {label_name}"
+                            else:
+                                result['message'] = f"{_('Showing')} {count} {(_('emails') if _('emails') != 'emails' else 'emails')}"
             except Exception:
                 pass
             context['result'] = result
