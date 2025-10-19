@@ -2158,6 +2158,7 @@
                     'archive emails from last week',
                     'archive emails from last month',
                     'archive emails from last year',
+                    'archive emails from [duration] ago',
                     'archive emails from [sender] older than [duration]',
                     '• label emails from [sender] as "[label]"',
                     'list labels',
@@ -2191,7 +2192,8 @@
                     'archive emails from this year',
                     'archive emails from last week',
                     'archive emails from last month',
-                    'archive emails from last year'
+                    'archive emails from last year',
+                    'archive emails from [duration] ago'
                 ];
                 archiveCommands.forEach(cmd => {
                     if (!commands.some(c => String(c).toLowerCase() === cmd)) {
@@ -3923,6 +3925,7 @@
                         ] : isArchiveEmailsPrefix ? [
                             'archive emails from [sender]',
                             'archive emails older than [duration]',
+                            'archive emails from [duration] ago',
                             'archive emails from today',
                             'archive emails from yesterday',
                             'archive emails from this week',
@@ -3934,6 +3937,7 @@
                         ] : [
                             'archive emails from [sender]',
                             'archive emails older than [duration]',
+                            'archive emails from [duration] ago',
                             'archive shipping emails',
                             'archive verification codes', 
                             'archive account security emails',

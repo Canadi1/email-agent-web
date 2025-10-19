@@ -2976,6 +2976,13 @@ class GmailAIAgent:
                     return {"action": "archive", "target_type": "sender_from_time", "target": sender_keyword, "time_period": time_period, "confirmation_required": True}
 
             # Archive emails from [time period] (no sender) e.g.,
+            # "archive emails from [duration] ago" pattern (e.g., "archive emails from 2 weeks ago")
+            duration_ago_match = re.search(r'(^|\b)archive(?:\s+emails?)?\s+from\s+(\d+\s+(?:day|days|week|weeks|month|months|year|years)\s+ago|a\s+(?:day|week|month|year)\s+ago)(\b|$)', command_lower)
+            if duration_ago_match:
+                duration_ago = duration_ago_match.group(2)
+                print(f"DEBUG: duration_ago_match for archive found duration_ago='{duration_ago}'")
+                return {"action": "archive", "target_type": "duration_ago", "duration_ago": duration_ago, "confirmation_required": True}
+            
             # "archive emails from today|yesterday|this week|last month" or "archive from today"
             plain_time_match = re.search(r'(^|\b)archive(?:\s+emails?)?\s+from\s+(today|yesterday|this\s+week|this\s+month|this\s+year|last\s+week|last\s+month|last\s+year)(\b|$)', command_lower)
             if plain_time_match:
@@ -3051,6 +3058,10 @@ class GmailAIAgent:
             elif action == "archive_by_time":
                 return self.archive_emails_from_time(
                     confirmation_data["time_period"], confirm=True
+                )
+            elif action == "archive_by_duration_ago":
+                return self.archive_emails_from_duration_ago(
+                    confirmation_data["duration_ago"], confirm=True
                 )
             elif action == "archive_by_domain":
                 return self.archive_emails_by_domain(
@@ -3463,6 +3474,8 @@ class GmailAIAgent:
                     return self.archive_emails_by_sender_from_time(target, parsed.get("time_period"), confirm=not confirm_required)
                 elif target_type == "time":
                     return self.archive_emails_from_time(parsed.get("time_period"), confirm=not confirm_required)
+                elif target_type == "duration_ago":
+                    return self.archive_emails_from_duration_ago(parsed.get("duration_ago"), confirm=not confirm_required)
                 elif target_type == "domain":
                     return self.archive_emails_by_domain(target, confirm=not confirm_required, older_than_days=older_than_days)
                 elif target_type == "custom_category":
@@ -4132,6 +4145,102 @@ class GmailAIAgent:
 
             action_id = self._record_undo('archive', message_ids)
             return {"status": "success", "message": _("Archived %(count)d emails from %(time)s.") % {"count": total_processed, "time": time_period}, "archived_count": total_processed, "undo_action_id": action_id}
+
+        except HttpError as error:
+            return {"status": "error", "message": f"Error archiving emails: {error}"}
+    
+    def archive_emails_from_duration_ago(self, duration_ago, confirm=False):
+        """Archive emails from a specific duration ago (e.g., '2 weeks ago', 'a month ago').
+        This archives any messages within the duration window, regardless of sender.
+        """
+        try:
+            if not duration_ago:
+                return {"error": "Missing required parameter: duration_ago"}
+
+            print(f"DEBUG: archive_emails_from_duration_ago called with duration_ago='{duration_ago}'")
+            start_dt, end_dt = self._compute_precise_date_range_window(str(duration_ago).strip().lower())
+            if not start_dt or not end_dt:
+                return {"error": f"Invalid or unsupported duration: {duration_ago}"}
+
+            # Build Gmail query for the window (exclusive end bound)
+            start_date = start_dt.strftime('%Y/%m/%d')
+            end_date = end_dt.strftime('%Y/%m/%d')
+            query = f"after:{start_date} before:{end_date}"
+
+            max_retries = 5
+            retry_delay = 1
+            all_messages = []
+            next_page_token = None
+            for attempt in range(max_retries):
+                try:
+                    while True:
+                        kwargs = {"userId": 'me', "q": query, "maxResults": 500}
+                        if next_page_token:
+                            kwargs["pageToken"] = next_page_token
+                        results = self.service.users().messages().list(**kwargs).execute()
+                        msgs = results.get('messages', []) or []
+                        all_messages.extend(msgs)
+                        next_page_token = results.get('nextPageToken')
+                        if not next_page_token:
+                            break
+                    break
+                except Exception as e:
+                    err_text = str(e)
+                    if (("SSL" in err_text or "WRONG_VERSION_NUMBER" in err_text or "DECRYPTION_FAILED_OR_BAD_RECORD_MAC" in err_text or
+                         "timeout" in err_text.lower() or "connection" in err_text.lower() or
+                         "WinError 10060" in err_text or "failed to respond" in err_text.lower()) and attempt < max_retries - 1):
+                        print(f"Connection error in archive_emails_from_duration_ago (attempt {attempt + 1}): {err_text}")
+                        time.sleep(retry_delay)
+                        retry_delay *= 2
+                        continue
+                    else:
+                        raise
+
+            if not all_messages:
+                return {"status": "success", "message": _("No emails found from %(duration)s to archive.") % {"duration": duration_ago}, "archived_count": 0}
+
+            if not confirm:
+                return {
+                    "status": "confirmation_required",
+                    "message": _("Found %(count)d emails from %(duration)s. Do you want to archive them?") % {"count": len(all_messages), "duration": duration_ago},
+                    "count": len(all_messages),
+                    "total_estimated": len(all_messages),
+                    "preview": self._build_preview(all_messages),
+                    "action_details": {"action": "archive_by_duration_ago", "duration_ago": duration_ago}
+                }
+
+            # Archive the messages
+            from agent.views import update_email_progress
+            total_emails = len(all_messages)
+            total_processed = 0
+            message_ids = [m['id'] for m in all_messages]
+
+            # Batch process in chunks of 100
+            for i in range(0, len(all_messages), 100):
+                batch = all_messages[i:i+100]
+                batch_ids = [m['id'] for m in batch]
+                try:
+                    self.service.users().messages().batchModify(
+                        userId='me', body={'ids': batch_ids, 'removeLabelIds': ['INBOX']}
+                    ).execute()
+                    total_processed += len(batch)
+                    if hasattr(self, 'command_id') and self.command_id:
+                        update_email_progress(self.command_id, total_processed, total_emails)
+                except Exception as e:
+                    # Fallback to single modify on transient network/SSL issues
+                    err_text = str(e)
+                    print(f"WARN: batchModify failed, falling back to single modify: {err_text}")
+                    for m in batch:
+                        try:
+                            self.service.users().messages().modify(userId='me', id=m['id'], body={'removeLabelIds': ['INBOX']}).execute()
+                            total_processed += 1
+                            if hasattr(self, 'command_id') and self.command_id:
+                                update_email_progress(self.command_id, total_processed, total_emails)
+                        except Exception:
+                            continue
+
+            action_id = self._record_undo('archive', message_ids)
+            return {"status": "success", "message": _("Archived %(count)d emails from %(duration)s.") % {"count": total_processed, "duration": duration_ago}, "archived_count": total_processed, "undo_action_id": action_id}
 
         except HttpError as error:
             return {"status": "error", "message": f"Error archiving emails: {error}"}
