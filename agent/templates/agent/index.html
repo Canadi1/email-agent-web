@@ -7365,7 +7365,7 @@
                 
                 // Check for "רשום כל הדואר" pattern (including partial typing)
                 const isListAllMail = /^רש(?:ו)?ם\s+כל\s+הדואר$/.test(qlc);
-                const isPartialListAllMail = /^רש(?:ו)?ם\s+כל/.test(qlc);
+                const isPartialListAllMail = /^רש(?:ו)?ם\s+כל/.test(qlc) || /^רש(?:ו)?ם\s+כ$/.test(qlc);
                 
                 if ((isListAllMail || isPartialListAllMail) && Array.isArray(items)) {
                     items = items.filter(function(it) {
