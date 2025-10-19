@@ -4400,6 +4400,27 @@
             } catch (e) {}
             try { console.log('[HE-DIAG][after-sender+timeframe]', Array.isArray(items)?items.length:'n/a'); } catch(e) {}
 
+            // HEBREW ARCHIVE PRIORITY: When typing 'רשום מיילים מארכיון מ', promote archived-from-[שולח] to first
+            try {
+                const heArchFromSender = /^\s*רש(?:ו)?ם\s+מיילים\s+מארכיון\s+מ(?:\s|\u200e|\u200f|$)/i.test(q);
+                if (heArchFromSender && Array.isArray(unique) && unique.length) {
+                    const idxArchSender = unique.findIndex(function(it){
+                        const s = (it && it.cmd ? String(it.cmd) : String(it)).toLowerCase();
+                        return /^רשום\s+מיילים\s+מארכיון\s+מ\[שולח\]$/i.test(s);
+                    });
+                    if (idxArchSender > 0) {
+                        const it = unique.splice(idxArchSender, 1)[0];
+                        unique.unshift(it);
+                        try { console.log('[HE-ARCHIVED-PRIORITY] moved archived-from-[שולח] to top'); } catch(e) {}
+                    }
+                    // Additionally: filter out the plain base archived command since it no longer matches
+                    unique = unique.filter(function(it){
+                        const s = (it && it.cmd ? String(it.cmd) : String(it)).toLowerCase();
+                        return !/^רשום\s+מיילים\s+מארכיון$/i.test(s);
+                    });
+                }
+            } catch (e) {}
+
             // VERY-LATE GUARANTEE (category משלוח past variants): ensure base and past options remain when typing 'ש'
             try {
                 const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
@@ -4457,6 +4478,22 @@
                 }
             } catch (e) {}
             
+            // LAST-LINE SUPPRESSION (HEBREW ARCHIVE): if input is 'רשום מיילים מארכיון מ...' remove base archived command
+            try {
+                const qlcHe = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isHe = (document.documentElement.getAttribute('lang') || '').toLowerCase().startsWith('he');
+                const archFromFlow = /^רש(?:ו)?ם\s+מיילים\s+מארכיון\s+מ(?:\s+\S.*)?$/i.test(qlcHe) || /^רש(?:ו)?ם\s+מיילים\s+מארכיון\s+מ$/i.test(qlcHe);
+                if (isHe && archFromFlow && Array.isArray(unique) && unique.length) {
+                    const before = unique.length;
+                    unique = unique.filter(function(it){
+                        const raw = (it && it.cmd ? String(it.cmd) : String(it));
+                        const sClean = raw.toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                        return sClean !== 'רשום מיילים מארכיון';
+                    });
+                    try { console.log('[HE-ARCHIVED-SUPPRESS][final] before=', before, 'after=', unique.length); } catch(e) {}
+                }
+            } catch(e) {}
+
             return unique;
         }
         // Compute how much of a placeholder template should be bolded based on user input
@@ -5777,6 +5814,22 @@
                 }
             } catch (e) {}
             try { console.log('[HE-DIAG][after-sender+timeframe]', Array.isArray(items)?items.length:'n/a'); } catch(e) {}
+
+            // FINAL SUPPRESSION (HEBREW ARCHIVE): During 'רשום מיילים מארכיון מ...' typing,
+            // remove the plain base archived command so only the sender variant remains
+            try {
+                const qlcHe = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isHe = (document.documentElement.getAttribute('lang') || '').toLowerCase().startsWith('he');
+                const isArchFromAny = /^רש(?:ו)?ם\s+מיילים\s+מארכיון\s+מ(?:\s+\S.*)?$/i.test(qlcHe);
+                const isArchFromPartial = /^רש(?:ו)?ם\s+מיילים\s+מארכיון\s+מ(?:\s*|[\u200e\u200f])$/i.test(qlcHe);
+                if (isHe && (isArchFromAny || isArchFromPartial) && Array.isArray(items) && items.length) {
+                    items = items.filter(function(it){
+                        const s = (it && it.cmd ? String(it.cmd) : String(it)).toLowerCase();
+                        return !/^רשום\s+מיילים\s+מארכיון$/i.test(s);
+                    });
+                    try { console.log('[HE-ARCHIVED-SUPPRESS] suppressed base archived during partial/full from-flow'); } catch(e) {}
+                }
+            } catch (e) {}
 
             // VERY-LATE GUARANTEE (category משלוח past variants): ensure base and past options remain when typing 'ש'
             try {
@@ -7241,12 +7294,18 @@
                 const isHeb = (document.documentElement.getAttribute('lang') || '').toLowerCase().startsWith('he');
                 const isMaBare = /^רש(?:ו)?ם\s+מיילים\s+מא$/i.test(qlc); // ambiguous 'מא'
                 const isArchiveFlow = /^רש(?:ו)?ם\s+מיילים\s+מארכ/i.test(qlc); // partial or full 'מארכיון'
+                const isArchiveFromSender = /מארכיון\s+מ(?:\s|$)/i.test(qlc); // specifically 'מארכיון מ'
                 if (isHeb && (isMaBare || isArchiveFlow) && Array.isArray(items)) {
                     const before = items.length;
                     // Keep archived suggestions; if 'מא' (bare) also keep 'מאתמול'
                     items = items.filter(function(it){
                         const s = (it && it.cmd) ? it.cmd : String(it);
                         const lc = String(s || '').toLowerCase();
+                        // If typing 'מארכיון מ', keep ONLY the sender variant
+                        if (isArchiveFromSender) {
+                            if (/^רש(?:ו)?ם\s+מיילים\s+מארכיון\s+מ\[שולח\]$/i.test(lc)) return true;
+                            return false;
+                        }
                         if (/^רש(?:ו)?ם\s+מיילים\s+מארכיון$/i.test(lc)) return true;
                         if (/^רש(?:ו)?ם\s+מיילים\s+מארכיון\s+מ\[שולח\]$/i.test(lc)) return true;
                         if (isMaBare && /^רש(?:ו)?ם\s+מיילים\s+מאתמול$/i.test(lc)) return true;
@@ -7254,8 +7313,13 @@
                     });
                     // Inject if missing
                     const have = new Set(items.map(function(it){ return (it && it.cmd) ? it.cmd : String(it); }));
-                    if (!have.has('רשום מיילים מארכיון')) items.unshift({ cmd: 'רשום מיילים מארכיון', score: 1004, type: 'he_archived_inject_base' });
-                    if (!have.has('רשום מיילים מארכיון מ[שולח]')) items.push({ cmd: 'רשום מיילים מארכיון מ[שולח]', score: 1003, type: 'he_archived_inject_sender' });
+                    if (isArchiveFromSender) {
+                        // Do NOT inject base when typing 'מארכיון מ'
+                        if (!have.has('רשום מיילים מארכיון מ[שולח]')) items.unshift({ cmd: 'רשום מיילים מארכיון מ[שולח]', score: 1003, type: 'he_archived_inject_sender' });
+                    } else {
+                        if (!have.has('רשום מיילים מארכיון')) items.unshift({ cmd: 'רשום מיילים מארכיון', score: 1004, type: 'he_archived_inject_base' });
+                        if (!have.has('רשום מיילים מארכיון מ[שולח]')) items.push({ cmd: 'רשום מיילים מארכיון מ[שולח]', score: 1003, type: 'he_archived_inject_sender' });
+                    }
                     if (isMaBare && !have.has('רשום מיילים מאתמול')) items.splice(1, 0, { cmd: 'רשום מיילים מאתמול', score: 1003.5, type: 'he_yesterday_inject_ma' });
                     try { console.log('[HE-ARCHIVED-FINAL]', { qlc, isMaBare, isArchiveFlow, before, after: items.length }); } catch(e) {}
                 }
@@ -7306,19 +7370,28 @@
                 const isHeb = (document.documentElement.getAttribute('lang') || '').toLowerCase().startsWith('he');
                 const isArchShort = /^רש(?:ו)?ם\s+מיילים\s+מאר$/i.test(qlc);
                 const isArchFlow = /^רש(?:ו)?ם\s+מיילים\s+מארכ/i.test(qlc);
+                const isArchiveFromSender = /מארכיון\s+מ(?:\s|$)/i.test(qlc);
                 if (isHeb && (isArchShort || isArchFlow) && Array.isArray(items) && items.length) {
                     const before = items.length;
                     items = items.filter(function(it){
                         const s = (it && it.cmd) ? it.cmd : String(it);
                         const lc = String(s || '').toLowerCase();
+                        if (isArchiveFromSender) {
+                            return /^רש(?:ו)?ם\s+מיילים\s+מארכיון\s+מ\[שולח\]$/i.test(lc);
+                        }
                         if (/^רש(?:ו)?ם\s+מיילים\s+מארכיון$/i.test(lc)) return true;
                         if (/^רש(?:ו)?ם\s+מיילים\s+מארכיון\s+מ\[שולח\]$/i.test(lc)) return true;
                         return false;
                     });
                     // Ensure both are present in a sensible order
                     const have = new Set(items.map(function(it){ return (it && it.cmd) ? it.cmd : String(it); }));
-                    if (!have.has('רשום מיילים מארכיון')) items.unshift({ cmd: 'רשום מיילים מארכיון', score: 1004, type: 'he_archived_final_base' });
-                    if (!have.has('רשום מיילים מארכיון מ[שולח]')) items.push({ cmd: 'רשום מיילים מארכיון מ[שולח]', score: 1003, type: 'he_archived_final_sender' });
+                    if (isArchiveFromSender) {
+                        // Do NOT inject base in this flow
+                        if (!have.has('רשום מיילים מארכיון מ[שולח]')) items.unshift({ cmd: 'רשום מיילים מארכיון מ[שולח]', score: 1003, type: 'he_archived_final_sender' });
+                    } else {
+                        if (!have.has('רשום מיילים מארכיון')) items.unshift({ cmd: 'רשום מיילים מארכיון', score: 1004, type: 'he_archived_final_base' });
+                        if (!have.has('רשום מיילים מארכיון מ[שולח]')) items.push({ cmd: 'רשום מיילים מארכיון מ[שולח]', score: 1003, type: 'he_archived_final_sender' });
+                    }
                     try { console.log('[HE-ARCHIVED-STRICT]', { qlc, before, after: items.length }); } catch(e) {}
                 }
             } catch(e) {}
