@@ -2552,6 +2552,7 @@ class GmailAIAgent:
         elif command_lower.startswith("archive"):
             best_match_action = "archive"
             highest_score = 100  # High confidence for archive commands
+            print(f"DEBUG: Action heuristic chose 'archive' for command: {command_lower}")
         else:
             # Check for keywords within the command, not just the start
             best_score = 0
@@ -2874,9 +2875,12 @@ class GmailAIAgent:
                 return {"action": "list", "target_type": "date_range", "target": date_range, "confirmation_required": False}
 
         # Fallbacks: detect common time phrases anywhere, even without 'from'
-        for key in ["today", "yesterday", "last week", "last month", "last year", "this week", "this month", "this year"]:
-            if key in command_lower:
-                return {"action": "list", "target_type": "date_range", "target": key, "confirmation_required": False}
+        # IMPORTANT: Only apply this fallback when the overall intent is 'list'.
+        # Otherwise it can hijack 'archive' commands that also contain these tokens.
+        if best_match_action == "list":
+            for key in ["today", "yesterday", "last week", "last month", "last year", "this week", "this month", "this year"]:
+                if key in command_lower:
+                    return {"action": "list", "target_type": "date_range", "target": key, "confirmation_required": False}
         
         # Fallback: detect 'older than' anywhere
         any_older = re.search(r'older\s+than\s+(\d+)\s+(day|days|week|weeks|month|months|year|years)', command_lower)
@@ -2970,6 +2974,15 @@ class GmailAIAgent:
                 print(f"DEBUG: from_time_match found - sender='{sender_keyword}', time_period='{time_period}'")
                 if sender_keyword not in ['emails','all','the','my','any','this','that','these','those']:
                     return {"action": "archive", "target_type": "sender_from_time", "target": sender_keyword, "time_period": time_period, "confirmation_required": True}
+
+            # Archive emails from [time period] (no sender) e.g.,
+            # "archive emails from today|yesterday|this week|last month" or "archive from today"
+            plain_time_match = re.search(r'(^|\b)archive(?:\s+emails?)?\s+from\s+(today|yesterday|this\s+week|this\s+month|this\s+year|last\s+week|last\s+month|last\s+year)(\b|$)', command_lower)
+            if plain_time_match:
+                # Group 2 is the actual timeframe (group 1/3 are word boundaries)
+                time_period = plain_time_match.group(2)
+                print(f"DEBUG: plain_time_match for archive found time_period='{time_period}'")
+                return {"action": "archive", "target_type": "time", "time_period": time_period, "confirmation_required": True}
             flexible_sender_match = re.search(r'from\s+([a-zA-Z0-9._\-+@\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff ]+?)(?=\s+|$)', command_lower)
             if flexible_sender_match:
                 sender_keyword = flexible_sender_match.group(1).strip()
@@ -3035,6 +3048,10 @@ class GmailAIAgent:
                 return self.archive_emails_by_sender_from_time(
                     confirmation_data["sender"], confirmation_data["time_period"], confirm=True
                 )
+            elif action == "archive_by_time":
+                return self.archive_emails_from_time(
+                    confirmation_data["time_period"], confirm=True
+                )
             elif action == "archive_by_domain":
                 return self.archive_emails_by_domain(
                     confirmation_data["domain"], confirm=True, older_than_days=confirmation_data.get("older_than_days")
@@ -3085,6 +3102,9 @@ class GmailAIAgent:
         if parsed.get("debug_info"):
             return {"status": "error", "message": _("Command not understood."), "debug_info": parsed.get("debug_info")}
         
+        # Log key routing info to server console for debugging
+        print(f"DEBUG: action={parsed.get('action')}, target_type={parsed.get('target_type')}, time_period={parsed.get('time_period')}, older_than_days={parsed.get('older_than_days')}")
+
         action = parsed.get("action")
         target_type = parsed.get("target_type")
         target = parsed.get("target")
@@ -3441,6 +3461,8 @@ class GmailAIAgent:
                     return self.archive_emails_by_sender(target, confirm=not confirm_required, older_than_days=older_than_days)
                 elif target_type == "sender_from_time":
                     return self.archive_emails_by_sender_from_time(target, parsed.get("time_period"), confirm=not confirm_required)
+                elif target_type == "time":
+                    return self.archive_emails_from_time(parsed.get("time_period"), confirm=not confirm_required)
                 elif target_type == "domain":
                     return self.archive_emails_by_domain(target, confirm=not confirm_required, older_than_days=older_than_days)
                 elif target_type == "custom_category":
@@ -4015,6 +4037,104 @@ class GmailAIAgent:
         except Exception as e:
             print(f"Unexpected error in archive_emails_by_sender_from_time: {e}")
             return {"error": f"Unexpected error: {str(e)}"}
+
+    def archive_emails_from_time(self, time_period, confirm=False):
+        """Archive emails from a specific time window: today, yesterday, this/last week/month/year.
+        This archives any messages within the time window, regardless of sender.
+        """
+        try:
+            if not time_period:
+                return {"error": "Missing required parameter: time_period"}
+
+            print(f"DEBUG: archive_emails_from_time called with time_period='{time_period}'")
+            start_dt, end_dt = self._compute_precise_date_range_window(str(time_period).strip().lower())
+            if not start_dt or not end_dt:
+                return {"error": f"Invalid or unsupported time period: {time_period}"}
+
+            # Build Gmail query for the window (exclusive end bound)
+            start_date = start_dt.strftime('%Y/%m/%d')
+            end_date = end_dt.strftime('%Y/%m/%d')
+            query = f"after:{start_date} before:{end_date}"
+
+            max_retries = 5
+            retry_delay = 1
+            all_messages = []
+            next_page_token = None
+            for attempt in range(max_retries):
+                try:
+                    while True:
+                        kwargs = {"userId": 'me', "q": query, "maxResults": 500}
+                        if next_page_token:
+                            kwargs["pageToken"] = next_page_token
+                        results = self.service.users().messages().list(**kwargs).execute()
+                        msgs = results.get('messages', []) or []
+                        all_messages.extend(msgs)
+                        next_page_token = results.get('nextPageToken')
+                        if not next_page_token:
+                            break
+                    break
+                except Exception as e:
+                    err_text = str(e)
+                    if (("SSL" in err_text or "WRONG_VERSION_NUMBER" in err_text or "DECRYPTION_FAILED_OR_BAD_RECORD_MAC" in err_text or
+                         "timeout" in err_text.lower() or "connection" in err_text.lower() or
+                         "WinError 10060" in err_text or "failed to respond" in err_text.lower()) and attempt < max_retries - 1):
+                        print(f"Connection error in archive_emails_from_time (attempt {attempt + 1}): {err_text}")
+                        time.sleep(retry_delay)
+                        retry_delay *= 2
+                        continue
+                    else:
+                        raise
+
+            if not all_messages:
+                return {"status": "success", "message": _("No emails found from %(time)s to archive.") % {"time": time_period}, "archived_count": 0}
+
+            if not confirm:
+                return {
+                    "status": "confirmation_required",
+                    "message": _("Found %(count)d emails from %(time)s. Do you want to archive them?") % {"count": len(all_messages), "time": time_period},
+                    "count": len(all_messages),
+                    "total_estimated": len(all_messages),
+                    "preview": self._build_preview(all_messages),
+                    "action_details": {"action": "archive_by_time", "time_period": time_period}
+                }
+
+            # Archive in batches
+            total_processed = 0
+            total_emails = len(all_messages)
+            message_ids = [m['id'] for m in all_messages]
+
+            if hasattr(self, 'command_id') and self.command_id:
+                from agent.views import update_email_progress
+                update_email_progress(self.command_id, 0, total_emails)
+
+            for i in range(0, len(all_messages), 100):
+                batch = all_messages[i:i+100]
+                batch_ids = [m['id'] for m in batch]
+                try:
+                    self.service.users().messages().batchModify(
+                        userId='me', body={'ids': batch_ids, 'removeLabelIds': ['INBOX']}
+                    ).execute()
+                    total_processed += len(batch)
+                    if hasattr(self, 'command_id') and self.command_id:
+                        update_email_progress(self.command_id, total_processed, total_emails)
+                except Exception as e:
+                    # Fallback to single modify on transient network/SSL issues
+                    err_text = str(e)
+                    print(f"WARN: batchModify failed, falling back to single modify: {err_text}")
+                    for m in batch:
+                        try:
+                            self.service.users().messages().modify(userId='me', id=m['id'], body={'removeLabelIds': ['INBOX']}).execute()
+                            total_processed += 1
+                            if hasattr(self, 'command_id') and self.command_id:
+                                update_email_progress(self.command_id, total_processed, total_emails)
+                        except Exception:
+                            continue
+
+            action_id = self._record_undo('archive', message_ids)
+            return {"status": "success", "message": _("Archived %(count)d emails from %(time)s.") % {"count": total_processed, "time": time_period}, "archived_count": total_processed, "undo_action_id": action_id}
+
+        except HttpError as error:
+            return {"status": "error", "message": f"Error archiving emails: {error}"}
     
     def list_archived_emails(self, max_results=None, page_token=None):
         """List archived emails (messages not in Inbox, excluding Sent/Drafts/Spam/Trash)."""
