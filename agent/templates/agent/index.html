@@ -2146,6 +2146,14 @@
                     'delete emails from [sender] older than [duration]',
                     'delete all emails older than [duration]',
                     'archive emails older than [duration]',
+                    'archive emails from today',
+                    'archive emails from yesterday',
+                    'archive emails from this week',
+                    'archive emails from this month',
+                    'archive emails from this year',
+                    'archive emails from last week',
+                    'archive emails from last month',
+                    'archive emails from last year',
                     'archive emails from [sender]',
                     'archive emails from [sender] older than [duration]',
                     '• label emails from [sender] as "[label]"',
@@ -7552,11 +7560,11 @@
             try {
                 const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
 
-                // Full + progressive partials for "from [timeframe]"
-                const fromTfFull = /^list\s+emails\s+from\s+(today|yesterday|this\s+(week|month|year)|last\s+(week|month|year))$/.test(qlc);
+                // Full + progressive partials for "from [timeframe]" (support list/archive/archived)
+                const fromTfFull = /^(list|archive(?:d)?)\s+emails\s+from\s+(today|yesterday|this\s+(week|month|year)|last\s+(week|month|year))$/.test(qlc);
                 // Gate on any valid timeframe family prefix or bare unit after 'from '
-                const mGate = qlc.match(/^list\s+emails\s+from\s+(.+)$/i);
-                const remGate = mGate ? mGate[1] : '';
+                const mGate = qlc.match(/^(list|archive(?:d)?)\s+emails\s+from\s+(.+)$/i);
+                const remGate = mGate ? mGate[2] : '';
                 // Allow deep partials for yesterday and accept bare unit tokens (week/month/year)
                 const fromTfPartial = !!remGate && /^(t|to|tod|toda|today|y|ye|yes|yest|yeste|yester|yesterd|yesterda|yesterday|th|thi|this(\s+.*)?|l|la|las|last(\s+.*)?|we|wee|week|mo|mon|mont|month|ye|yea|year)$/i.test(remGate);
 
@@ -7568,30 +7576,22 @@
                         'this week','this month','this year',
                         'last week','last month','last year'
                     ];
-                    const mFrom = qlc.match(/^list\s+emails\s+from\s*(.*)$/);
-                    const rem = (mFrom && mFrom[1]) ? mFrom[1].trim() : '';
+                    const mFrom = qlc.match(/^(list|archive(?:d)?)\s+emails\s+from\s*(.*)$/);
+                    const rem = (mFrom && mFrom[2]) ? mFrom[2].trim() : '';
 
                     if (rem) {
                         const r = rem;
-                        // today/yesterday direct prefixes
                         if (/^to/i.test(r)) {
-                            // Explicit 'to' prefix -> only 'today'
                             allowed = ['today'];
                         } else if (/^t/i.test(r)) {
-                            // Bare 't' (not 'to') -> allow 'today' and all 'this ...' until narrowed further
                             allowed = ['today','this week','this month','this year'];
                         } else if (/^yes/i.test(r)) {
-                            // Prefix 'yes' should still only keep 'yesterday'
                             allowed = ['yesterday'];
                         } else if (/^y/i.test(r)) {
-                            // Narrow to yesterday if prefix starts with 'y'
                             allowed = ['yesterday'];
-                            // But if user typed just 'y', keep only yesterday (no ambiguity with 'year' since it's not prefixed by 'this/last')
                         } else if (/^l/i.test(r)) {
-                            // Bare 'l'/'la'/'las' leading to 'last ...' family
                             allowed = ['last week','last month','last year'];
                         } else if (/^this\b/i.test(r)) {
-                            // this + unit narrowing
                             if (/^this\s*w/i.test(r) || /^this\s+we/i.test(r) || /^this\s+week/i.test(r)) {
                                 allowed = ['this week'];
                             } else if (/^this\s*m/i.test(r) || /^this\s+mo/i.test(r) || /^this\s+month/i.test(r)) {
@@ -7612,23 +7612,35 @@
                                 allowed = ['last week','last month','last year'];
                             }
                         } else if (/^we/i.test(r)) {
-                            // 'we...' token -> both this and last week
                             allowed = ['this week','last week'];
                         } else if (/^mo/i.test(r)) {
-                            // 'mo...' token -> both this and last month
                             allowed = ['this month','last month'];
                         } else if (/^ye/i.test(r)) {
-                            // Bare 'year' token -> both this and last year
                             allowed = ['this year','last year'];
                         }
                     }
 
-                    const allowedSet = new Set(allowed.map(function(v){ return 'list emails from ' + v; }));
+                    // Build allowed set for both list and archive timeframe commands
+                    const allowedSet = new Set();
+                    allowed.forEach(function(v){
+                        allowedSet.add('list emails from ' + v);
+                        allowedSet.add('archive emails from ' + v);
+                        allowedSet.add('archived emails from ' + v);
+                    });
                     items = items.filter(function(it) {
                         const cmd = (it && it.cmd) ? it.cmd : String(it);
                         const lcCmd = cmd.toLowerCase();
                         return allowedSet.has(lcCmd);
                     });
+                    // If filtering removed everything (common when the base list lacks these exact strings),
+                    // inject sensible defaults based on the user's intent (archive vs list)
+                    if (!items.length) {
+                        const preferArchive = /^archiv/i.test(qlc);
+                        const base = preferArchive ? 'archive emails from ' : 'list emails from ';
+                        allowed.forEach(function(tf){
+                            items.push({ cmd: base + tf, score: 1002, type: 'en_tf_from_inject' });
+                        });
+                    }
                     try { console.log('[EN-TF-FROM-FILTER] narrowed timeframe-from suggestions for:', qlc, '->', Array.from(allowedSet)); } catch(e) {}
                 }
             } catch(e) {}
