@@ -8338,19 +8338,21 @@
             // FINAL ENFORCEMENT (PROGRESSIVE): If input clearly targets a specific timeframe via partial unit, keep only that
             try {
                 const qlp = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
-                // EARLY GATE: plain English 't' -> allow today or this-*
-                if (/^list\s+emails\s+from\s+t$/i.test(qlp) && Array.isArray(items)) {
-                    const reToday = /^list\s+emails\s+from\s+today$/i;
-                    const reThisAny = /^list\s+emails\s+from\s+this\s+(week|month|year)$/i;
+                // EARLY GATE: plain English 't' -> allow today or this-* (for both list and archive)
+                if (/^(list|archive)\s+emails\s+from\s+t$/i.test(qlp) && Array.isArray(items)) {
+                    const reToday = /^(list|archive)\s+emails\s+from\s+today$/i;
+                    const reThisAny = /^(list|archive)\s+emails\s+from\s+this\s+(week|month|year)$/i;
                     items = items.filter(function(it){
                         const s = (it && it.cmd ? String(it.cmd).toLowerCase() : '');
                         return reToday.test(s) || reThisAny.test(s);
                     });
                     if (!items.length) {
-                        items.push({ cmd: 'list emails from today', score: 1002, type: 'en_tf_today_inject_t' });
-                        items.push({ cmd: 'list emails from this week', score: 1002, type: 'en_tf_this_inject_t' });
-                        items.push({ cmd: 'list emails from this month', score: 1001, type: 'en_tf_this_inject_t' });
-                        items.push({ cmd: 'list emails from this year', score: 1000, type: 'en_tf_this_inject_t' });
+                        const isArchive = /^archive/.test(qlp);
+                        const base = isArchive ? 'archive emails from ' : 'list emails from ';
+                        items.push({ cmd: base + 'today', score: 1002, type: 'en_tf_today_inject_t' });
+                        items.push({ cmd: base + 'this week', score: 1002, type: 'en_tf_this_inject_t' });
+                        items.push({ cmd: base + 'this month', score: 1001, type: 'en_tf_this_inject_t' });
+                        items.push({ cmd: base + 'this year', score: 1000, type: 'en_tf_this_inject_t' });
                     }
                     try { console.log('[EN-TF-T-GATE] kept today/this-* for input:', qlp); } catch(e) {}
                 }
@@ -8374,16 +8376,16 @@
                     if (!items.length) items.push({ cmd: 'list emails from yesterday', score: 1002, type: 'en_tf_yesterday_inject' });
                     try { console.log('[EN-TF-YESTERDAY-GATE] kept yesterday for input:', qlp); } catch(e) {}
                 }
-                // EARLY GATE: this- progressive (th/this [w|m|y])
-                if (/^list\s+emails\s+from\s+th(i(s)?)?(?:\s+.*)?$/i.test(qlp) && Array.isArray(items)) {
-                    const isAny = /^list\s+emails\s+from\s+th(i(s)?)?$/i.test(qlp) || /^list\s+emails\s+from\s+this\s+$/i.test(qlp);
-                    const isWeek = /^list\s+emails\s+from\s+this\s+w/i.test(qlp);
-                    const isMonth = /^list\s+emails\s+from\s+this\s+m/i.test(qlp);
-                    const isYear = /^list\s+emails\s+from\s+this\s+y/i.test(qlp);
-                    const reThisAny = /^list\s+emails\s+from\s+this\s+(week|month|year)$/i;
-                    const reThisWeek = /^list\s+emails\s+from\s+this\s+week$/i;
-                    const reThisMonth = /^list\s+emails\s+from\s+this\s+month$/i;
-                    const reThisYear = /^list\s+emails\s+from\s+this\s+year$/i;
+                // EARLY GATE: this- progressive (th/this [w|m|y]) - for both list and archive
+                if (/^(list|archive)\s+emails\s+from\s+th(i(s)?)?(?:\s+.*)?$/i.test(qlp) && Array.isArray(items)) {
+                    const isAny = /^(list|archive)\s+emails\s+from\s+th(i(s)?)?$/i.test(qlp) || /^(list|archive)\s+emails\s+from\s+this\s+$/i.test(qlp);
+                    const isWeek = /^(list|archive)\s+emails\s+from\s+this\s+w/i.test(qlp);
+                    const isMonth = /^(list|archive)\s+emails\s+from\s+this\s+m/i.test(qlp);
+                    const isYear = /^(list|archive)\s+emails\s+from\s+this\s+y/i.test(qlp);
+                    const reThisAny = /^(list|archive)\s+emails\s+from\s+this\s+(week|month|year)$/i;
+                    const reThisWeek = /^(list|archive)\s+emails\s+from\s+this\s+week$/i;
+                    const reThisMonth = /^(list|archive)\s+emails\s+from\s+this\s+month$/i;
+                    const reThisYear = /^(list|archive)\s+emails\s+from\s+this\s+year$/i;
                     items = items.filter(function(it){
                         const s = (it && it.cmd ? String(it.cmd).toLowerCase() : '');
                         if (isAny) return reThisAny.test(s);
@@ -8393,42 +8395,48 @@
                         return reThisAny.test(s);
                     });
                     if (!items.length) {
-                        items.push({ cmd: 'list emails from this week', score: 1002, type: 'en_tf_this_inject' });
-                        items.push({ cmd: 'list emails from this month', score: 1001, type: 'en_tf_this_inject' });
-                        items.push({ cmd: 'list emails from this year', score: 1000, type: 'en_tf_this_inject' });
+                        const isArchive = /^archive/.test(qlp);
+                        const base = isArchive ? 'archive emails from ' : 'list emails from ';
+                        items.push({ cmd: base + 'this week', score: 1002, type: 'en_tf_this_inject' });
+                        items.push({ cmd: base + 'this month', score: 1001, type: 'en_tf_this_inject' });
+                        items.push({ cmd: base + 'this year', score: 1000, type: 'en_tf_this_inject' });
                     }
                     try { console.log('[EN-TF-THIS-GATE] kept this-* for input:', qlp); } catch(e) {}
                 }
-                // EARLY GATE: For plain English flow, when typing exactly 'list emails from last' (or partial 'la/las/last'),
+                // EARLY GATE: For plain English flow, when typing exactly 'list/archive emails from last' (or partial 'la/las/last'),
                 // keep only the three 'last week/month/year' suggestions so the list does not disappear
-                if (/^list\s+emails\s+from\s+la(?:s(?:t)?)?\s*$/i.test(qlp) && Array.isArray(items)) {
-                    const reWeek = /^list\s+emails\s+from\s+last\s+week$/i;
-                    const reMonth = /^list\s+emails\s+from\s+last\s+month$/i;
-                    const reYear = /^list\s+emails\s+from\s+last\s+year$/i;
+                if (/^(list|archive)\s+emails\s+from\s+la(?:s(?:t)?)?\s*$/i.test(qlp) && Array.isArray(items)) {
+                    const reWeek = /^(list|archive)\s+emails\s+from\s+last\s+week$/i;
+                    const reMonth = /^(list|archive)\s+emails\s+from\s+last\s+month$/i;
+                    const reYear = /^(list|archive)\s+emails\s+from\s+last\s+year$/i;
                     items = items.filter(function(it){
                         const s = (it && it.cmd ? String(it.cmd).toLowerCase() : '');
                         return reWeek.test(s) || reMonth.test(s) || reYear.test(s);
                     });
                     if (!items.length) {
-                        items.push({ cmd: 'list emails from last week', score: 1002, type: 'en_tf_last_inject' });
-                        items.push({ cmd: 'list emails from last month', score: 1001, type: 'en_tf_last_inject' });
-                        items.push({ cmd: 'list emails from last year', score: 1000, type: 'en_tf_last_inject' });
+                        const isArchive = /^archive/.test(qlp);
+                        const base = isArchive ? 'archive emails from ' : 'list emails from ';
+                        items.push({ cmd: base + 'last week', score: 1002, type: 'en_tf_last_inject' });
+                        items.push({ cmd: base + 'last month', score: 1001, type: 'en_tf_last_inject' });
+                        items.push({ cmd: base + 'last year', score: 1000, type: 'en_tf_last_inject' });
                     }
                     try { console.log('[EN-TF-LAST-GATE] restricted to last week/month/year for input:', qlp); } catch(e) {}
                 }
                 let exactTarget = '';
-                if (/^list\s+emails\s+from\s+this\s+w/i.test(qlp)) {
-                    exactTarget = 'list emails from this week';
-                } else if (/^list\s+emails\s+from\s+this\s+m(\b|$)/i.test(qlp) || /^list\s+emails\s+from\s+this\s+mo/i.test(qlp) || /^list\s+emails\s+from\s+this\s+mon/i.test(qlp) || /^list\s+emails\s+from\s+this\s+mont/i.test(qlp) || /^list\s+emails\s+from\s+this\s+month/i.test(qlp)) {
-                    exactTarget = 'list emails from this month';
-                } else if (/^list\s+emails\s+from\s+this\s+y/i.test(qlp) || /^list\s+emails\s+from\s+this\s+ye/i.test(qlp) || /^list\s+emails\s+from\s+this\s+yea/i.test(qlp) || /^list\s+emails\s+from\s+this\s+year/i.test(qlp)) {
-                    exactTarget = 'list emails from this year';
-                } else if (/^list\s+emails\s+from\s+last\s+w/i.test(qlp)) {
-                    exactTarget = 'list emails from last week';
-                } else if (/^list\s+emails\s+from\s+last\s+m(\b|$)/i.test(qlp) || /^list\s+emails\s+from\s+last\s+mo/i.test(qlp) || /^list\s+emails\s+from\s+last\s+mon/i.test(qlp) || /^list\s+emails\s+from\s+last\s+mont/i.test(qlp) || /^list\s+emails\s+from\s+last\s+month/i.test(qlp)) {
-                    exactTarget = 'list emails from last month';
-                } else if (/^list\s+emails\s+from\s+last\s+y/i.test(qlp) || /^list\s+emails\s+from\s+last\s+ye/i.test(qlp) || /^list\s+emails\s+from\s+last\s+yea/i.test(qlp) || /^list\s+emails\s+from\s+last\s+year/i.test(qlp)) {
-                    exactTarget = 'list emails from last year';
+                const isArchive = /^archive/.test(qlp);
+                const base = isArchive ? 'archive emails from ' : 'list emails from ';
+                if (/^(list|archive)\s+emails\s+from\s+this\s+w/i.test(qlp)) {
+                    exactTarget = base + 'this week';
+                } else if (/^(list|archive)\s+emails\s+from\s+this\s+m(\b|$)/i.test(qlp) || /^(list|archive)\s+emails\s+from\s+this\s+mo/i.test(qlp) || /^(list|archive)\s+emails\s+from\s+this\s+mon/i.test(qlp) || /^(list|archive)\s+emails\s+from\s+this\s+mont/i.test(qlp) || /^(list|archive)\s+emails\s+from\s+this\s+month/i.test(qlp)) {
+                    exactTarget = base + 'this month';
+                } else if (/^(list|archive)\s+emails\s+from\s+this\s+y/i.test(qlp) || /^(list|archive)\s+emails\s+from\s+this\s+ye/i.test(qlp) || /^(list|archive)\s+emails\s+from\s+this\s+yea/i.test(qlp) || /^(list|archive)\s+emails\s+from\s+this\s+year/i.test(qlp)) {
+                    exactTarget = base + 'this year';
+                } else if (/^(list|archive)\s+emails\s+from\s+last\s+w/i.test(qlp)) {
+                    exactTarget = base + 'last week';
+                } else if (/^(list|archive)\s+emails\s+from\s+last\s+m(\b|$)/i.test(qlp) || /^(list|archive)\s+emails\s+from\s+last\s+mo/i.test(qlp) || /^(list|archive)\s+emails\s+from\s+last\s+mon/i.test(qlp) || /^(list|archive)\s+emails\s+from\s+last\s+mont/i.test(qlp) || /^(list|archive)\s+emails\s+from\s+last\s+month/i.test(qlp)) {
+                    exactTarget = base + 'last month';
+                } else if (/^(list|archive)\s+emails\s+from\s+last\s+y/i.test(qlp) || /^(list|archive)\s+emails\s+from\s+last\s+ye/i.test(qlp) || /^(list|archive)\s+emails\s+from\s+last\s+yea/i.test(qlp) || /^(list|archive)\s+emails\s+from\s+last\s+year/i.test(qlp)) {
+                    exactTarget = base + 'last year';
                 }
                 if (exactTarget && Array.isArray(items)) {
                     items = items.filter(function(it){
