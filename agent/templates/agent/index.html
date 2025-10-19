@@ -1243,7 +1243,27 @@
                 <div class="results">
                     {% if result %}
                         {% if result.status == 'success' %}
-                            <div class="success-message">{{ result.message }}</div>
+                            {% if LANGUAGE_BIDI and result.type == 'email_list' %}
+                                {% with cnt=result.data|length %}
+                                    {% if result.list_context.mode == 'archived_sender' %}
+                                        {% if result.list_context.sender %}
+                                        <div class="success-message">מציג {{ cnt }} מיילים מארכיון מ: {{ result.list_context.sender }}</div>
+                                        {% else %}
+                                        <div class="success-message">מציג {{ cnt }} מיילים מארכיון</div>
+                                        {% endif %}
+                                    {% elif result.list_context.mode == 'archived' %}
+                                        {% if result.list_context.category %}
+                                            <div class="success-message">מציג {{ cnt }} מיילים מארכיון {{ result.list_context.category }}</div>
+                                        {% else %}
+                                            <div class="success-message">מציג {{ cnt }} מיילים מארכיון</div>
+                                        {% endif %}
+                                    {% else %}
+                                        <div class="success-message">{{ result.message }}</div>
+                                    {% endif %}
+                                {% endwith %}
+                            {% else %}
+                                <div class="success-message">{{ result.message }}</div>
+                            {% endif %}
                             {% if result.type == 'email_list' and result.data %}
                                 <ul class="email-list" id="email-list">
                                 {% for email in result.data %}
@@ -1962,12 +1982,87 @@
             setTimeout(() => { snackbar.className = 'snackbar'; }, 5000);
         }
 
+        // Helper: shorten a sender like 'Name <no-reply@info.yad2.co.il>' -> 'Name' (or 'yad2' from domain)
+        function shortSenderName(s) {
+            try {
+                if (!s) return '';
+                let str = String(s).trim().replace(/["']/g, '');
+                const lt = str.indexOf('<');
+                if (lt > -1) {
+                    str = str.slice(0, lt).trim();
+                }
+                // If still looks like an email or empty, derive from domain
+                if (!str || /@/.test(str)) {
+                    const m = String(s).match(/@([^>\s]+)/);
+                    if (m && m[1]) {
+                        const parts = m[1].split('.');
+                        // Prefer second-level (e.g., yad2 from info.yad2.co.il)
+                        if (parts.length >= 2) {
+                            const base = parts[parts.length - 3] || parts[parts.length - 2] || parts[0];
+                            if (base) return base;
+                        }
+                        return parts[0] || '';
+                    }
+                    // Fallback to first token
+                    const tok = String(s).trim().split(/\s+/)[0];
+                    return tok || '';
+                }
+                return str;
+            } catch(e) { return String(s || ''); }
+        }
+
         // Show snackbar if server rendered a message
         try {
             const initialStatus = "{{ result.status|default_if_none:'' }}".trim();
             const initialMsg = "{{ result.message|default_if_none:''|escapejs }}".trim();
-            if (initialStatus && initialMsg) {
-                showSnackbar(initialMsg, initialStatus, {details: true});
+            // Localize/synthesize message for email lists; prefer Hebrew when lang=he (even if backend sent English)
+            let synthesizedMsg = initialMsg;
+            if (initialStatus) {
+                const initialType = "{{ result.type|default_if_none:'' }}".trim();
+                const lcMode = "{{ result.list_context.mode|default_if_none:'' }}".trim();
+                // Try multiple fallbacks for sender (some backends attach different keys)
+                let lcSender = "{{ result.list_context.sender|default_if_none:''|escapejs }}".trim();
+                if (!lcSender) lcSender = "{{ result.list_context.domain|default_if_none:''|escapejs }}".trim();
+                if (!lcSender) lcSender = "{{ result.sender|default_if_none:''|escapejs }}".trim();
+                if (!lcSender) lcSender = "{{ result.data.0.sender|default_if_none:''|escapejs }}".trim();
+                const lcCategory = "{{ result.list_context.category|default_if_none:''|escapejs }}".trim();
+                const lcArchivedFlag = ("{{ result.list_context.archived|default_if_none:'' }}".trim() || '').toLowerCase();
+                const isArchivedCtx = /archived/i.test(lcMode) || lcArchivedFlag === 'true' || lcArchivedFlag === '1';
+                const itemCount = parseInt("{{ result.data|length|default:0 }}", 10) || 0;
+                const isHeb = (document.documentElement.getAttribute('lang') || '').toLowerCase().startsWith('he');
+                const displaySender = shortSenderName(lcSender);
+                if (initialType === 'email_list') {
+                    if (isHeb) {
+                        // Hebrew variants
+                        if (lcMode === 'archived_sender') {
+                            synthesizedMsg = 'מציג ' + itemCount + ' מיילים מארכיון מ: ' + (displaySender || 'שולח');
+                        } else if (lcMode === 'archived') {
+                            synthesizedMsg = 'מציג ' + itemCount + ' מיילים מארכיון';
+                        } else if (lcCategory) {
+                            synthesizedMsg = 'מציג ' + itemCount + ' מיילים ' + (isArchivedCtx ? 'מארכיון ' : 'מ') + lcCategory;
+                        } else {
+                            synthesizedMsg = 'מציג ' + itemCount + ' מיילים';
+                        }
+                    } else if (!synthesizedMsg) {
+                        // English fallback only if backend omitted message
+                        if (lcMode === 'archived_sender') {
+                            synthesizedMsg = 'Showing ' + itemCount + ' archived emails from: ' + (displaySender || 'sender');
+                        } else if (lcMode === 'archived') {
+                            synthesizedMsg = 'Showing ' + itemCount + ' archived emails';
+                        }
+                    }
+                }
+            }
+            if (initialStatus && (synthesizedMsg || initialMsg)) {
+                showSnackbar(synthesizedMsg || initialMsg, initialStatus, {details: true});
+                // Also normalize the banner text at the top for Hebrew archived-from-sender
+                try {
+                    const isHeb = (document.documentElement.getAttribute('lang') || '').toLowerCase().startsWith('he');
+                    if (isHeb && /מארכיון\s*מ/.test(synthesizedMsg)) {
+                        const banner = document.querySelector('.results .success-message');
+                        if (banner) banner.textContent = synthesizedMsg;
+                    }
+                } catch(e) {}
             }
         } catch (e) {}
 
@@ -2057,6 +2152,18 @@
             );
             if (!hasPlainArchiveSender) {
                 commands.push(isHebrew ? 'ארכב מיילים מ[שולח]' : 'archive emails from [sender]');
+            }
+        } catch (e) {}
+
+        // Normalize commands (HE): ensure Hebrew 'list archived emails' variants exist so 'מא' doesn't hide them
+        try {
+            const isHebrew = document.documentElement.lang === 'he';
+            if (isHebrew) {
+                const hasListArchived = (commands || []).some(c => /^רש(?:ו)?ם\s+מיילים\s+מארכיון$/i.test(String(c)));
+                if (!hasListArchived) commands.push('רשום מיילים מארכיון');
+                const hasListArchivedSender = (commands || []).some(c => /^רש(?:ו)?ם\s+מיילים\s+מארכיון\s+מ\[שולח\]$/i.test(String(c)));
+                if (!hasListArchivedSender) commands.push('רשום מיילים מארכיון מ[שולח]');
+                // Do NOT include domain variant per UX request
             }
         } catch (e) {}
 
@@ -6553,7 +6660,8 @@
                 
                 // Check for "אתמול" timeframes
                 const isEtmol = /^רש(?:ו)?ם\s+מיילים\s+מאתמול$/.test(qlc);
-                const isPartialEtmol = /^רש(?:ו)?ם\s+מיילים\s+מא/.test(qlc);
+                // Only treat 'מאת*' as partial yesterday; do not match bare 'מא' (e.g., 'מארכיון')
+                const isPartialEtmol = /^רש(?:ו)?ם\s+מיילים\s+מאת/i.test(qlc);
                 
                 // Check for "שעבר" timeframes
                 const isCompleteSheaver = /^רש(?:ו)?ם\s+מיילים\s+מ(השבוע|החודש|השנה)\s+שעבר(ה)?$/.test(qlc);
@@ -6919,7 +7027,7 @@
             const isPlainTimeTyping = /^רש(?:ו)?ם\s+מיילים\s+מה(?:$|י|יו)/.test(qPlain);
             if (isPlainTimeTyping && Array.isArray(items) && items.length) {
                 const senderTokenRe = /\[(sender(?:\/domain)?|domain(?:\.com)?|שולח(?:\/דומיין)?|דומיין)\]/i;
-                items = items.filter(function(it){
+                    items = items.filter(function(it){
                     const text = (it && it.cmd) ? it.cmd : String(it);
                     return !senderTokenRe.test(String(text || '').toLowerCase());
                 });
@@ -6975,6 +7083,42 @@
                     }
                 }
             } catch (e) {}
+
+            // FILTER: Hebrew archived-list flow — keep only 'רשום מיילים מארכיון' and 'רשום מיילים מארכיון מ[שולח]' variants
+            try {
+                const qlcHeArch = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isHeArchivedBase = /^רש(?:ו)?ם\s+מיילים\s+מארכיון\s*$/.test(qlcHeArch);
+                const isHeArchivedFrom = /^רש(?:ו)?ם\s+מיילים\s+מארכיון\s+מ(?:$|[^\s].*)$/i.test(qlcHeArch);
+                // Partial typing for 'מארכיון' (e.g., מאר, מארכ, מארכי, מארכיו, מארכיון)
+                const isHeArchivedPartial = /^רש(?:ו)?ם\s+מיילים\s+מארכ/i.test(qlcHeArch);
+                if ((isHeArchivedBase || isHeArchivedFrom || isHeArchivedPartial) && Array.isArray(items) && items.length) {
+                    items = items.filter(function(it){
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lc = String(cmd || '').toLowerCase();
+                        // Allow base archived and archived-from-sender only
+                        if (/^רש(?:ו)?ם\s+מיילים\s+מארכיון$/i.test(lc)) return true;
+                        if (/^רש(?:ו)?ם\s+מיילים\s+מארכיון\s+מ\[שולח\]/i.test(lc)) return true;
+                        return false;
+                    });
+                }
+            } catch(e) {}
+
+            // FILTER: While typing 'רשום מיילים מא' (ambiguous between 'מאתמול' and 'מארכיון'), remove generic sender templates
+            try {
+                const qHeMa = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isHeMaBare = /^רש(?:ו)?ם\s+מיילים\s+מא$/i.test(qHeMa);
+                const isHeMaArchFlow = /^רש(?:ו)?ם\s+מיילים\s+מאר/i.test(qHeMa);
+                if ((isHeMaBare || isHeMaArchFlow) && Array.isArray(items) && items.length) {
+                    items = items.filter(function(it){
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lc = String(cmd || '').toLowerCase();
+                        // Keep archived-from-sender, but drop other generic sender templates
+                        if (/^רש(?:ו)?ם\s+מיילים\s+מארכיון\s+מ\[שולח\]$/i.test(lc)) return true;
+                        if (/^רש(?:ו)?ם\s+מיילים\s+.*\sמ\[שולח\]/i.test(lc)) return false;
+                        return true;
+                    });
+                }
+            } catch(e) {}
 
             // FINAL SUPPRESSION: While typing sender prefix (no timeframe/duration cue), hide 'רשום מיילים מ[שולח] מהיום'
             try {
@@ -7046,11 +7190,13 @@
                 
                 // Check for "אתמול" timeframes
                 const isEtmol = /^רש(?:ו)?ם\s+מיילים\s+מאתמול$/.test(qlc);
-                const isPartialEtmol = /^רש(?:ו)?ם\s+מיילים\s+מא/.test(qlc);
+                // Only treat 'מאת*' as partial 'yesterday' to avoid catching 'מארכיון'
+                const isPartialEtmol = /^רש(?:ו)?ם\s+מיילים\s+מאת/i.test(qlc);
                 
                 // Check for "שעבר" timeframes
                 const isCompleteSheaver = /^רש(?:ו)?ם\s+מיילים\s+מ(השבוע|החודש|השנה)\s+שעבר(ה)?$/.test(qlc);
                 const isPartialSheaver = /^רש(?:ו)?ם\s+מיילים\s+מ(השבוע|החודש|השנה)\s+ש/.test(qlc);
+                try { console.log('[HE-TF-FINAL-GATE]', { qlc, isHaiom, isPartialHaiom, isEtmol, isPartialEtmol, isCompleteSheaver, isPartialSheaver, itemsLen: Array.isArray(items)?items.length:'n/a' }); } catch(e) {}
                 
                 if ((isHaiom || isPartialHaiom || isEtmol || isPartialEtmol || isCompleteSheaver || isPartialSheaver) && Array.isArray(items)) {
                     if (isHaiom || isPartialHaiom) {
@@ -7086,6 +7232,32 @@
                             try { console.log('[HE-ULTIMATE-SHEAVER-FILTER] restricted to matching timeframes for:', qlc); } catch(e) {}
                         }
                     }
+                }
+            } catch(e) {}
+
+            // ULTIMATE FINAL ARCHIVED FILTER (HE): for 'מא' show both 'מאתמול' and archived; for 'מארכ…' keep archived only
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isHeb = (document.documentElement.getAttribute('lang') || '').toLowerCase().startsWith('he');
+                const isMaBare = /^רש(?:ו)?ם\s+מיילים\s+מא$/i.test(qlc); // ambiguous 'מא'
+                const isArchiveFlow = /^רש(?:ו)?ם\s+מיילים\s+מארכ/i.test(qlc); // partial or full 'מארכיון'
+                if (isHeb && (isMaBare || isArchiveFlow) && Array.isArray(items)) {
+                    const before = items.length;
+                    // Keep archived suggestions; if 'מא' (bare) also keep 'מאתמול'
+                    items = items.filter(function(it){
+                        const s = (it && it.cmd) ? it.cmd : String(it);
+                        const lc = String(s || '').toLowerCase();
+                        if (/^רש(?:ו)?ם\s+מיילים\s+מארכיון$/i.test(lc)) return true;
+                        if (/^רש(?:ו)?ם\s+מיילים\s+מארכיון\s+מ\[שולח\]$/i.test(lc)) return true;
+                        if (isMaBare && /^רש(?:ו)?ם\s+מיילים\s+מאתמול$/i.test(lc)) return true;
+                        return false;
+                    });
+                    // Inject if missing
+                    const have = new Set(items.map(function(it){ return (it && it.cmd) ? it.cmd : String(it); }));
+                    if (!have.has('רשום מיילים מארכיון')) items.unshift({ cmd: 'רשום מיילים מארכיון', score: 1004, type: 'he_archived_inject_base' });
+                    if (!have.has('רשום מיילים מארכיון מ[שולח]')) items.push({ cmd: 'רשום מיילים מארכיון מ[שולח]', score: 1003, type: 'he_archived_inject_sender' });
+                    if (isMaBare && !have.has('רשום מיילים מאתמול')) items.splice(1, 0, { cmd: 'רשום מיילים מאתמול', score: 1003.5, type: 'he_yesterday_inject_ma' });
+                    try { console.log('[HE-ARCHIVED-FINAL]', { qlc, isMaBare, isArchiveFlow, before, after: items.length }); } catch(e) {}
                 }
             } catch(e) {}
 
@@ -7125,6 +7297,29 @@
                                !/\[שולח\]|\[sender\]|\[domain\]|\[דומיין\]|מ(היום|אתמול|השבוע|החודש|השנה)|משלוח|קודי\s+אימות|אבטחת\s+חשבון/i.test(lcCmd);
                     });
                     try { console.log('[HE-LIST-ALL-MAIL-FILTER] restricted to general mail listing suggestions for:', qlc); } catch(e) {}
+                }
+            } catch(e) {}
+
+            // FINAL ENFORCEMENT (HE ARCHIVED): exact 'מאר' and any 'מארכ…' keep only archived suggestions
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isHeb = (document.documentElement.getAttribute('lang') || '').toLowerCase().startsWith('he');
+                const isArchShort = /^רש(?:ו)?ם\s+מיילים\s+מאר$/i.test(qlc);
+                const isArchFlow = /^רש(?:ו)?ם\s+מיילים\s+מארכ/i.test(qlc);
+                if (isHeb && (isArchShort || isArchFlow) && Array.isArray(items) && items.length) {
+                    const before = items.length;
+                    items = items.filter(function(it){
+                        const s = (it && it.cmd) ? it.cmd : String(it);
+                        const lc = String(s || '').toLowerCase();
+                        if (/^רש(?:ו)?ם\s+מיילים\s+מארכיון$/i.test(lc)) return true;
+                        if (/^רש(?:ו)?ם\s+מיילים\s+מארכיון\s+מ\[שולח\]$/i.test(lc)) return true;
+                        return false;
+                    });
+                    // Ensure both are present in a sensible order
+                    const have = new Set(items.map(function(it){ return (it && it.cmd) ? it.cmd : String(it); }));
+                    if (!have.has('רשום מיילים מארכיון')) items.unshift({ cmd: 'רשום מיילים מארכיון', score: 1004, type: 'he_archived_final_base' });
+                    if (!have.has('רשום מיילים מארכיון מ[שולח]')) items.push({ cmd: 'רשום מיילים מארכיון מ[שולח]', score: 1003, type: 'he_archived_final_sender' });
+                    try { console.log('[HE-ARCHIVED-STRICT]', { qlc, before, after: items.length }); } catch(e) {}
                 }
             } catch(e) {}
 
