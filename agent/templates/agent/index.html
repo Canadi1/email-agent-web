@@ -2145,7 +2145,11 @@
                     'delete all promotions older than [duration]',
                     'delete emails from [sender] older than [duration]',
                     'delete all emails older than [duration]',
+                    'archive emails from [sender]',
                     'archive emails older than [duration]',
+                    'archive shipping emails',
+                    'archive verification codes',
+                    'archive account security emails',
                     'archive emails from today',
                     'archive emails from yesterday',
                     'archive emails from this week',
@@ -2154,7 +2158,6 @@
                     'archive emails from last week',
                     'archive emails from last month',
                     'archive emails from last year',
-                    'archive emails from [sender]',
                     'archive emails from [sender] older than [duration]',
                     '• label emails from [sender] as "[label]"',
                     'list labels',
@@ -2175,6 +2178,26 @@
             );
             if (!hasPlainArchiveSender) {
                 commands.push(isHebrew ? 'ארכב מיילים מ[שולח]' : 'archive emails from [sender]');
+            }
+            
+            // Ensure plain archive timeframe commands exist
+            if (!isHebrew) {
+                const archiveCommands = [
+                    'archive emails older than [duration]',
+                    'archive emails from today',
+                    'archive emails from yesterday',
+                    'archive emails from this week',
+                    'archive emails from this month',
+                    'archive emails from this year',
+                    'archive emails from last week',
+                    'archive emails from last month',
+                    'archive emails from last year'
+                ];
+                archiveCommands.forEach(cmd => {
+                    if (!commands.some(c => String(c).toLowerCase() === cmd)) {
+                        commands.push(cmd);
+                    }
+                });
             }
         } catch (e) {}
 
@@ -2378,7 +2401,17 @@
             const actionKey = (() => {
                 try {
                     const m = q.match(/^\s*(list|archive|delete|restore|label|search|send|show)\b/i);
-                    return m ? m[1].toLowerCase() : '';
+                    const detected = m ? m[1].toLowerCase() : '';
+                    // Also check for partial matches of "archive" (a, ar, arc, arch, archi, archiv)
+                    if (!detected) {
+                        const trimmed = q.trim().toLowerCase();
+                        if (trimmed && 'archive'.startsWith(trimmed)) {
+                            console.log('[ACTION-DETECTION] q:', q, 'detected actionKey: archive (partial)');
+                            return 'archive';
+                        }
+                    }
+                    console.log('[ACTION-DETECTION] q:', q, 'detected actionKey:', detected);
+                    return detected;
                 } catch (e) { return ''; }
             })();
 
@@ -3740,10 +3773,14 @@
                 }
             } catch (e) {}
             // HARD GATE: In 'archive emails' flows without 'older than', drop any 'older than' suggestions
+            // BUT DO NOT APPLY THIS FILTER when typing just 'archive' (we want to show all archive commands)
             try {
                 const isArchiveNoOlder = /^\s*archive\s+emails\s*$/i.test(q)
                     && !/\bolder\s+than\b/i.test(q);
-                if (isArchiveNoOlder) {
+                const isJustArchive = /^\s*archive\s*$/i.test(q);
+                console.log('[HARD-GATE-OLDER-THAN] q:', q, 'isArchiveNoOlder:', isArchiveNoOlder, 'isJustArchive:', isJustArchive);
+                // SKIP this filter entirely if typing just "archive"
+                if (isArchiveNoOlder && !isJustArchive) {
                     const filtered = unique.filter(function(item){
                         const s = (item && item.cmd ? String(item.cmd).toLowerCase() : '');
                         const isGenericOlder = /^archive\s+emails\s+older\s+than\s+\[duration\]\b/i.test(s);
@@ -3823,8 +3860,15 @@
             try {
                 if (actionKey) {
                     let filteredByAction = unique.filter(function(item){
-                        const s = (item && item.cmd ? String(item.cmd).toLowerCase() : '');
-                        return s.startsWith(actionKey);
+                        if (!item || !item.cmd) return false;
+                        const cmd = String(item.cmd).toLowerCase();
+                        const cmdAction = cmd.match(/^\s*(list|archive|delete|restore|label|search|send|show)\b/i);
+                        const cmdActionKey = cmdAction ? cmdAction[1].toLowerCase() : '';
+                        const matches = cmdActionKey === actionKey;
+                        if (cmd.includes('archive emails older than [duration]')) {
+                            console.log('[ACTION-FILTER-DEBUG] Command:', cmd, 'cmdActionKey:', cmdActionKey, 'actionKey:', actionKey, 'matches:', matches);
+                        }
+                        return matches;
                     });
                     // Ensure the BEST MATCHING archive sender+timeframe goes to top
                     console.log("Archive reordering check - filteredByAction.length:", filteredByAction.length, "actionKey:", actionKey);
@@ -3833,6 +3877,50 @@
                         const item = filteredByAction[i];
                         const cmd = item && item.cmd ? String(item.cmd).toLowerCase() : 'undefined';
                         console.log(`  ${i}: "${cmd}"`);
+                    }
+                    
+                    // ARCHIVE PRIORITY: If typing "archive" (or any prefix), reorder suggestions to match desired priority
+                    if (actionKey === 'archive' && (function(){ try { return 'archive'.startsWith(String(q || '').trim().toLowerCase()); } catch(e) { return false; } })()) {
+                        console.log('[ARCHIVE-PRIORITY] Before reordering, filteredByAction contains:');
+                        filteredByAction.forEach((item, idx) => {
+                            console.log(`  ${idx}: "${item.cmd}"`);
+                        });
+                        
+                        const prioritizedArchiveCommands = [
+                            'archive emails from [sender]',
+                            'archive emails older than [duration]',
+                            'archive shipping emails',
+                            'archive verification codes', 
+                            'archive account security emails',
+                            'archive emails from today',
+                            'archive emails from yesterday',
+                            'archive emails from this week',
+                            'archive emails from this month',
+                            'archive emails from this year',
+                            'archive emails from last week',
+                            'archive emails from last month',
+                            'archive emails from last year'
+                        ];
+                        
+                        // Reorder filteredByAction to match the priority order
+                        const orderedArchive = [];
+                        prioritizedArchiveCommands.forEach(cmd => {
+                            const found = filteredByAction.find(item => {
+                                const s = (item && item.cmd ? String(item.cmd).toLowerCase() : '');
+                                return s === cmd.toLowerCase();
+                            });
+                            if (found) {
+                                orderedArchive.push(found);
+                                console.log(`[ARCHIVE-PRIORITY] Found: "${cmd}"`);
+                            } else {
+                                console.log(`[ARCHIVE-PRIORITY] Missing: "${cmd}"`);
+                            }
+                        });
+                        
+                        if (orderedArchive.length > 0) {
+                            filteredByAction = orderedArchive;
+                            console.log('[ARCHIVE-PRIORITY] Applied prioritized archive command ordering, final count:', orderedArchive.length);
+                        }
                     }
                     
                     // Filter out "today" suggestions when "this" is typed
@@ -4067,6 +4155,43 @@
                         const s = (item && item.cmd ? String(item.cmd).toLowerCase() : '');
                         return !/^\s*list\b/.test(s);
                     });
+                    
+                    // SPECIAL CASE: If typing just "archive" or "archive " (no additional context),
+                    // show only the prioritized archive commands in specific order
+                    if (/^\s*archive\s*$/i.test(q)) {
+                        const prioritizedArchiveCommands = [
+                            'archive emails from [sender]',
+                            'archive emails older than [duration]',
+                            'archive shipping emails',
+                            'archive verification codes', 
+                            'archive account security emails',
+                            'archive emails from today',
+                            'archive emails from yesterday',
+                            'archive emails from this week',
+                            'archive emails from this month',
+                            'archive emails from this year',
+                            'archive emails from last week',
+                            'archive emails from last month',
+                            'archive emails from last year'
+                        ];
+                        
+                        // Filter to only show these specific commands in this exact order
+                        const orderedArchive = [];
+                        prioritizedArchiveCommands.forEach(cmd => {
+                            const found = filteredArchive.find(item => {
+                                const s = (item && item.cmd ? String(item.cmd).toLowerCase() : '');
+                                return s === cmd.toLowerCase();
+                            });
+                            if (found) {
+                                orderedArchive.push(found);
+                            }
+                        });
+                        
+                        if (orderedArchive.length > 0) {
+                            filteredArchive = orderedArchive;
+                            console.log('[ARCHIVE-PRIORITY] Applied prioritized archive command ordering');
+                        }
+                    }
                     // After filtering, if a sender+timeframe is typed, move the BEST MATCHING one to top
                     const partialMatch2 = q.match(/\barchive\s+emails\s+from\s+[^\s].*?\s+from\s+(this\s+(?:week|month|year)|last\s+(?:week|month|year)|today|yesterday|this|last|thi|th|t|y|l|la|las|las\s+m|las\s+mo|las\s+mon|las\s+mont|las\s+month|las\s+w|las\s+we|las\s+wee|las\s+week|las\s+y|las\s+ye|las\s+yea|las\s+year|last\s+m|last\s+mo|last\s+mon|last\s+mont|last\s+month|last\s+w|last\s+we|last\s+wee|last\s+week|last\s+y|last\s+ye|last\s+yea|last\s+year|this\s+t|this\s+th|this\s+thi|this\s+this|this\s+w|this\s+we|this\s+wee|this\s+week|this\s+m|this\s+mo|this\s+mon|this\s+mont|this\s+month|this\s+y|this\s+ye|this\s+yea|this\s+year|last\s+m|last\s+mo|last\s+mon|last\s+mont|last\s+month|last\s+w|last\s+we|last\s+wee|last\s+week|last\s+y|last\s+ye|last\s+yea|last\s+year|this\s+t|this\s+th|this\s+thi|this\s+this|this\s+w|this\s+we|this\s+wee|this\s+week|this\s+m|this\s+mo|this\s+mon|this\s+mont|this\s+month|this\s+y|this\s+ye|this\s+yea|this\s+year|last\s+m|last\s+mo|last\s+mon|last\s+mont|last\s+month|last\s+w|last\s+we|last\s+wee|last\s+week|last\s+y|last\s+ye|last\s+yea|last\s+year|this\s+t|this\s+th|this\s+thi|this\s+this|this\s+w|this\s+we|this\s+wee|this\s+week|this\s+m|this\s+mo|this\s+mon|this\s+mont|this\s+month|this\s+y|this\s+ye|this\s+yea|this\s+year)\b/i);
                     // Also check for duration patterns (e.g., "3 weeks ago", "2 months ago")
@@ -5223,7 +5348,7 @@
             wrapper.appendChild(suggestionsContainer);
             console.log('Calling positionSuggestions...');
             positionSuggestions();
-            const maxShow = 12;
+            const maxShow = 15;
             let items = getSuggestions(input.toLowerCase(), maxShow);
             if (Array.isArray(heCategoryOverride)) {
                 items = heCategoryOverride;
