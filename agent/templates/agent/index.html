@@ -1008,6 +1008,21 @@
                 letter-spacing: -0.4px; /* Tighter spacing to make it fit */
             }
             
+            /* RTL: Align input placeholder text to the right */
+            html[dir="rtl"] #command-input {
+                text-align: right;
+                direction: rtl;
+            }
+            html[dir="rtl"] #command-input::placeholder {
+                text-align: right;
+                direction: rtl;
+            }
+            /* Cross-browser placeholder alignment for RTL */
+            html[dir="rtl"] #command-input::-webkit-input-placeholder { text-align: right; direction: rtl; }
+            html[dir="rtl"] #command-input::-moz-placeholder { text-align: right; direction: rtl; }
+            html[dir="rtl"] #command-input:-ms-input-placeholder { text-align: right; direction: rtl; }
+            html[dir="rtl"] #command-input::-ms-input-placeholder { text-align: right; direction: rtl; }
+            
             /* Mobile label distribution bar improvements */
             .bar-track {
                 min-width: 60px; /* Ensure bars have a minimum width on mobile */
@@ -1133,7 +1148,7 @@
             {% else %}
                 <form method="post" class="command-form" id="command-form" autocomplete="off">
                     {% csrf_token %}
-                    <input type="text" id="command-input" name="command" dir="auto" placeholder="{% trans 'e.g., list recent emails' %}" autofocus autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+                    <input type="text" id="command-input" name="command" dir="{% if LANGUAGE_BIDI %}rtl{% else %}ltr{% endif %}" placeholder="{% trans 'e.g., list recent emails' %}" autofocus autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
                     <button type="submit" id="command-submit">{% trans 'Process' %}</button>
                 </form>
                 {% if show_compose %}
