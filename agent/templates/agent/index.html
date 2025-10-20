@@ -7312,6 +7312,22 @@
             }
         } catch (e) {}
 
+            // ARCHIVE-OLDER-THAN FILTER: If typing 'archive emails o*', filter to only the matching older than command
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isArchiveEmailsOlderThan = /^archive\s+emails\s+o/.test(qlc);
+                if (isArchiveEmailsOlderThan && Array.isArray(items)) {
+                    // Filter to only show the specific "archive emails older than [duration]" command
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        // Keep only the exact matching command
+                        return /^archive\s+emails\s+older\s+than\s+\[duration\]$/.test(lcCmd);
+                    });
+                    try { console.log('[ARCHIVE-OLDER-THAN-FILTER] filtered to only matching command for:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+
             // FINAL CATEGORY FILTER: For 'רשום מיילי <קטגוריה> מהשבוע|מהחודש|מהשנה [שעבר/שעברה]'
             // keep only the two matching options (base and past variant) for that category, with progressive 'שע…' support
             try {
@@ -7705,6 +7721,8 @@
                 }
             } catch (e) {}
 
+
+
             // FILTER: Restrict basic English commands to only relevant suggestions
             try {
                 const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
@@ -7752,6 +7770,26 @@
                     try { console.log('[EN-RECENT-EMAILS-FILTER] restricted to recent emails suggestion for:', qlc); } catch(e) {}
                 }
             } catch(e) {}
+
+            // ARCHIVE-OLDER-THAN FILTER: If typing 'archive emails o*', filter to only older than commands
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isArchiveEmailsOlderThan = /^archive\s+emails\s+o/.test(qlc);
+                if (isArchiveEmailsOlderThan && Array.isArray(items)) {
+                    // Filter to only show older than archive commands
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        // Keep only older than archive commands (progressive matching)
+                        return /^archive\s+emails\s+older\s+than\s+\[duration\]$/.test(lcCmd) ||
+                               /^archive\s+emails\s+from\s+\[sender\]\s+older\s+than\s+\[duration\]$/.test(lcCmd) ||
+                               /^archive\s+verification\s+codes\s+older\s+than\s+\[duration\]$/.test(lcCmd) ||
+                               /^archive\s+shipping\s+emails\s+older\s+than\s+\[duration\]$/.test(lcCmd) ||
+                               /^archive\s+account\s+security\s+emails\s+older\s+than\s+\[duration\]$/.test(lcCmd);
+                    });
+                    try { console.log('[ARCHIVE-OLDER-THAN-FILTER] filtered to older than commands for:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
 
             // FILTER: English labels commands - restrict to label-related suggestions
             try {
