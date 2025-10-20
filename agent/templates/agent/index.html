@@ -7684,6 +7684,27 @@
                 }
             } catch (e) {}
 
+            // FINAL EN ARCHIVE-FROM-SENDER FILTER: If typing 'archive emails from [sender]', filter to only sender-based commands
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                // Detect "archive emails from [sender]" pattern (not a number, not a timeframe keyword)
+                const isArchiveEmailsFromSender = /^archive\s+emails\s+from\s+[a-zA-Z0-9._\-+@\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff\s]+$/.test(qlc) &&
+                    !/^archive\s+emails\s+from\s+\d+/.test(qlc) && // not a number
+                    !/^archive\s+emails\s+from\s+(today|yesterday|this|last|older|ago)/.test(qlc); // not timeframe keywords
+                
+                if (isArchiveEmailsFromSender && Array.isArray(items)) {
+                    // Filter to only show sender-based archive commands
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        // Keep only sender-based archive commands
+                        return /^archive\s+emails\s+from\s+\[sender\]$/.test(lcCmd) ||
+                               /^archive\s+emails\s+from\s+\[sender\][^\n]*\s+(from|older\s+than|from\s+\[duration\]\s+ago)/.test(lcCmd);
+                    });
+                    try { console.log('[EN-ARCHIVE-SENDER-FILTER] filtered to sender commands for:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+
             // FILTER: Restrict basic English commands to only relevant suggestions
             try {
                 const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
