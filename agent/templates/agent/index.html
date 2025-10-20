@@ -7328,6 +7328,64 @@
                 }
             } catch (e) {}
 
+            // ARCHIVE-THIS-TIMEFRAME FILTER: If typing 'archive emails from this', filter and prioritize week/month/year
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isArchiveEmailsFromThis = /^archive\s+emails\s+from\s+this$/.test(qlc);
+                if (isArchiveEmailsFromThis && Array.isArray(items)) {
+                    // Filter to only show "this" timeframe commands
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        // Keep only "this" timeframe commands
+                        return /^archive\s+emails\s+from\s+this\s+(week|month|year)$/.test(lcCmd);
+                    });
+                    
+                    // Sort in the desired order: week, month, year
+                    items.sort(function(a, b) {
+                        const cmdA = (a && a.cmd) ? String(a.cmd).toLowerCase() : '';
+                        const cmdB = (b && b.cmd) ? String(b.cmd).toLowerCase() : '';
+                        
+                        const order = { 'week': 1, 'month': 2, 'year': 3 };
+                        const orderA = order[cmdA.match(/this\s+(week|month|year)/)?.[1]] || 999;
+                        const orderB = order[cmdB.match(/this\s+(week|month|year)/)?.[1]] || 999;
+                        
+                        return orderA - orderB;
+                    });
+                    
+                    try { console.log('[ARCHIVE-THIS-FILTER] filtered and sorted this timeframe commands for:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+
+            // ARCHIVE-LAST-TIMEFRAME FILTER: If typing 'archive emails from last', filter and prioritize week/month/year
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isArchiveEmailsFromLast = /^archive\s+emails\s+from\s+last$/.test(qlc);
+                if (isArchiveEmailsFromLast && Array.isArray(items)) {
+                    // Filter to only show "last" timeframe commands
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        // Keep only "last" timeframe commands
+                        return /^archive\s+emails\s+from\s+last\s+(week|month|year)$/.test(lcCmd);
+                    });
+                    
+                    // Sort in the desired order: week, month, year
+                    items.sort(function(a, b) {
+                        const cmdA = (a && a.cmd) ? String(a.cmd).toLowerCase() : '';
+                        const cmdB = (b && b.cmd) ? String(b.cmd).toLowerCase() : '';
+                        
+                        const order = { 'week': 1, 'month': 2, 'year': 3 };
+                        const orderA = order[cmdA.match(/last\s+(week|month|year)/)?.[1]] || 999;
+                        const orderB = order[cmdB.match(/last\s+(week|month|year)/)?.[1]] || 999;
+                        
+                        return orderA - orderB;
+                    });
+                    
+                    try { console.log('[ARCHIVE-LAST-FILTER] filtered and sorted last timeframe commands for:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+
             // FINAL CATEGORY FILTER: For 'רשום מיילי <קטגוריה> מהשבוע|מהחודש|מהשנה [שעבר/שעברה]'
             // keep only the two matching options (base and past variant) for that category, with progressive 'שע…' support
             try {
