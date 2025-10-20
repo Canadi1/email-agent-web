@@ -2976,6 +2976,13 @@ class GmailAIAgent:
                     return {"action": "archive", "target_type": "sender_from_time", "target": sender_keyword, "time_period": time_period, "confirmation_required": True}
 
             # Archive emails from [time period] (no sender) e.g.,
+            # "list archived emails from [duration] ago" pattern (e.g., "list archived emails from 2 weeks ago")
+            list_archived_duration_ago_match = re.search(r'(^|\b)list\s+archived\s+emails\s+from\s+(\d+\s+(?:day|days|week|weeks|month|months|year|years)\s+ago|a\s+(?:day|week|month|year)\s+ago)(\b|$)', command_lower)
+            if list_archived_duration_ago_match:
+                duration_ago = list_archived_duration_ago_match.group(2)
+                print(f"DEBUG: list_archived_duration_ago_match found duration_ago='{duration_ago}'")
+                return {"action": "list", "target_type": "archived_duration_ago", "duration_ago": duration_ago, "confirmation_required": False}
+            
             # "archive emails from [duration] ago" pattern (e.g., "archive emails from 2 weeks ago")
             duration_ago_match = re.search(r'(^|\b)archive(?:\s+emails?)?\s+from\s+(\d+\s+(?:day|days|week|weeks|month|months|year|years)\s+ago|a\s+(?:day|week|month|year)\s+ago)(\b|$)', command_lower)
             if duration_ago_match:
@@ -3204,6 +3211,15 @@ class GmailAIAgent:
                     else:
                         msg = f"Found {len(emails)} archived emails."
                     return {"status": "success", "data": emails, "type": "email_list", "message": msg, "next_page_token": next_token, "list_context": {"mode": "archived"}}
+                elif target_type == "archived_duration_ago":
+                    res = self.list_archived_emails_from_duration_ago(parsed.get("duration_ago"))
+                    emails = res.get("emails", []) if isinstance(res, dict) else res
+                    next_token = res.get("next_page_token") if isinstance(res, dict) else None
+                    if "error" in res:
+                        return {"status": "error", "message": f"Error fetching archived emails: {res['error']}"}
+                    if not emails: 
+                        return {"status": "success", "message": res.get("message", _("No archived emails found from that duration."))}
+                    return {"status": "success", "data": emails, "type": "email_list", "next_page_token": next_token, "list_context": {"mode": "archived_duration_ago", "duration_ago": parsed.get("duration_ago")}}
                 elif target_type == "all_mail":
                     res = self.list_all_emails()
                     # Check if res is valid before calling .get()
@@ -4245,6 +4261,67 @@ class GmailAIAgent:
         except HttpError as error:
             return {"status": "error", "message": f"Error archiving emails: {error}"}
     
+    def list_archived_emails_from_duration_ago(self, duration_ago, max_results=None, page_token=None):
+        """List archived emails from a specific duration ago (e.g., '2 weeks ago', 'a month ago')."""
+        try:
+            if not duration_ago:
+                return {"error": "Missing required parameter: duration_ago"}
+            
+            print(f"DEBUG: list_archived_emails_from_duration_ago called with duration_ago='{duration_ago}'")
+            start_dt, end_dt = self._compute_precise_date_range_window(str(duration_ago).strip().lower())
+            
+            if not start_dt or not end_dt:
+                return {"error": f"Invalid or unsupported duration: {duration_ago}"}
+            
+            # Format dates for Gmail query
+            start_date_str = start_dt.strftime('%Y/%m/%d')
+            end_date_str = end_dt.strftime('%Y/%m/%d')
+            
+            # Query for archived emails from the specific duration ago
+            # Archived = not in INBOX; also exclude common non-inbox/system buckets
+            q = f"-in:inbox -in:spam -in:trash -in:chats -in:sent -in:drafts after:{start_date_str} before:{end_date_str}"
+            
+            if max_results is None:
+                max_results = self.default_max_results
+            
+            print(f"DEBUG: Gmail query for archived emails from duration ago: {q}")
+            
+            # Execute the query
+            results = self.service.users().messages().list(
+                userId='me',
+                q=q,
+                maxResults=max_results,
+                pageToken=page_token
+            ).execute()
+            
+            messages = results.get('messages', [])
+            if not messages:
+                return {"status": "success", "message": _("No archived emails found from %(duration)s.") % {"duration": duration_ago}, "emails": [], "archived_count": 0}
+            
+            # Get full message details
+            emails = []
+            for message in messages:
+                try:
+                    msg = self.service.users().messages().get(userId='me', id=message['id']).execute()
+                    email_data = self._extract_email_data(msg)
+                    if email_data:
+                        emails.append(email_data)
+                except Exception as e:
+                    print(f"Error fetching message {message['id']}: {e}")
+                    continue
+            
+            return {
+                "status": "success", 
+                "message": _("Found %(count)d archived emails from %(duration)s.") % {"count": len(emails), "duration": duration_ago}, 
+                "emails": emails, 
+                "archived_count": len(emails),
+                "next_page_token": results.get('nextPageToken')
+            }
+            
+        except Exception as e:
+            print(f"Error in list_archived_emails_from_duration_ago: {e}")
+            return {"error": f"Failed to list archived emails from {duration_ago}: {str(e)}"}
+
     def list_archived_emails(self, max_results=None, page_token=None):
         """List archived emails (messages not in Inbox, excluding Sent/Drafts/Spam/Trash)."""
         from agent.views import update_email_progress  # Import at function start

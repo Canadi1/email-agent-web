@@ -2112,6 +2112,8 @@
                     'רשום מיילים מ[שולח] מלפני [משך]',
                     'רשום מיילים ישנים מ[משך]',
                     'רשום מיילים מ[שולח] ישנים מ[משך]',
+                    'רשום מיילים מארכיון מלפני [משך]',
+                    'רשום מיילים מארכיון ישנים מ[משך]',
                     'רשום מיילי משלוח ישנים מ[משך]',
                     'רשום מיילי קודי אימות ישנים מ[משך]',
                     'רשום מיילי אבטחת חשבון ישנים מ[משך]',
@@ -2139,6 +2141,8 @@
                     'list emails from yesterday',
                     'list emails from [duration] ago',
                     'list emails older than [duration]',
+                    'list archived emails from [duration] ago',
+                    'list archived emails older than [duration]',
                     'search emails with subject "[keyword]"',
                     'show email stats',
                     'delete emails from [domain.com]',
@@ -3914,6 +3918,7 @@
                         // Different prioritization based on input type
                         const prioritizedArchiveCommands = isArchiveEmailsFromPrefix ? [
                             'archive emails from [sender]',
+                            'archive emails from [duration] ago',
                             'archive emails from today',
                             'archive emails from yesterday',
                             'archive emails from this week',
@@ -7599,25 +7604,83 @@
                 console.log('[HE-DIAG][final-head] len=', Array.isArray(items)?items.length:'n/a', headItems);
             } catch (e) {}
 
-            // FINAL EN ARCHIVE-FROM NUDGE: If typing 'archive emails f*', forcibly inject '[sender]' at top
+            // FINAL EN ARCHIVE-FROM NUDGE: If typing 'archive emails f*', forcibly inject '[sender]' and '[duration] ago' at top
             try {
                 const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
                 const isArchiveEmailsFromPrefix = /^archive\s+emails\s+f(r(o(m)?)?)?$/i.test(qlc);
                 if (isArchiveEmailsFromPrefix && Array.isArray(items)) {
                     const senderCmd = 'archive emails from [sender]';
-                    let foundIdx = -1;
+                    const durationAgoCmd = 'archive emails from [duration] ago';
+                    
+                    // Handle sender command
+                    let senderIdx = -1;
                     for (let i = 0; i < items.length; i++) {
                         const s = (items[i] && items[i].cmd) ? String(items[i].cmd) : String(items[i]);
-                        if (s.toLowerCase() === senderCmd) { foundIdx = i; break; }
+                        if (s.toLowerCase() === senderCmd) { senderIdx = i; break; }
                     }
-                    if (foundIdx === -1) {
+                    if (senderIdx === -1) {
                         items.unshift({ cmd: senderCmd, score: 2000, type: 'en_sender_force' });
                         try { console.log('[EN-FINAL-NUDGE] injected sender at top for:', qlc); } catch(e) {}
-                    } else if (foundIdx > 0) {
-                        const it = items.splice(foundIdx, 1)[0];
+                    } else if (senderIdx > 0) {
+                        const it = items.splice(senderIdx, 1)[0];
                         items.unshift(it);
                         try { console.log('[EN-FINAL-NUDGE] promoted existing sender to top for:', qlc); } catch(e) {}
                     }
+                    
+                    // Handle duration ago command (should be second)
+                    let durationIdx = -1;
+                    for (let i = 0; i < items.length; i++) {
+                        const s = (items[i] && items[i].cmd) ? String(items[i].cmd) : String(items[i]);
+                        if (s.toLowerCase() === durationAgoCmd) { durationIdx = i; break; }
+                    }
+                    if (durationIdx === -1) {
+                        items.splice(1, 0, { cmd: durationAgoCmd, score: 1999, type: 'en_duration_ago_force' });
+                        try { console.log('[EN-FINAL-NUDGE] injected duration ago at position 1 for:', qlc); } catch(e) {}
+                    } else if (durationIdx !== 1) {
+                        const it = items.splice(durationIdx, 1)[0];
+                        items.splice(1, 0, it);
+                        try { console.log('[EN-FINAL-NUDGE] promoted existing duration ago to position 1 for:', qlc); } catch(e) {}
+                    }
+                }
+            } catch (e) {}
+
+            // FINAL EN LIST-ARCHIVED-FROM NUDGE: If typing 'list archived emails from [number]', prioritize duration ago command
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isListArchivedFromNumber = /^list\s+archived\s+emails\s+from\s+\d+$/.test(qlc);
+                if (isListArchivedFromNumber && Array.isArray(items)) {
+                    const durationAgoCmd = 'list archived emails from [duration] ago';
+                    
+                    // Find and promote the duration ago command to the top
+                    let durationIdx = -1;
+                    for (let i = 0; i < items.length; i++) {
+                        const s = (items[i] && items[i].cmd) ? String(items[i].cmd) : String(items[i]);
+                        if (s.toLowerCase() === durationAgoCmd) { durationIdx = i; break; }
+                    }
+                    if (durationIdx === -1) {
+                        items.unshift({ cmd: durationAgoCmd, score: 2000, type: 'en_list_archived_duration_force' });
+                        try { console.log('[EN-LIST-ARCHIVED-NUDGE] injected duration ago at top for:', qlc); } catch(e) {}
+                    } else if (durationIdx > 0) {
+                        const it = items.splice(durationIdx, 1)[0];
+                        items.unshift(it);
+                        try { console.log('[EN-LIST-ARCHIVED-NUDGE] promoted existing duration ago to top for:', qlc); } catch(e) {}
+                    }
+                }
+            } catch (e) {}
+
+            // FINAL EN ARCHIVE-FROM-NUMBER FILTER: If typing 'archive emails from [number]', filter to only duration ago command
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isArchiveEmailsFromNumber = /^archive\s+emails\s+from\s+\d+/.test(qlc);
+                if (isArchiveEmailsFromNumber && Array.isArray(items)) {
+                    // Filter to only show the duration ago command that matches the pattern
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        // Keep only the duration ago command that matches "archive emails from [number]"
+                        return /^archive\s+emails\s+from\s+\[duration\]\s+ago$/.test(lcCmd);
+                    });
+                    try { console.log('[EN-ARCHIVE-NUMBER-FILTER] filtered to only duration ago command for:', qlc); } catch(e) {}
                 }
             } catch (e) {}
 
