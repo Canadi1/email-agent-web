@@ -7386,6 +7386,67 @@
                 }
             } catch (e) {}
 
+            // ARCHIVE-SENDER-T-FILTER: If typing 'archive emails from [sender] from t', prioritize today and this commands
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isArchiveSenderFromT = /^archive\s+emails\s+from\s+[a-zA-Z0-9._\-+@\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff\s]+\s+from\s+t$/.test(qlc);
+                if (isArchiveSenderFromT && Array.isArray(items)) {
+                    // Filter to only show today and this commands
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        // Keep only today and this commands
+                        return /^archive\s+emails\s+from\s+\[sender\]\s+from\s+(today|this\s+(week|month|year))$/.test(lcCmd);
+                    });
+                    
+                    // Sort to put today first, then this commands
+                    items.sort(function(a, b) {
+                        const cmdA = (a && a.cmd) ? String(a.cmd).toLowerCase() : '';
+                        const cmdB = (b && b.cmd) ? String(b.cmd).toLowerCase() : '';
+                        
+                        // Today gets priority (0), this commands get 1-3
+                        const orderA = cmdA.includes('today') ? 0 : (cmdA.includes('this week') ? 1 : cmdA.includes('this month') ? 2 : 3);
+                        const orderB = cmdB.includes('today') ? 0 : (cmdB.includes('this week') ? 1 : cmdB.includes('this month') ? 2 : 3);
+                        
+                        return orderA - orderB;
+                    });
+                    
+                    try { console.log('[ARCHIVE-SENDER-T-FILTER] filtered and prioritized today/this commands for:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+
+            // ARCHIVE-SENDER-TODAY FILTER: If typing 'archive emails from [sender] from to*', filter to only this command
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isArchiveSenderFromToday = /^archive\s+emails\s+from\s+[a-zA-Z0-9._\-+@\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff\s]+\s+from\s+to/.test(qlc);
+                if (isArchiveSenderFromToday && Array.isArray(items)) {
+                    // Filter to only show the sender from today command
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        // Keep only the sender from today command
+                        return /^archive\s+emails\s+from\s+\[sender\]\s+from\s+today$/.test(lcCmd);
+                    });
+                    try { console.log('[ARCHIVE-SENDER-TODAY-FILTER] filtered to sender from today command for:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+
+            // ARCHIVE-SENDER-YESTERDAY FILTER: If typing 'archive emails from [sender] from y*', filter to only this command
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isArchiveSenderFromYesterday = /^archive\s+emails\s+from\s+[a-zA-Z0-9._\-+@\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff\s]+\s+from\s+y/.test(qlc);
+                if (isArchiveSenderFromYesterday && Array.isArray(items)) {
+                    // Filter to only show the sender from yesterday command
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        // Keep only the sender from yesterday command
+                        return /^archive\s+emails\s+from\s+\[sender\]\s+from\s+yesterday$/.test(lcCmd);
+                    });
+                    try { console.log('[ARCHIVE-SENDER-YESTERDAY-FILTER] filtered to sender from yesterday command for:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+
             // FINAL CATEGORY FILTER: For 'רשום מיילי <קטגוריה> מהשבוע|מהחודש|מהשנה [שעבר/שעברה]'
             // keep only the two matching options (base and past variant) for that category, with progressive 'שע…' support
             try {
