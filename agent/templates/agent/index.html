@@ -7601,6 +7601,67 @@
                 }
             } catch (e) {}
 
+            // ARCHIVE-SENDER-OLDER-THAN FILTER: If typing 'archive emails from [sender] o*', filter to only this command
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isArchiveSenderOlderThan = /^archive\s+emails\s+from\s+[a-zA-Z0-9._\-+@\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff\s]+\s+o/.test(qlc);
+                if (isArchiveSenderOlderThan && Array.isArray(items)) {
+                    // Filter to only show the sender older than command
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        // Keep only the sender older than command
+                        return /^archive\s+emails\s+from\s+\[sender\]\s+older\s+than\s+\[duration\]$/.test(lcCmd);
+                    });
+                    try { console.log('[ARCHIVE-SENDER-OLDER-THAN-FILTER] filtered to sender older than command for:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+
+            // ARCHIVE-SENDER-F-FILTER: If typing 'archive emails from [sender] f*', prioritize duration ago command
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isArchiveSenderFromF = /^archive\s+emails\s+from\s+[a-zA-Z0-9._\-+@\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff\s]+\s+f/.test(qlc);
+                if (isArchiveSenderFromF && Array.isArray(items)) {
+                    // Filter to only show from commands
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        // Keep only from commands
+                        return /^archive\s+emails\s+from\s+\[sender\]\s+from\s+(today|yesterday|this\s+(week|month|year)|last\s+(week|month|year)|\[duration\]\s+ago)$/.test(lcCmd);
+                    });
+                    
+                    // Sort to put duration ago first, then others
+                    items.sort(function(a, b) {
+                        const cmdA = (a && a.cmd) ? String(a.cmd).toLowerCase() : '';
+                        const cmdB = (b && b.cmd) ? String(b.cmd).toLowerCase() : '';
+                        
+                        // Duration ago gets priority (0), others get 1+
+                        const orderA = cmdA.includes('[duration] ago') ? 0 : 1;
+                        const orderB = cmdB.includes('[duration] ago') ? 0 : 1;
+                        
+                        return orderA - orderB;
+                    });
+                    
+                    try { console.log('[ARCHIVE-SENDER-F-FILTER] filtered and prioritized from commands for:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+
+            // ARCHIVE-SENDER-FROM-DURATION-AGO FILTER: If typing 'archive emails from [sender] from [number]', filter to only this command
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isArchiveSenderFromDurationAgo = /^archive\s+emails\s+from\s+[a-zA-Z0-9._\-+@\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff\s]+\s+from\s+\d+/.test(qlc);
+                if (isArchiveSenderFromDurationAgo && Array.isArray(items)) {
+                    // Filter to only show the sender from duration ago command
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        // Keep only the sender from duration ago command
+                        return /^archive\s+emails\s+from\s+\[sender\]\s+from\s+\[duration\]\s+ago$/.test(lcCmd);
+                    });
+                    try { console.log('[ARCHIVE-SENDER-FROM-DURATION-AGO-FILTER] filtered to sender from duration ago command for:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+
             // FINAL CATEGORY FILTER: For 'רשום מיילי <קטגוריה> מהשבוע|מהחודש|מהשנה [שעבר/שעברה]'
             // keep only the two matching options (base and past variant) for that category, with progressive 'שע…' support
             try {
