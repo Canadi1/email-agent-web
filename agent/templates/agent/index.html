@@ -7431,6 +7431,160 @@
                 }
             } catch (e) {}
 
+            // ARCHIVE-SENDER-THIS FILTER: If typing 'archive emails from [sender] from th*', filter and prioritize this commands
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isArchiveSenderFromThis = /^archive\s+emails\s+from\s+[a-zA-Z0-9._\-+@\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff\s]+\s+from\s+th/.test(qlc);
+                if (isArchiveSenderFromThis && Array.isArray(items)) {
+                    // Filter to only show this commands
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        // Keep only this commands
+                        return /^archive\s+emails\s+from\s+\[sender\]\s+from\s+this\s+(week|month|year)$/.test(lcCmd);
+                    });
+                    
+                    // Sort in the desired order: week, month, year
+                    items.sort(function(a, b) {
+                        const cmdA = (a && a.cmd) ? String(a.cmd).toLowerCase() : '';
+                        const cmdB = (b && b.cmd) ? String(b.cmd).toLowerCase() : '';
+                        
+                        const order = { 'week': 1, 'month': 2, 'year': 3 };
+                        const orderA = order[cmdA.match(/this\s+(week|month|year)/)?.[1]] || 999;
+                        const orderB = order[cmdB.match(/this\s+(week|month|year)/)?.[1]] || 999;
+                        
+                        return orderA - orderB;
+                    });
+                    
+                    try { console.log('[ARCHIVE-SENDER-THIS-FILTER] filtered and sorted this commands for:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+
+            // ARCHIVE-SENDER-THIS-WEEK FILTER: If typing 'archive emails from [sender] from this w*', filter to only this command
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isArchiveSenderFromThisWeek = /^archive\s+emails\s+from\s+[a-zA-Z0-9._\-+@\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff\s]+\s+from\s+this\s+w/.test(qlc);
+                if (isArchiveSenderFromThisWeek && Array.isArray(items)) {
+                    // Filter to only show the sender from this week command
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        // Keep only the sender from this week command
+                        return /^archive\s+emails\s+from\s+\[sender\]\s+from\s+this\s+week$/.test(lcCmd);
+                    });
+                    try { console.log('[ARCHIVE-SENDER-THIS-WEEK-FILTER] filtered to sender from this week command for:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+
+            // ARCHIVE-SENDER-THIS-MONTH FILTER: If typing 'archive emails from [sender] from this m*', filter to only this command
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isArchiveSenderFromThisMonth = /^archive\s+emails\s+from\s+[a-zA-Z0-9._\-+@\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff\s]+\s+from\s+this\s+m/.test(qlc);
+                if (isArchiveSenderFromThisMonth && Array.isArray(items)) {
+                    // Filter to only show the sender from this month command
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        // Keep only the sender from this month command
+                        return /^archive\s+emails\s+from\s+\[sender\]\s+from\s+this\s+month$/.test(lcCmd);
+                    });
+                    try { console.log('[ARCHIVE-SENDER-THIS-MONTH-FILTER] filtered to sender from this month command for:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+
+            // ARCHIVE-SENDER-THIS-YEAR FILTER: If typing 'archive emails from [sender] from this y*', filter to only this command
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isArchiveSenderFromThisYear = /^archive\s+emails\s+from\s+[a-zA-Z0-9._\-+@\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff\s]+\s+from\s+this\s+y/.test(qlc);
+                if (isArchiveSenderFromThisYear && Array.isArray(items)) {
+                    // Filter to only show the sender from this year command
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        // Keep only the sender from this year command
+                        return /^archive\s+emails\s+from\s+\[sender\]\s+from\s+this\s+year$/.test(lcCmd);
+                    });
+                    try { console.log('[ARCHIVE-SENDER-THIS-YEAR-FILTER] filtered to sender from this year command for:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+
+            // ARCHIVE-SENDER-L-FILTER: If typing 'archive emails from [sender] from l*', prioritize last commands
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isArchiveSenderFromL = /^archive\s+emails\s+from\s+[a-zA-Z0-9._\-+@\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff\s]+\s+from\s+l/.test(qlc);
+                if (isArchiveSenderFromL && Array.isArray(items)) {
+                    // Filter to only show last commands
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        // Keep only last commands
+                        return /^archive\s+emails\s+from\s+\[sender\]\s+from\s+last\s+(week|month|year)$/.test(lcCmd);
+                    });
+                    
+                    // Sort in the desired order: week, month, year
+                    items.sort(function(a, b) {
+                        const cmdA = (a && a.cmd) ? String(a.cmd).toLowerCase() : '';
+                        const cmdB = (b && b.cmd) ? String(b.cmd).toLowerCase() : '';
+                        
+                        const order = { 'week': 1, 'month': 2, 'year': 3 };
+                        const orderA = order[cmdA.match(/last\s+(week|month|year)/)?.[1]] || 999;
+                        const orderB = order[cmdB.match(/last\s+(week|month|year)/)?.[1]] || 999;
+                        
+                        return orderA - orderB;
+                    });
+                    
+                    try { console.log('[ARCHIVE-SENDER-L-FILTER] filtered and sorted last commands for:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+
+            // ARCHIVE-SENDER-LAST-WEEK FILTER: If typing 'archive emails from [sender] from last w*', filter to only this command
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isArchiveSenderFromLastWeek = /^archive\s+emails\s+from\s+[a-zA-Z0-9._\-+@\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff\s]+\s+from\s+last\s+w/.test(qlc);
+                if (isArchiveSenderFromLastWeek && Array.isArray(items)) {
+                    // Filter to only show the sender from last week command
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        // Keep only the sender from last week command
+                        return /^archive\s+emails\s+from\s+\[sender\]\s+from\s+last\s+week$/.test(lcCmd);
+                    });
+                    try { console.log('[ARCHIVE-SENDER-LAST-WEEK-FILTER] filtered to sender from last week command for:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+
+            // ARCHIVE-SENDER-LAST-MONTH FILTER: If typing 'archive emails from [sender] from last m*', filter to only this command
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isArchiveSenderFromLastMonth = /^archive\s+emails\s+from\s+[a-zA-Z0-9._\-+@\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff\s]+\s+from\s+last\s+m/.test(qlc);
+                if (isArchiveSenderFromLastMonth && Array.isArray(items)) {
+                    // Filter to only show the sender from last month command
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        // Keep only the sender from last month command
+                        return /^archive\s+emails\s+from\s+\[sender\]\s+from\s+last\s+month$/.test(lcCmd);
+                    });
+                    try { console.log('[ARCHIVE-SENDER-LAST-MONTH-FILTER] filtered to sender from last month command for:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+
+            // ARCHIVE-SENDER-LAST-YEAR FILTER: If typing 'archive emails from [sender] from last y*', filter to only this command
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isArchiveSenderFromLastYear = /^archive\s+emails\s+from\s+[a-zA-Z0-9._\-+@\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff\s]+\s+from\s+last\s+y/.test(qlc);
+                if (isArchiveSenderFromLastYear && Array.isArray(items)) {
+                    // Filter to only show the sender from last year command
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        // Keep only the sender from last year command
+                        return /^archive\s+emails\s+from\s+\[sender\]\s+from\s+last\s+year$/.test(lcCmd);
+                    });
+                    try { console.log('[ARCHIVE-SENDER-LAST-YEAR-FILTER] filtered to sender from last year command for:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+
             // ARCHIVE-SENDER-YESTERDAY FILTER: If typing 'archive emails from [sender] from y*', filter to only this command
             try {
                 const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
