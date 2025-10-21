@@ -2126,6 +2126,15 @@
                     'ארכב מיילים ישנים מ[משך]',
                     'ארכב מיילים מ[שולח]',
                     'ארכב מיילים מ[שולח] ישנים מ[משך]',
+                    'ארכב מיילים מהיום',
+                    'ארכב מיילים מאתמול',
+                    'ארכב מיילים מהשבוע הזה',
+                    'ארכב מיילים מהחודש הזה',
+                    'ארכב מיילים מהשנה הזו',
+                    'ארכב מיילים מהשבוע שעבר',
+                    'ארכב מיילים מהחודש שעבר',
+                    'ארכב מיילים מהשנה שעברה',
+                    'ארכב מיילים מלפני [משך]',
                     'תייג מיילים מ[שולח] כ"[תווית]"',
                     'רשום תוויות',
                     'רשום מיילים עם תווית "[תווית]"',
@@ -5598,6 +5607,76 @@
                         return keep;
                     });
                 }
+                
+                // Hebrew archive intent filter: if typing "ארכב" progressively, prioritize archive commands
+                const isHeArchiveIntent = isHeb && /^א(?:ר(?:כ(?:ב(\s+מ(?:י(?:י(?:ל(?:י(?:ם)?)?)?)?)?)?)?)?)?$/.test(q);
+                if (isHeArchiveIntent && Array.isArray(items)) {
+                    try { console.log('[HE-ARCHIVE-INTENT-FILTER] BEFORE filtering, items.length:', items.length); } catch(e) {}
+                    try { console.log('[HE-ARCHIVE-INTENT-FILTER] BEFORE filtering, first 5 items:', items.slice(0,5).map(x => x.cmd || x)); } catch(e) {}
+                    
+                    // Check if typing exactly "ארכב מיילי" (archive emails) - then show both plain and category commands
+                    const isTypingArchiveEmails = /^ארכב\s+מיילי$/.test(q);
+                    
+                    if (isTypingArchiveEmails) {
+                        try { console.log('[HE-ARCHIVE-INTENT-FILTER] BEFORE filtering - total items:', items.length); } catch(e) {}
+                        try { console.log('[HE-ARCHIVE-INTENT-FILTER] BEFORE filtering - all items:', items.map(x => x.cmd || x)); } catch(e) {}
+                        
+                        // Filter to keep ALL Hebrew category archive commands (with timeframes, durations, etc.)
+                        items = items.filter(it => {
+                            const text = typeof it === 'string' ? it : (it && it.cmd ? it.cmd : '');
+                            const lc = String(text || '').toLowerCase().trim();
+                            // Keep category commands: ארכב מיילי משלוח, ארכב קודי אימות, ארכב מיילי אבטחת חשבון
+                            // Exclude sender commands: ארכב מיילים מ[שולח]
+                            const keep = /^ארכב\s+מיילי\s+(משלוח|קודי\s+אימות|אבטחת\s+חשבון)/.test(lc);
+                            try { console.log('[HE-ARCHIVE-INTENT-FILTER] checking:', lc, 'keep:', keep, 'regex test:', /^ארכב\s+מיילי\s+(משלוח|קודי\s+אימות|אבטחת\s+חשבון)/.test(lc)); } catch(e) {}
+                            return keep;
+                        });
+                        
+                        try { console.log('[HE-ARCHIVE-INTENT-FILTER] AFTER filtering - total items:', items.length); } catch(e) {}
+                        try { console.log('[HE-ARCHIVE-INTENT-FILTER] AFTER filtering - all items:', items.map(x => x.cmd || x)); } catch(e) {}
+                        
+                        // Always inject "ארכב מיילים מ[שולח]" as first suggestion
+                        items.unshift({ cmd: 'ארכב מיילים מ[שולח]' });
+                        try { console.log('[HE-ARCHIVE-INTENT-FILTER] INJECTED ארכב מיילים מ[שולח] as first item'); } catch(e) {}
+                        
+                        try { console.log('[HE-ARCHIVE-INTENT-FILTER] FINAL - total items:', items.length); } catch(e) {}
+                        try { console.log('[HE-ARCHIVE-INTENT-FILTER] FINAL - all items:', items.map(x => x.cmd || x)); } catch(e) {}
+                    } else {
+                        // When typing "ארכב" or "ארכב מ" etc., only show plain archive commands
+                        items = items.filter(it => {
+                            const text = typeof it === 'string' ? it : (it && it.cmd ? it.cmd : '');
+                            const lc = String(text || '').toLowerCase().trim();
+                            // Keep only plain "ארכב מיילים" commands, hide categories and list commands
+                            const keep = /^ארכב\s+מיילים\b/.test(lc);
+                            try { console.log('[HE-ARCHIVE-INTENT-FILTER] checking:', lc, 'keep:', keep); } catch(e) {}
+                            return keep;
+                        });
+                    }
+                    
+                    try { console.log('[HE-ARCHIVE-INTENT-FILTER] AFTER filtering and sorting, items.length:', items.length); } catch(e) {}
+                    try { console.log('[HE-ARCHIVE-INTENT-FILTER] AFTER filtering and sorting, items:', items.map(x => x.cmd || x)); } catch(e) {}
+                    
+                    // If no items remain after filtering, inject Hebrew archive commands
+                    if (items.length === 0 && Array.isArray(commands)) {
+                        const hebrewArchiveCommands = [
+                            'ארכב מיילים מ[שולח]',
+                            'ארכב מיילים ישנים מ[משך]',
+                            'ארכב מיילים מ[שולח] ישנים מ[משך]',
+                            'ארכב מיילים מהיום',
+                            'ארכב מיילים מאתמול',
+                            'ארכב מיילים מהשבוע הזה',
+                            'ארכב מיילים מהחודש הזה',
+                            'ארכב מיילים מהשנה הזו',
+                            'ארכב מיילים מהשבוע שעבר',
+                            'ארכב מיילים מהחודש שעבר',
+                            'ארכב מיילים מהשנה שעברה',
+                            'ארכב מיילים מלפני [משך]'
+                        ];
+                        items = hebrewArchiveCommands.map(cmd => ({ cmd: cmd }));
+                        try { console.log('[HE-ARCHIVE-INTENT-FILTER] INJECTED Hebrew archive commands:', items.length); } catch(e) {}
+                    }
+                }
+                
                 // Normalize input (remove RTL marks, collapse spaces) and detect fixed timeframe tokens
                 qNorm = q.replace(/[\u200e\u200f]/g, '').replace(/\s+/g, ' ');
                 // Check if typing after a sender/domain - either with brackets [שולח] OR actual sender name (text between "מ" and timeframe)
