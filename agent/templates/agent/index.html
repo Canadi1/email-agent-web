@@ -8586,6 +8586,81 @@
                 }
             } catch (e) {}
             
+            // ARCHIVE-CATEGORY-A-FILTER: If typing 'archive [category] from a', filter to only duration ago commands
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isArchiveCategoryFromA = /^archive\s+(verification\s+codes|shipping\s+emails|account\s+security\s+emails)\s+from\s+a$/.test(qlc);
+                if (isArchiveCategoryFromA && Array.isArray(items)) {
+                    // Filter to only show duration ago commands
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        return /from\s+\[duration\]\s+ago$/.test(lcCmd);
+                    });
+                    try { console.log('[ARCHIVE-CATEGORY-A-FILTER] filtered to duration ago commands for:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+            
+            // ARCHIVE-CATEGORY-A-UNIT-FILTER: If typing 'archive [category] from a [unit]', filter to only duration ago commands
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isArchiveCategoryFromAUnit = /^archive\s+(verification\s+codes|shipping\s+emails|account\s+security\s+emails)\s+from\s+a\s+(d|w|m|y|da|we|mo|ye|day|wee|mon|mont|yea|days|weeks|months|years|week|month|year)$/.test(qlc);
+                if (isArchiveCategoryFromAUnit && Array.isArray(items)) {
+                    // Filter to only show duration ago commands
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        return /from\s+\[duration\]\s+ago$/.test(lcCmd);
+                    });
+                    try { console.log('[ARCHIVE-CATEGORY-A-UNIT-FILTER] filtered to duration ago commands for:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+            
+            // ARCHIVE-CATEGORY-A-AGO-FILTER: If typing 'archive [category] from a [unit] ago', filter to only duration ago commands
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isArchiveCategoryFromAAgo = /^archive\s+(verification\s+codes|shipping\s+emails|account\s+security\s+emails)\s+from\s+a\s+(d|w|m|y|da|we|mo|ye|day|wee|mon|mont|yea|days|weeks|months|years|week|month|year)\s+ago$/.test(qlc);
+                if (isArchiveCategoryFromAAgo && Array.isArray(items)) {
+                    // Filter to only show duration ago commands
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        return /from\s+\[duration\]\s+ago$/.test(lcCmd);
+                    });
+                    try { console.log('[ARCHIVE-CATEGORY-A-AGO-FILTER] filtered to duration ago commands for:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+            
+            // ARCHIVE-CATEGORY-A-TYPO-FILTER: If typing 'archive [category] from a [typo] ago', filter to only duration ago commands
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isArchiveCategoryFromATypo = /^archive\s+(verification\s+codes|shipping\s+emails|account\s+security\s+emails)\s+from\s+a\s+[a-z]+\s+ago$/.test(qlc);
+                if (isArchiveCategoryFromATypo && Array.isArray(items)) {
+                    // Filter to only show duration ago commands
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        return /from\s+\[duration\]\s+ago$/.test(lcCmd);
+                    });
+                    try { console.log('[ARCHIVE-CATEGORY-A-TYPO-FILTER] filtered to duration ago commands for typo:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+            
+            // ARCHIVE-CATEGORY-A-AGO-PROGRESSIVE-FILTER: If typing 'archive [category] from a [unit] a/ag/ago', filter to only duration ago commands
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isArchiveCategoryFromAAgoProgressive = /^archive\s+(verification\s+codes|shipping\s+emails|account\s+security\s+emails)\s+from\s+a\s+(d|w|m|y|da|we|mo|ye|day|wee|mon|mont|yea|days|weeks|months|years|week|month|year)\s+(a|ag|ago)$/.test(qlc);
+                if (isArchiveCategoryFromAAgoProgressive && Array.isArray(items)) {
+                    // Filter to only show duration ago commands
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        return /from\s+\[duration\]\s+ago$/.test(lcCmd);
+                    });
+                    try { console.log('[ARCHIVE-CATEGORY-A-AGO-PROGRESSIVE-FILTER] filtered to duration ago commands for progressive ago:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+
             // ARCHIVE-CATEGORY-DURATION-AGO-COMPREHENSIVE-FILTER: If typing 'archive [category] from [number]' or 'archive [category] from [number] [unit] a/ag/ago', filter to duration ago commands
             try {
                 const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
@@ -8598,6 +8673,51 @@
                         return /from\s+\[duration\]\s+ago$/.test(lcCmd);
                     });
                     try { console.log('[ARCHIVE-CATEGORY-DURATION-AGO-COMPREHENSIVE-FILTER] filtered to duration ago commands for:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+            
+            // ARCHIVE-CATEGORY-DURATION-AGO-ANY-TYPO-FILTER: If typing 'archive [category] from [number] [anything]', filter to only duration ago commands
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isArchiveCategoryFromDurationAgoAnyTypo = /^archive\s+(verification\s+codes|shipping\s+emails|account\s+security\s+emails)\s+from\s+\d+\s+[a-z]+/.test(qlc);
+                if (isArchiveCategoryFromDurationAgoAnyTypo && Array.isArray(items)) {
+                    // Filter to only show duration ago commands
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        return /from\s+\[duration\]\s+ago$/.test(lcCmd);
+                    });
+                    try { console.log('[ARCHIVE-CATEGORY-DURATION-AGO-ANY-TYPO-FILTER] filtered to duration ago commands for any typo:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+            
+            // ARCHIVE-CATEGORY-DURATION-AGO-TYPO-FILTER: If typing 'archive [category] from [number] [typo] ago', filter to only duration ago commands
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isArchiveCategoryFromDurationAgoTypo = /^archive\s+(verification\s+codes|shipping\s+emails|account\s+security\s+emails)\s+from\s+\d+\s+[a-z]+\s+ago$/.test(qlc);
+                if (isArchiveCategoryFromDurationAgoTypo && Array.isArray(items)) {
+                    // Filter to only show duration ago commands
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        return /from\s+\[duration\]\s+ago$/.test(lcCmd);
+                    });
+                    try { console.log('[ARCHIVE-CATEGORY-DURATION-AGO-TYPO-FILTER] filtered to duration ago commands for typo:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+            
+            // ARCHIVE-CATEGORY-DURATION-AGO-TYPO-PARTIAL-FILTER: If typing 'archive [category] from [number] [typo] a/ag', filter to only duration ago commands
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isArchiveCategoryFromDurationAgoTypoPartial = /^archive\s+(verification\s+codes|shipping\s+emails|account\s+security\s+emails)\s+from\s+\d+\s+[a-z]+\s+(a|ag)$/.test(qlc);
+                if (isArchiveCategoryFromDurationAgoTypoPartial && Array.isArray(items)) {
+                    // Filter to only show duration ago commands
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        return /from\s+\[duration\]\s+ago$/.test(lcCmd);
+                    });
+                    try { console.log('[ARCHIVE-CATEGORY-DURATION-AGO-TYPO-PARTIAL-FILTER] filtered to duration ago commands for typo:', qlc); } catch(e) {}
                 }
             } catch (e) {}
 
