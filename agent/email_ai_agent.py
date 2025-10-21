@@ -1934,14 +1934,27 @@ class GmailAIAgent:
         except HttpError as error:
             return {"status": "error", "message": f"Error deleting by category: {error}"}
 
-    def archive_emails_by_custom_category(self, category_key, confirm=False, older_than_days=None):
-        """Archive messages matching a custom category definition."""
+    def archive_emails_by_custom_category(self, category_key, confirm=False, older_than_days=None, date_range=None):
+        """Archive messages matching a custom category definition.
+        Optionally restrict to a specific time window via date_range (e.g., 'today', 'this week', '2 weeks ago').
+        """
         max_retries = 5
         retry_delay = 1
         
         for attempt in range(max_retries):
             try:
                 q = self._build_custom_category_q(category_key, older_than_days=older_than_days)
+                # Optionally apply explicit date window similar to list_emails_by_custom_category
+                if date_range:
+                    try:
+                        dr = str(date_range).strip().lower()
+                        if not any(tok in dr for tok in ["ago", "today", "yesterday", "this", "last"]):
+                            dr = f"{dr} ago"
+                        start_dt, end_dt = self._compute_precise_date_range_window(dr)
+                        if start_dt and end_dt:
+                            q = f"({q}) after:{start_dt.strftime('%Y/%m/%d')} before:{end_dt.strftime('%Y/%m/%d')}"
+                    except Exception:
+                        pass
                 if not q:
                     return {"status": "error", "message": "Unknown category."}
                 all_messages = []
@@ -1992,16 +2005,32 @@ class GmailAIAgent:
                 return {"status": "error", "message": f"Error archiving emails: {error_msg}"}
         
         if not all_messages:
-            return {"status": "success", "message": _("No emails found for %(what)s.") % {"what": self._pretty_category_name(category_key)}, "archived_count": 0}
+            time_txt = _(" from %(range)s") % {"range": date_range} if date_range else ""
+            age_txt = _(" older than %(days)d days") % {"days": older_than_days} if older_than_days else ""
+            return {
+                "status": "success",
+                "message": _("No emails found for %(what)s%(time)s%(age)s.") % {
+                    "what": self._pretty_category_name(category_key),
+                    "time": time_txt,
+                    "age": age_txt
+                },
+                "archived_count": 0
+            }
         if not confirm:
+            time_txt = _(" from %(range)s") % {"range": date_range} if date_range else ""
             age_txt = _(" older than %(days)d days") % {"days": older_than_days} if older_than_days else ""
             return {
                 "status": "confirmation_required",
-                "message": _("Found %(count)d emails in %(what)s%(age)s. Do you want to archive them?") % {"count": len(all_messages), "what": self._pretty_category_name(category_key), "age": age_txt},
+                "message": _("Found %(count)d emails in %(what)s%(time)s%(age)s. Do you want to archive them?") % {
+                    "count": len(all_messages),
+                    "what": self._pretty_category_name(category_key),
+                    "time": time_txt,
+                    "age": age_txt
+                },
                 "count": len(all_messages),
                 "total_estimated": len(all_messages),
                 "preview": self._build_preview(all_messages),
-                "action_details": {"action": "archive_by_custom_category", "category_key": category_key, "older_than_days": older_than_days}
+                "action_details": {"action": "archive_by_custom_category", "category_key": category_key, "older_than_days": older_than_days, "date_range": date_range}
             }
         # Archive in batches
         total_processed = 0
@@ -2446,14 +2475,17 @@ class GmailAIAgent:
                 return None
             return None
 
-        if 'archive' in command_lower and (('verification' in command_lower and 'code' in command_lower) or 'משלוח' in command_lower or 'shipping' in command_lower or 'delivery' in command_lower or 'shipped' in command_lower or ('account' in command_lower and 'security' in command_lower)):
+        if 'archive' in command_lower and (("verification" in command_lower and "code" in command_lower) or 'משלוח' in command_lower or 'shipping' in command_lower or 'delivery' in command_lower or 'shipped' in command_lower or ("account" in command_lower and "security" in command_lower)):
             older = _parse_age_days(command_lower)
-            if ('verification' in command_lower and 'code' in command_lower):
-                return {"action": "archive", "target_type": "custom_category", "target": "verification_codes", "confirmation_required": True, "older_than_days": older}
-            elif ('account' in command_lower and 'security' in command_lower):
-                return {"action": "archive", "target_type": "custom_category", "target": "account_security", "confirmation_required": True, "older_than_days": older}
+            # Detect 'from [timeframe]' for categories
+            timeframe_match = re.search(r'from\s+(today|yesterday|this\s+week|this\s+month|this\s+year|last\s+week|last\s+month|last\s+year|\d+\s+(?:day|days|week|weeks|month|months|year|years)\s+ago|a\s+(?:day|week|month|year)\s+ago)', command_lower)
+            date_range = timeframe_match.group(1) if timeframe_match else None
+            if ("verification" in command_lower and "code" in command_lower):
+                return {"action": "archive", "target_type": "custom_category", "target": "verification_codes", "confirmation_required": True, "older_than_days": older, "date_range": date_range}
+            elif ("account" in command_lower and "security" in command_lower):
+                return {"action": "archive", "target_type": "custom_category", "target": "account_security", "confirmation_required": True, "older_than_days": older, "date_range": date_range}
             else:
-                return {"action": "archive", "target_type": "custom_category", "target": "shipping_delivery", "confirmation_required": True, "older_than_days": older}
+                return {"action": "archive", "target_type": "custom_category", "target": "shipping_delivery", "confirmation_required": True, "older_than_days": older, "date_range": date_range}
 
         if 'delete' in command_lower and (('verification' in command_lower and 'code' in command_lower) or 'משלוח' in command_lower or 'shipping' in command_lower or 'delivery' in command_lower or 'shipped' in command_lower or ('account' in command_lower and 'security' in command_lower)):
             older = _parse_age_days(command_lower)
@@ -3078,7 +3110,7 @@ class GmailAIAgent:
                 return self.archive_emails_by_subject_keywords(confirmation_data["keywords"], confirm=True)
             elif action == "archive_by_custom_category":
                 return self.archive_emails_by_custom_category(
-                    confirmation_data["category_key"], confirm=True, older_than_days=confirmation_data.get("older_than_days")
+                    confirmation_data["category_key"], confirm=True, older_than_days=confirmation_data.get("older_than_days"), date_range=confirmation_data.get("date_range")
                 )
             elif action == "restore_by_sender":
                 return self.restore_emails_from_sender(confirmation_data["sender"], confirm=True)
@@ -3495,7 +3527,12 @@ class GmailAIAgent:
                 elif target_type == "domain":
                     return self.archive_emails_by_domain(target, confirm=not confirm_required, older_than_days=older_than_days)
                 elif target_type == "custom_category":
-                    return self.archive_emails_by_custom_category(target, confirm=not confirm_required, older_than_days=older_than_days)
+                    return self.archive_emails_by_custom_category(
+                        target,
+                        confirm=not confirm_required,
+                        older_than_days=older_than_days,
+                        date_range=parsed.get("date_range")
+                    )
 
             elif action == "restore":
                 if target_type == "sender":

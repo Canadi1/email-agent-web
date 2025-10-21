@@ -2154,6 +2154,30 @@
                     'archive shipping emails',
                     'archive verification codes',
                     'archive account security emails',
+                    'archive verification codes from today',
+                    'archive verification codes from yesterday',
+                    'archive verification codes from this week',
+                    'archive verification codes from this month',
+                    'archive verification codes from this year',
+                    'archive verification codes from last week',
+                    'archive verification codes from last month',
+                    'archive verification codes from last year',
+                    'archive shipping emails from today',
+                    'archive shipping emails from yesterday',
+                    'archive shipping emails from this week',
+                    'archive shipping emails from this month',
+                    'archive shipping emails from this year',
+                    'archive shipping emails from last week',
+                    'archive shipping emails from last month',
+                    'archive shipping emails from last year',
+                    'archive account security emails from today',
+                    'archive account security emails from yesterday',
+                    'archive account security emails from this week',
+                    'archive account security emails from this month',
+                    'archive account security emails from this year',
+                    'archive account security emails from last week',
+                    'archive account security emails from last month',
+                    'archive account security emails from last year',
                     'archive emails from today',
                     'archive emails from yesterday',
                     'archive emails from this week',
@@ -2200,6 +2224,39 @@
                     'archive emails from [duration] ago'
                 ];
                 archiveCommands.forEach(cmd => {
+                    if (!commands.some(c => String(c).toLowerCase() === cmd)) {
+                        commands.push(cmd);
+                    }
+                });
+
+                // Ensure category timeframe archive commands exist
+                const archiveCategoryTimeframeCommands = [
+                    'archive verification codes from today',
+                    'archive verification codes from yesterday',
+                    'archive verification codes from this week',
+                    'archive verification codes from this month',
+                    'archive verification codes from this year',
+                    'archive verification codes from last week',
+                    'archive verification codes from last month',
+                    'archive verification codes from last year',
+                    'archive shipping emails from today',
+                    'archive shipping emails from yesterday',
+                    'archive shipping emails from this week',
+                    'archive shipping emails from this month',
+                    'archive shipping emails from this year',
+                    'archive shipping emails from last week',
+                    'archive shipping emails from last month',
+                    'archive shipping emails from last year',
+                    'archive account security emails from today',
+                    'archive account security emails from yesterday',
+                    'archive account security emails from this week',
+                    'archive account security emails from this month',
+                    'archive account security emails from this year',
+                    'archive account security emails from last week',
+                    'archive account security emails from last month',
+                    'archive account security emails from last year'
+                ];
+                archiveCategoryTimeframeCommands.forEach(cmd => {
                     if (!commands.some(c => String(c).toLowerCase() === cmd)) {
                         commands.push(cmd);
                     }
@@ -8368,6 +8425,38 @@
             } catch (e) {}
 
 
+
+            // ARCHIVE-CATEGORY-FILTER: If typing 'archive verification', 'archive shipping', or 'archive account', filter to only category commands
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                
+                // Check for category patterns
+                const isArchiveVerification = /^archive\s+verification/.test(qlc);
+                const isArchiveShipping = /^archive\s+shipping/.test(qlc);
+                const isArchiveAccount = /^archive\s+account/.test(qlc);
+                
+                if ((isArchiveVerification || isArchiveShipping || isArchiveAccount) && Array.isArray(items)) {
+                    // Filter to only show the relevant category commands
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        
+                        if (isArchiveVerification) {
+                            // Keep only verification-related commands
+                            return /^archive\s+verification/.test(lcCmd);
+                        } else if (isArchiveShipping) {
+                            // Keep only shipping-related commands
+                            return /^archive\s+shipping/.test(lcCmd);
+                        } else if (isArchiveAccount) {
+                            // Keep only account security-related commands
+                            return /^archive\s+account/.test(lcCmd);
+                        }
+                        return false;
+                    });
+                    
+                    try { console.log('[ARCHIVE-CATEGORY-FILTER] filtered to category commands for:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
 
             // FILTER: Restrict basic English commands to only relevant suggestions
             try {
