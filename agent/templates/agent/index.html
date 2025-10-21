@@ -8447,7 +8447,13 @@
                 const isArchiveShipping = /^archive\s+s/.test(qlc);
                 const isArchiveAccount = /^archive\s+a/.test(qlc);
                 
-                if ((isArchiveVerification || isArchiveShipping || isArchiveAccount) && Array.isArray(items)) {
+                // Don't apply category filter if user is typing "from" patterns - let other filters handle it
+                const isTypingFrom = /from$/.test(qlc);
+                const isTypingFromT = /from\s+t$/.test(qlc);
+                const isTypingFromTh = /from\s+th/.test(qlc);
+                if (isTypingFrom || isTypingFromT || isTypingFromTh) {
+                    // Skip category filter when typing "from" patterns
+                } else if ((isArchiveVerification || isArchiveShipping || isArchiveAccount) && Array.isArray(items)) {
                     // Filter to only show the relevant category commands
                     items = items.filter(function(it) {
                         const cmd = (it && it.cmd) ? it.cmd : String(it);
@@ -8533,6 +8539,263 @@
                         return /from\s+yesterday$/.test(lcCmd);
                     });
                     try { console.log('[ARCHIVE-CATEGORY-YESTERDAY-FILTER] filtered to only yesterday commands for:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+            
+            // ARCHIVE-CATEGORY-FROM-FILTER: If typing 'archive [category] from', filter to only 'from' commands and prioritize them
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isArchiveCategoryFrom = /^archive\s+(verification\s+codes|shipping\s+emails|account\s+security\s+emails)\s+from$/.test(qlc);
+                if (isArchiveCategoryFrom && Array.isArray(items)) {
+                    // Filter to only show 'from' commands (all timeframes)
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        return /from\s+(today|yesterday|this\s+(week|month|year)|last\s+(week|month|year)|\[duration\]\s+ago)$/.test(lcCmd);
+                    });
+                    
+                    // Prioritize 'from' commands in specific order
+                    items.sort(function(a, b) {
+                        const cmdA = (a && a.cmd) ? a.cmd : String(a);
+                        const cmdB = (b && b.cmd) ? b.cmd : String(b);
+                        const lcCmdA = cmdA.toLowerCase();
+                        const lcCmdB = cmdB.toLowerCase();
+
+                        // 1. From duration ago commands first
+                        if (/from\s+\[duration\]\s+ago$/.test(lcCmdA)) return -1;
+                        if (/from\s+\[duration\]\s+ago$/.test(lcCmdB)) return 1;
+
+                        // 2. Timeframe commands second (in specific order)
+                        const timeframeOrder = ['today', 'yesterday', 'this week', 'this month', 'this year', 'last week', 'last month', 'last year'];
+                        const getTimeframeIndex = (cmd) => {
+                            for (let i = 0; i < timeframeOrder.length; i++) {
+                                if (cmd.includes(timeframeOrder[i])) return i;
+                            }
+                            return 999; // fallback for other timeframes
+                        };
+                        const timeframeIndexA = getTimeframeIndex(lcCmdA);
+                        const timeframeIndexB = getTimeframeIndex(lcCmdB);
+                        if (timeframeIndexA !== 999 || timeframeIndexB !== 999) {
+                            return timeframeIndexA - timeframeIndexB;
+                        }
+
+                        return 0;
+                    });
+                    
+                    try { console.log('[ARCHIVE-CATEGORY-FROM-FILTER] filtered and prioritized from commands for:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+            
+            // ARCHIVE-CATEGORY-T-FILTER: If typing 'archive [category] from t', filter to show 'today' first, then 'this' commands
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isArchiveCategoryFromT = /^archive\s+(verification\s+codes|shipping\s+emails|account\s+security\s+emails)\s+from\s+t$/.test(qlc);
+                if (isArchiveCategoryFromT && Array.isArray(items)) {
+                    // Filter to only show 'today' and 'this' commands
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        return /from\s+(today|this\s+(week|month|year))$/.test(lcCmd);
+                    });
+                    
+                    // Prioritize 'today' first, then 'this' commands
+                    items.sort(function(a, b) {
+                        const cmdA = (a && a.cmd) ? a.cmd : String(a);
+                        const cmdB = (b && b.cmd) ? b.cmd : String(b);
+                        const lcCmdA = cmdA.toLowerCase();
+                        const lcCmdB = cmdB.toLowerCase();
+
+                        // 1. Today command first
+                        if (/from\s+today$/.test(lcCmdA)) return -1;
+                        if (/from\s+today$/.test(lcCmdB)) return 1;
+
+                        // 2. This commands second (in specific order)
+                        const thisOrder = ['this week', 'this month', 'this year'];
+                        const getThisIndex = (cmd) => {
+                            for (let i = 0; i < thisOrder.length; i++) {
+                                if (cmd.includes(thisOrder[i])) return i;
+                            }
+                            return 999; // fallback
+                        };
+                        const thisIndexA = getThisIndex(lcCmdA);
+                        const thisIndexB = getThisIndex(lcCmdB);
+                        if (thisIndexA !== 999 || thisIndexB !== 999) {
+                            return thisIndexA - thisIndexB;
+                        }
+
+                        return 0;
+                    });
+                    
+                    try { console.log('[ARCHIVE-CATEGORY-T-FILTER] filtered and prioritized today + this commands for:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+            
+            // ARCHIVE-CATEGORY-THIS-FILTER: If typing 'archive [category] from th', filter to show ONLY 'this' commands
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isArchiveCategoryFromThis = /^archive\s+(verification\s+codes|shipping\s+emails|account\s+security\s+emails)\s+from\s+th/.test(qlc);
+                if (isArchiveCategoryFromThis && Array.isArray(items)) {
+                    // Filter to ONLY show 'this' commands (no 'today')
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        return /from\s+this\s+(week|month|year)$/.test(lcCmd);
+                    });
+                    
+                    // Prioritize 'this' commands in specific order
+                    items.sort(function(a, b) {
+                        const cmdA = (a && a.cmd) ? a.cmd : String(a);
+                        const cmdB = (b && b.cmd) ? b.cmd : String(b);
+                        const lcCmdA = cmdA.toLowerCase();
+                        const lcCmdB = cmdB.toLowerCase();
+
+                        // This commands in specific order
+                        const thisOrder = ['this week', 'this month', 'this year'];
+                        const getThisIndex = (cmd) => {
+                            for (let i = 0; i < thisOrder.length; i++) {
+                                if (cmd.includes(thisOrder[i])) return i;
+                            }
+                            return 999; // fallback
+                        };
+                        const thisIndexA = getThisIndex(lcCmdA);
+                        const thisIndexB = getThisIndex(lcCmdB);
+                        if (thisIndexA !== 999 || thisIndexB !== 999) {
+                            return thisIndexA - thisIndexB;
+                        }
+
+                        return 0;
+                    });
+                    
+                    try { console.log('[ARCHIVE-CATEGORY-THIS-FILTER] filtered to ONLY this commands for:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+            
+            // ARCHIVE-CATEGORY-THIS-WEEK-EXACT-FILTER: If typing 'archive [category] from this w/we/wee/week', show only the exact matching command
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isArchiveCategoryFromThisWeekExact = /^archive\s+(verification\s+codes|shipping\s+emails|account\s+security\s+emails)\s+from\s+this\s+(w|we|wee|week)$/.test(qlc);
+                if (isArchiveCategoryFromThisWeekExact && Array.isArray(items)) {
+                    // Find the exact matching command first
+                    const exactMatch = items.find(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        return lcCmd === qlc; // exact match
+                    });
+                    
+                    if (exactMatch) {
+                        // Show only the exact matching command
+                        items = [exactMatch];
+                    } else {
+                        // For progressive typing, show only the complete this week command for the specific category
+                        items = items.filter(function(it) {
+                            const cmd = (it && it.cmd) ? it.cmd : String(it);
+                            const lcCmd = cmd.toLowerCase();
+                            // Match the specific category and this week
+                            return lcCmd === qlc.replace(/\s+(w|we|wee)$/, ' week'); // replace partial with complete
+                        });
+                    }
+                    try { console.log('[ARCHIVE-CATEGORY-THIS-WEEK-EXACT-FILTER] filtered to exact match for:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+            
+            // ARCHIVE-CATEGORY-THIS-MONTH-EXACT-FILTER: If typing 'archive [category] from this m/mo/mon/month', show only the exact matching command
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isArchiveCategoryFromThisMonthExact = /^archive\s+(verification\s+codes|shipping\s+emails|account\s+security\s+emails)\s+from\s+this\s+(m|mo|mon|mont|month)$/.test(qlc);
+                if (isArchiveCategoryFromThisMonthExact && Array.isArray(items)) {
+                    // Find the exact matching command first
+                    const exactMatch = items.find(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        return lcCmd === qlc; // exact match
+                    });
+                    
+                    if (exactMatch) {
+                        // Show only the exact matching command
+                        items = [exactMatch];
+                    } else {
+                        // For progressive typing, show only the complete this month command for the specific category
+                        items = items.filter(function(it) {
+                            const cmd = (it && it.cmd) ? it.cmd : String(it);
+                            const lcCmd = cmd.toLowerCase();
+                            // Match the specific category and this month
+                            return lcCmd === qlc.replace(/\s+(m|mo|mon|mont)$/, ' month'); // replace partial with complete
+                        });
+                    }
+                    try { console.log('[ARCHIVE-CATEGORY-THIS-MONTH-EXACT-FILTER] filtered to exact match for:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+            
+            // ARCHIVE-CATEGORY-THIS-YEAR-EXACT-FILTER: If typing 'archive [category] from this y/ye/year', show only the exact matching command
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isArchiveCategoryFromThisYearExact = /^archive\s+(verification\s+codes|shipping\s+emails|account\s+security\s+emails)\s+from\s+this\s+(y|ye|yea|year)$/.test(qlc);
+                if (isArchiveCategoryFromThisYearExact && Array.isArray(items)) {
+                    // Find the exact matching command first
+                    const exactMatch = items.find(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        return lcCmd === qlc; // exact match
+                    });
+                    
+                    if (exactMatch) {
+                        // Show only the exact matching command
+                        items = [exactMatch];
+                    } else {
+                        // For progressive typing, show only the complete this year command for the specific category
+                        items = items.filter(function(it) {
+                            const cmd = (it && it.cmd) ? it.cmd : String(it);
+                            const lcCmd = cmd.toLowerCase();
+                            // Match the specific category and this year
+                            return lcCmd === qlc.replace(/\s+(y|ye|yea)$/, ' year'); // replace partial with complete
+                        });
+                    }
+                    try { console.log('[ARCHIVE-CATEGORY-THIS-YEAR-EXACT-FILTER] filtered to exact match for:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+
+            // FILTER: Restrict basic English commands to only relevant suggestions
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isArchiveCategoryFromThisWeek = /^archive\s+(verification\s+codes|shipping\s+emails|account\s+security\s+emails)\s+from\s+this\s+w/.test(qlc);
+                if (isArchiveCategoryFromThisWeek && Array.isArray(items)) {
+                    // Filter to only show 'this week' command
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        return /from\s+this\s+week$/.test(lcCmd);
+                    });
+                    try { console.log('[ARCHIVE-CATEGORY-THIS-WEEK-FILTER] filtered to only this week command for:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+            
+            // ARCHIVE-CATEGORY-THIS-MONTH-FILTER: If typing 'archive [category] from this m', filter to only 'this month'
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isArchiveCategoryFromThisMonth = /^archive\s+(verification\s+codes|shipping\s+emails|account\s+security\s+emails)\s+from\s+this\s+m/.test(qlc);
+                if (isArchiveCategoryFromThisMonth && Array.isArray(items)) {
+                    // Filter to only show 'this month' command
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        return /from\s+this\s+month$/.test(lcCmd);
+                    });
+                    try { console.log('[ARCHIVE-CATEGORY-THIS-MONTH-FILTER] filtered to only this month command for:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+            
+            // ARCHIVE-CATEGORY-THIS-YEAR-FILTER: If typing 'archive [category] from this y', filter to only 'this year'
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isArchiveCategoryFromThisYear = /^archive\s+(verification\s+codes|shipping\s+emails|account\s+security\s+emails)\s+from\s+this\s+y/.test(qlc);
+                if (isArchiveCategoryFromThisYear && Array.isArray(items)) {
+                    // Filter to only show 'this year' command
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        return /from\s+this\s+year$/.test(lcCmd);
+                    });
+                    try { console.log('[ARCHIVE-CATEGORY-THIS-YEAR-FILTER] filtered to only this year command for:', qlc); } catch(e) {}
                 }
             } catch (e) {}
 
