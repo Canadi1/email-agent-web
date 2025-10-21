@@ -8586,6 +8586,66 @@
                 }
             } catch (e) {}
             
+            // ARCHIVE-CATEGORY-LAST-PROGRESSIVE-FILTER: If typing 'archive [category] from l/la/las/last', filter to only last commands
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isArchiveCategoryFromLastProgressive = /^archive\s+(verification\s+codes|shipping\s+emails|account\s+security\s+emails)\s+from\s+(l|la|las|last)$/.test(qlc);
+                if (isArchiveCategoryFromLastProgressive && Array.isArray(items)) {
+                    // Filter to only show last commands
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        return /from\s+last\s+(week|month|year)$/.test(lcCmd);
+                    });
+                    try { console.log('[ARCHIVE-CATEGORY-LAST-PROGRESSIVE-FILTER] filtered to last commands for progressive:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+            
+            // ARCHIVE-CATEGORY-LAST-WEEK-FILTER: If typing 'archive [category] from last w/we/wee/week', filter to only last week command
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isArchiveCategoryFromLastWeek = /^archive\s+(verification\s+codes|shipping\s+emails|account\s+security\s+emails)\s+from\s+last\s+(w|we|wee|week)$/.test(qlc);
+                if (isArchiveCategoryFromLastWeek && Array.isArray(items)) {
+                    // Filter to only show last week command
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        return /from\s+last\s+week$/.test(lcCmd);
+                    });
+                    try { console.log('[ARCHIVE-CATEGORY-LAST-WEEK-FILTER] filtered to last week command for:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+            
+            // ARCHIVE-CATEGORY-LAST-MONTH-FILTER: If typing 'archive [category] from last m/mo/mon/mont/month', filter to only last month command
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isArchiveCategoryFromLastMonth = /^archive\s+(verification\s+codes|shipping\s+emails|account\s+security\s+emails)\s+from\s+last\s+(m|mo|mon|mont|month)$/.test(qlc);
+                if (isArchiveCategoryFromLastMonth && Array.isArray(items)) {
+                    // Filter to only show last month command
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        return /from\s+last\s+month$/.test(lcCmd);
+                    });
+                    try { console.log('[ARCHIVE-CATEGORY-LAST-MONTH-FILTER] filtered to last month command for:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+            
+            // ARCHIVE-CATEGORY-LAST-YEAR-FILTER: If typing 'archive [category] from last y/ye/yea/year', filter to only last year command
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isArchiveCategoryFromLastYear = /^archive\s+(verification\s+codes|shipping\s+emails|account\s+security\s+emails)\s+from\s+last\s+(y|ye|yea|year)$/.test(qlc);
+                if (isArchiveCategoryFromLastYear && Array.isArray(items)) {
+                    // Filter to only show last year command
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        return /from\s+last\s+year$/.test(lcCmd);
+                    });
+                    try { console.log('[ARCHIVE-CATEGORY-LAST-YEAR-FILTER] filtered to last year command for:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+            
             // ARCHIVE-CATEGORY-A-FILTER: If typing 'archive [category] from a', filter to only duration ago commands
             try {
                 const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
