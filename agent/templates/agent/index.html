@@ -8542,11 +8542,11 @@
                 }
             } catch (e) {}
             
-            // ARCHIVE-CATEGORY-FROM-FILTER: If typing 'archive [category] from', filter to only 'from' commands and prioritize them
+            // ARCHIVE-CATEGORY-FROM-PROGRESSIVE-FILTER: If typing 'archive [category] f/fr/fro/from', filter to only 'from' commands and prioritize them
             try {
                 const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
-                const isArchiveCategoryFrom = /^archive\s+(verification\s+codes|shipping\s+emails|account\s+security\s+emails)\s+from$/.test(qlc);
-                if (isArchiveCategoryFrom && Array.isArray(items)) {
+                const isArchiveCategoryFromProgressive = /^archive\s+(verification\s+codes|shipping\s+emails|account\s+security\s+emails)\s+(f|fr|fro|from)$/.test(qlc);
+                if (isArchiveCategoryFromProgressive && Array.isArray(items)) {
                     // Filter to only show 'from' commands (all timeframes)
                     items = items.filter(function(it) {
                         const cmd = (it && it.cmd) ? it.cmd : String(it);
@@ -8582,7 +8582,7 @@
                         return 0;
                     });
                     
-                    try { console.log('[ARCHIVE-CATEGORY-FROM-FILTER] filtered and prioritized from commands for:', qlc); } catch(e) {}
+                    try { console.log('[ARCHIVE-CATEGORY-FROM-PROGRESSIVE-FILTER] filtered and prioritized from commands for:', qlc); } catch(e) {}
                 }
             } catch (e) {}
             
