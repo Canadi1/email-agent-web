@@ -8842,6 +8842,111 @@
                     try { console.log('[ARCHIVE-CATEGORY-OLDER-THAN-DURATION-TYPO-FILTER] filtered to older than duration commands for number + typo:', qlc); } catch(e) {}
                 }
             } catch (e) {}
+            
+            // ARCHIVE-CATEGORY-OLDER-THAN-A-FILTER: If typing 'archive [category] older than a', filter to only older than duration commands
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isArchiveCategoryOlderThanA = /^archive\s+(verification\s+codes|shipping\s+emails|account\s+security\s+emails)\s+older\s+than\s+a$/.test(qlc);
+                if (isArchiveCategoryOlderThanA && Array.isArray(items)) {
+                    // Filter to only show older than duration commands
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        return /older\s+than\s+\[duration\]$/.test(lcCmd);
+                    });
+                    try { console.log('[ARCHIVE-CATEGORY-OLDER-THAN-A-FILTER] filtered to older than duration commands for a:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+            
+            // ARCHIVE-CATEGORY-OLDER-THAN-A-UNIT-FILTER: If typing 'archive [category] older than a [unit]', filter to only older than duration commands
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isArchiveCategoryOlderThanAUnit = /^archive\s+(verification\s+codes|shipping\s+emails|account\s+security\s+emails)\s+older\s+than\s+a\s+(d|w|m|y|da|we|mo|ye|day|wee|mon|mont|yea|days|weeks|months|years|week|month|year)$/.test(qlc);
+                if (isArchiveCategoryOlderThanAUnit && Array.isArray(items)) {
+                    // Filter to only show older than duration commands
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        return /older\s+than\s+\[duration\]$/.test(lcCmd);
+                    });
+                    try { console.log('[ARCHIVE-CATEGORY-OLDER-THAN-A-UNIT-FILTER] filtered to older than duration commands for a + unit:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+            
+            // ARCHIVE-CATEGORY-OLDER-THAN-A-AGO-FILTER: If typing 'archive [category] older than a [unit] ago', filter to only older than duration commands
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isArchiveCategoryOlderThanAAgo = /^archive\s+(verification\s+codes|shipping\s+emails|account\s+security\s+emails)\s+older\s+than\s+a\s+(d|w|m|y|da|we|mo|ye|day|wee|mon|mont|yea|days|weeks|months|years|week|month|year)\s+ago$/.test(qlc);
+                if (isArchiveCategoryOlderThanAAgo && Array.isArray(items)) {
+                    // Filter to only show older than duration commands
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        return /older\s+than\s+\[duration\]$/.test(lcCmd);
+                    });
+                    try { console.log('[ARCHIVE-CATEGORY-OLDER-THAN-A-AGO-FILTER] filtered to older than duration commands for a + unit + ago:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+            
+            // ARCHIVE-CATEGORY-OLDER-THAN-A-AGO-PROGRESSIVE-FILTER: If typing 'archive [category] older than a [unit] a/ag/ago', filter to only older than duration commands
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isArchiveCategoryOlderThanAAgoProgressive = /^archive\s+(verification\s+codes|shipping\s+emails|account\s+security\s+emails)\s+older\s+than\s+a\s+(d|w|m|y|da|we|mo|ye|day|wee|mon|mont|yea|days|weeks|months|years|week|month|year)\s+(a|ag|ago)$/.test(qlc);
+                if (isArchiveCategoryOlderThanAAgoProgressive && Array.isArray(items)) {
+                    // Filter to only show older than duration commands
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        return /older\s+than\s+\[duration\]$/.test(lcCmd);
+                    });
+                    try { console.log('[ARCHIVE-CATEGORY-OLDER-THAN-A-AGO-PROGRESSIVE-FILTER] filtered to older than duration commands for a + unit + progressive ago:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+            
+            // ARCHIVE-CATEGORY-OLDER-THAN-A-TYPO-FILTER: If typing 'archive [category] older than a [typo]', filter to only older than duration commands
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isArchiveCategoryOlderThanATypo = /^archive\s+(verification\s+codes|shipping\s+emails|account\s+security\s+emails)\s+older\s+than\s+a\s+[a-z]+$/.test(qlc);
+                if (isArchiveCategoryOlderThanATypo && Array.isArray(items)) {
+                    // Filter to only show older than duration commands
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        return /older\s+than\s+\[duration\]$/.test(lcCmd);
+                    });
+                    try { console.log('[ARCHIVE-CATEGORY-OLDER-THAN-A-TYPO-FILTER] filtered to older than duration commands for a + typo:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+            
+            // ARCHIVE-CATEGORY-OLDER-THAN-A-AGO-TYPO-FILTER: If typing 'archive [category] older than a [unit] [ago-typo]', filter to only older than duration commands
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isArchiveCategoryOlderThanAAgoTypo = /^archive\s+(verification\s+codes|shipping\s+emails|account\s+security\s+emails)\s+older\s+than\s+a\s+(d|w|m|y|da|we|mo|ye|day|wee|mon|mont|yea|days|weeks|months|years|week|month|year)\s+[a-z]+$/.test(qlc);
+                if (isArchiveCategoryOlderThanAAgoTypo && Array.isArray(items)) {
+                    // Filter to only show older than duration commands
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        return /older\s+than\s+\[duration\]$/.test(lcCmd);
+                    });
+                    try { console.log('[ARCHIVE-CATEGORY-OLDER-THAN-A-AGO-TYPO-FILTER] filtered to older than duration commands for a + unit + ago typo:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+            
+            // ARCHIVE-CATEGORY-OLDER-THAN-A-ANY-TYPO-FILTER: If typing 'archive [category] older than a [any-typo] [any-ago-typo]', filter to only older than duration commands
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isArchiveCategoryOlderThanAAnyTypo = /^archive\s+(verification\s+codes|shipping\s+emails|account\s+security\s+emails)\s+older\s+than\s+a\s+[a-z]+\s+[a-z]+$/.test(qlc);
+                if (isArchiveCategoryOlderThanAAnyTypo && Array.isArray(items)) {
+                    // Filter to only show older than duration commands
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        return /older\s+than\s+\[duration\]$/.test(lcCmd);
+                    });
+                    try { console.log('[ARCHIVE-CATEGORY-OLDER-THAN-A-ANY-TYPO-FILTER] filtered to older than duration commands for any typo + any ago typo:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
 
             // ARCHIVE-CATEGORY-DURATION-AGO-COMPREHENSIVE-FILTER: If typing 'archive [category] from [number]' or 'archive [category] from [number] [unit] a/ag/ago', filter to duration ago commands
             try {
