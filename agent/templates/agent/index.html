@@ -7683,6 +7683,52 @@
                 }
             } catch (e) {}
 
+            // ARCHIVE-SENDER-A-FILTER: If typing 'archive emails from [sender] from a [unit]', filter to only sender duration ago commands
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isArchiveSenderFromA = /^archive\s+emails\s+from\s+[a-zA-Z0-9._\-+@\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff\s]+\s+from\s+a(\s+(d|w|m|y|da|we|mo|ye|day|wee|mon|mont|yea|days|weeks|months|years|week|month|year))?$/.test(qlc);
+                if (isArchiveSenderFromA && Array.isArray(items)) {
+                    // Filter to only show the sender from duration ago command that matches the pattern
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        // Keep only the sender from duration ago command that matches "archive emails from [sender] from a [unit]"
+                        return /^archive\s+emails\s+from\s+\[sender\]\s+from\s+\[duration\]\s+ago$/.test(lcCmd);
+                    });
+                    try { console.log('[ARCHIVE-SENDER-A-FILTER] filtered to only sender from duration ago command for:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+
+            // ARCHIVE-SENDER-A-ANY-TYPO FILTER: If typing 'archive emails from [sender] from a [anything] [anything]', show ONLY sender duration ago command
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                // Catch ANY pattern that looks like "archive emails from [sender] from a [word] [word]" - this covers all typos
+                const isArchiveSenderFromAAnyTypo = /^archive\s+emails\s+from\s+[a-zA-Z0-9._\-+@\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff\s]+\s+from\s+a\s+[a-z]+\s+[a-z]+$/.test(qlc);
+                if (isArchiveSenderFromAAnyTypo && Array.isArray(items)) {
+                    // Find and prioritize sender from duration ago command
+                    const durationIdx = items.findIndex(it => {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        return /^archive\s+emails\s+from\s+\[sender\]\s+from\s+\[duration\]\s+ago$/.test(cmd.toLowerCase());
+                    });
+                    
+                    if (durationIdx !== -1) {
+                        // Move duration command to top
+                        const durationItem = items.splice(durationIdx, 1)[0];
+                        items.unshift(durationItem);
+                        
+                        // Filter to ONLY show sender from duration ago command (like list commands)
+                        items = items.filter(function(it) {
+                            const cmd = (it && it.cmd) ? it.cmd : String(it);
+                            const lcCmd = cmd.toLowerCase();
+                            // Only keep sender from duration ago command
+                            return /^archive\s+emails\s+from\s+\[sender\]\s+from\s+\[duration\]\s+ago$/.test(lcCmd);
+                        });
+                        
+                        try { console.log('[ARCHIVE-SENDER-A-ANY-TYPO-FILTER] filtered to ONLY sender duration ago command for any typo:', qlc); } catch(e) {}
+                    }
+                }
+            } catch (e) {}
+
             // ARCHIVE-SENDER-A-TYPO-AGO FILTER: If typing 'archive emails from [sender] from a [typo] ago', prioritize duration ago command
             try {
                 const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
@@ -7704,15 +7750,15 @@
                         const durationItem = items.splice(durationIdx, 1)[0];
                         items.unshift(durationItem);
                         
-                        // Filter to only show sender duration ago command and other sender-based commands
+                        // Filter to ONLY show sender from duration ago command (like list commands)
                         items = items.filter(function(it) {
                             const cmd = (it && it.cmd) ? it.cmd : String(it);
                             const lcCmd = cmd.toLowerCase();
-                            // Keep sender duration ago command and other sender-based commands only
-                            return /^archive\s+emails\s+from\s+\[sender\]/.test(lcCmd);
+                            // Only keep sender from duration ago command
+                            return /^archive\s+emails\s+from\s+\[sender\]\s+from\s+\[duration\]\s+ago$/.test(lcCmd);
                         });
                         
-                        try { console.log('[ARCHIVE-SENDER-A-TYPO-AGO-FILTER] prioritized sender duration ago and filtered to sender commands for typo ago:', qlc); } catch(e) {}
+                        try { console.log('[ARCHIVE-SENDER-A-TYPO-AGO-FILTER] filtered to ONLY sender from duration ago command for typo ago:', qlc); } catch(e) {}
                     }
                 }
             } catch (e) {}
