@@ -7620,7 +7620,7 @@
             // ARCHIVE-SENDER-A-FILTER: If typing 'archive emails from [sender] from a [unit]', filter to only duration ago command
             try {
                 const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
-                const isArchiveSenderFromA = /^archive\s+emails\s+from\s+[a-zA-Z0-9._\-+@\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff\s]+\s+from\s+a\s+(d|w|m|y|da|we|mo|ye|day|week|month|year|days|weeks|months|years)$/.test(qlc);
+                const isArchiveSenderFromA = /^archive\s+emails\s+from\s+[a-zA-Z0-9._\-+@\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff\s]+\s+from\s+a\s+(d|w|m|y|da|we|mo|ye|day|wee|mon|mont|yea|days|weeks|months|years|week|month|year)$/.test(qlc);
                 if (isArchiveSenderFromA && Array.isArray(items)) {
                     // Filter to only show the sender from duration ago command
                     items = items.filter(function(it) {
@@ -7636,7 +7636,7 @@
             // ARCHIVE-SENDER-A-AGO FILTER: If typing 'archive emails from [sender] from a [unit] ago', filter to only duration ago command
             try {
                 const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
-                const isArchiveSenderFromAAgo = /^archive\s+emails\s+from\s+[a-zA-Z0-9._\-+@\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff\s]+\s+from\s+a\s+(d|w|m|y|da|we|mo|ye|day|week|month|year|days|weeks|months|years)\s+ag?o?$/.test(qlc);
+                const isArchiveSenderFromAAgo = /^archive\s+emails\s+from\s+[a-zA-Z0-9._\-+@\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff\s]+\s+from\s+a\s+(d|w|m|y|da|we|mo|ye|day|wee|mon|mont|yea|days|weeks|months|years|week|month|year)\s+ag?o?$/.test(qlc);
                 if (isArchiveSenderFromAAgo && Array.isArray(items)) {
                     // Filter to only show the sender from duration ago command
                     items = items.filter(function(it) {
@@ -7653,7 +7653,7 @@
             try {
                 const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
                 const isArchiveSenderFromF = /^archive\s+emails\s+from\s+[a-zA-Z0-9._\-+@\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff\s]+\s+f/.test(qlc) &&
-                    !/^archive\s+emails\s+from\s+[a-zA-Z0-9._\-+@\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff\s]+\s+from\s+a\s+(d|w|m|y|da|we|mo|ye|day|week|month|year|days|weeks|months|years)(\s+ag?o?)?$/.test(qlc); // not "a [unit]" or "a [unit] ago" pattern
+                    !/^archive\s+emails\s+from\s+[a-zA-Z0-9._\-+@\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff\s]+\s+from\s+a\s+(d|w|m|y|da|we|mo|ye|day|wee|mon|mont|yea|days|weeks|months|years|week|month|year)(\s+ag?o?)?$/.test(qlc); // not "a [unit]" or "a [unit] ago" pattern
                 if (isArchiveSenderFromF && Array.isArray(items)) {
                     // Filter to only show from commands
                     items = items.filter(function(it) {
@@ -8070,7 +8070,7 @@
             // FINAL EN ARCHIVE-FROM-A FILTER: If typing 'archive emails from a [unit]', filter to only duration ago commands
             try {
                 const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
-                const isArchiveEmailsFromA = /^archive\s+emails\s+from\s+a\s+(d|w|m|y|da|we|mo|ye|day|week|month|year|days|weeks|months|years)$/.test(qlc);
+                const isArchiveEmailsFromA = /^archive\s+emails\s+from\s+a\s+(d|w|m|y|da|we|mo|ye|day|wee|mon|mont|yea|days|weeks|months|years|week|month|year)$/.test(qlc);
                 if (isArchiveEmailsFromA && Array.isArray(items)) {
                     // Filter to only show the duration ago command that matches the pattern
                     items = items.filter(function(it) {
@@ -8086,7 +8086,7 @@
             // FINAL EN ARCHIVE-FROM-A-AGO FILTER: If typing 'archive emails from a [unit] ago', filter to only duration ago commands
             try {
                 const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
-                const isArchiveEmailsFromAAgo = /^archive\s+emails\s+from\s+a\s+(d|w|m|y|da|we|mo|ye|day|week|month|year|days|weeks|months|years)\s+ag?o?$/.test(qlc);
+                const isArchiveEmailsFromAAgo = /^archive\s+emails\s+from\s+a\s+(d|w|m|y|da|we|mo|ye|day|wee|mon|mont|yea|days|weeks|months|years|week|month|year)\s+ag?o?$/.test(qlc);
                 if (isArchiveEmailsFromAAgo && Array.isArray(items)) {
                     // Filter to only show the duration ago command that matches the pattern
                     items = items.filter(function(it) {
@@ -8106,7 +8106,7 @@
                 const isArchiveEmailsFromSender = /^archive\s+emails\s+from\s+[a-zA-Z0-9._\-+@\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff\s]+$/.test(qlc) &&
                     !/^archive\s+emails\s+from\s+\d+/.test(qlc) && // not a number
                     !/^archive\s+emails\s+from\s+(today|yesterday|this|last|older|ago)/.test(qlc) && // not timeframe keywords
-                    !/^archive\s+emails\s+from\s+a\s+(d|w|m|y|da|we|mo|ye|day|week|month|year|days|weeks|months|years)(\s+ag?o?)?$/.test(qlc); // not "a [unit]" or "a [unit] ago" pattern
+                    !/^archive\s+emails\s+from\s+a\s+(d|w|m|y|da|we|mo|ye|day|wee|mon|mont|yea|days|weeks|months|years|week|month|year)(\s+ag?o?)?$/.test(qlc); // not "a [unit]" or "a [unit] ago" pattern
                 
                 if (isArchiveEmailsFromSender && Array.isArray(items)) {
                     // Filter to only show sender-based archive commands
