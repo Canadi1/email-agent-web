@@ -8505,6 +8505,36 @@
                     try { console.log('[ARCHIVE-CATEGORY-FILTER] filtered and prioritized category commands for:', qlc); } catch(e) {}
                 }
             } catch (e) {}
+            
+            // ARCHIVE-CATEGORY-TODAY-FILTER: If typing 'archive [category] from to', filter to only today commands
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isArchiveCategoryFromToday = /^archive\s+(verification\s+codes|shipping\s+emails|account\s+security\s+emails)\s+from\s+to/.test(qlc);
+                if (isArchiveCategoryFromToday && Array.isArray(items)) {
+                    // Filter to only show today commands
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        return /from\s+today$/.test(lcCmd);
+                    });
+                    try { console.log('[ARCHIVE-CATEGORY-TODAY-FILTER] filtered to only today commands for:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+            
+            // ARCHIVE-CATEGORY-YESTERDAY-FILTER: If typing 'archive [category] from y', filter to only yesterday commands
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isArchiveCategoryFromYesterday = /^archive\s+(verification\s+codes|shipping\s+emails|account\s+security\s+emails)\s+from\s+y/.test(qlc);
+                if (isArchiveCategoryFromYesterday && Array.isArray(items)) {
+                    // Filter to only show yesterday commands
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        return /from\s+yesterday$/.test(lcCmd);
+                    });
+                    try { console.log('[ARCHIVE-CATEGORY-YESTERDAY-FILTER] filtered to only yesterday commands for:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
 
             // FILTER: Restrict basic English commands to only relevant suggestions
             try {
