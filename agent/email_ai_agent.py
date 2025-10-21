@@ -2477,7 +2477,7 @@ class GmailAIAgent:
 
         if 'archive' in command_lower and (("verification" in command_lower and "code" in command_lower) or 'משלוח' in command_lower or 'shipping' in command_lower or 'delivery' in command_lower or 'shipped' in command_lower or ("account" in command_lower and "security" in command_lower)):
             older = _parse_age_days(command_lower)
-            # Detect 'from [timeframe]' for categories
+            # Detect 'from [timeframe]' or 'from [duration] ago' for categories
             timeframe_match = re.search(r'from\s+(today|yesterday|this\s+week|this\s+month|this\s+year|last\s+week|last\s+month|last\s+year|\d+\s+(?:day|days|week|weeks|month|months|year|years)\s+ago|a\s+(?:day|week|month|year)\s+ago)', command_lower)
             date_range = timeframe_match.group(1) if timeframe_match else None
             if ("verification" in command_lower and "code" in command_lower):
