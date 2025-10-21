@@ -8438,14 +8438,14 @@
 
 
 
-            // ARCHIVE-CATEGORY-FILTER: If typing 'archive verification', 'archive shipping', or 'archive account', filter to only category commands
+            // ARCHIVE-CATEGORY-FILTER: If typing 'archive verification', 'archive shipping', or 'archive account', filter and prioritize category commands
             try {
                 const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
                 
-                // Check for category patterns
-                const isArchiveVerification = /^archive\s+verification/.test(qlc);
-                const isArchiveShipping = /^archive\s+shipping/.test(qlc);
-                const isArchiveAccount = /^archive\s+account/.test(qlc);
+                // Check for category patterns (progressive matching)
+                const isArchiveVerification = /^archive\s+v/.test(qlc);
+                const isArchiveShipping = /^archive\s+s/.test(qlc);
+                const isArchiveAccount = /^archive\s+a/.test(qlc);
                 
                 if ((isArchiveVerification || isArchiveShipping || isArchiveAccount) && Array.isArray(items)) {
                     // Filter to only show the relevant category commands
@@ -8466,7 +8466,43 @@
                         return false;
                     });
                     
-                    try { console.log('[ARCHIVE-CATEGORY-FILTER] filtered to category commands for:', qlc); } catch(e) {}
+                    // Prioritize category commands in specific order
+                    items.sort(function(a, b) {
+                        const cmdA = (a && a.cmd) ? a.cmd : String(a);
+                        const cmdB = (b && b.cmd) ? b.cmd : String(b);
+                        const lcCmdA = cmdA.toLowerCase();
+                        const lcCmdB = cmdB.toLowerCase();
+                        
+                        // 1. Basic category command first (e.g., "archive shipping emails")
+                        if (/^archive\s+(verification\s+codes|shipping\s+emails|account\s+security\s+emails)$/.test(lcCmdA)) return -1;
+                        if (/^archive\s+(verification\s+codes|shipping\s+emails|account\s+security\s+emails)$/.test(lcCmdB)) return 1;
+                        
+                        // 2. Older than commands second
+                        if (/older\s+than\s+\[duration\]$/.test(lcCmdA)) return -1;
+                        if (/older\s+than\s+\[duration\]$/.test(lcCmdB)) return 1;
+                        
+                        // 3. From duration ago commands third
+                        if (/from\s+\[duration\]\s+ago$/.test(lcCmdA)) return -1;
+                        if (/from\s+\[duration\]\s+ago$/.test(lcCmdB)) return 1;
+                        
+                    // 4. Timeframe commands fourth (in specific order)
+                    const timeframeOrder = ['today', 'yesterday', 'this week', 'this month', 'this year', 'last week', 'last month', 'last year'];
+                    const getTimeframeIndex = (cmd) => {
+                        for (let i = 0; i < timeframeOrder.length; i++) {
+                            if (cmd.includes(timeframeOrder[i])) return i;
+                        }
+                        return 999; // fallback for other timeframes
+                    };
+                    const timeframeIndexA = getTimeframeIndex(lcCmdA);
+                    const timeframeIndexB = getTimeframeIndex(lcCmdB);
+                    if (timeframeIndexA !== 999 || timeframeIndexB !== 999) {
+                        return timeframeIndexA - timeframeIndexB;
+                    }
+                        
+                        return 0;
+                    });
+                    
+                    try { console.log('[ARCHIVE-CATEGORY-FILTER] filtered and prioritized category commands for:', qlc); } catch(e) {}
                 }
             } catch (e) {}
 
