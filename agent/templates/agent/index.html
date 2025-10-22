@@ -5642,13 +5642,16 @@
                 }
                 
                 // Hebrew archive intent filter: if typing "ארכב" progressively, prioritize archive commands
-                const isHeArchiveIntent = isHeb && /^א(?:ר(?:כ(?:ב(\s+מ(?:י(?:י(?:ל(?:י(?:ם)?)?)?)?)?)?)?)?)?$/.test(q) || /^ארכב\s+מיילים\s+מ$/.test(q);
+                const isHeArchiveIntent = isHeb && (/^א(?:ר(?:כ(?:ב(\s+מ(?:י(?:י(?:ל(?:י(?:ם)?)?)?)?)?)?)?)?)?$/.test(q) || /^ארכב\s+מיילים\s+מ$/.test(q) || /^ארכב\s+מיילים\s+מ(היום|מאתמול|מהשבוע|מהחודש|מהשנה)/.test(q));
                 if (isHeArchiveIntent && Array.isArray(items)) {
                     try { console.log('[HE-ARCHIVE-INTENT-FILTER] BEFORE filtering, items.length:', items.length); } catch(e) {}
                     try { console.log('[HE-ARCHIVE-INTENT-FILTER] BEFORE filtering, first 5 items:', items.slice(0,5).map(x => x.cmd || x)); } catch(e) {}
                     
                     // Check if typing exactly "ארכב מיילי" (archive emails) - then show both plain and category commands
                     const isTypingArchiveEmails = /^ארכב\s+מיילי$/.test(q);
+                    
+                    // Check if typing Hebrew timeframe archive commands
+                    const isTypingArchiveTimeframe = /^ארכב\s+מיילים\s+מ(היום|מאתמול|מהשבוע|מהחודש|מהשנה)/.test(q);
                     
                     if (isTypingArchiveEmails) {
                         try { console.log('[HE-ARCHIVE-INTENT-FILTER] BEFORE filtering - total items:', items.length); } catch(e) {}
@@ -5665,6 +5668,26 @@
                         
                         try { console.log('[HE-ARCHIVE-INTENT-FILTER] FINAL - total items:', items.length); } catch(e) {}
                         try { console.log('[HE-ARCHIVE-INTENT-FILTER] FINAL - all items:', items.map(x => x.cmd || x)); } catch(e) {}
+                    } else if (isTypingArchiveTimeframe) {
+                        // When typing Hebrew timeframe archive commands, show only archive commands
+                        items = items.filter(it => {
+                            const text = typeof it === 'string' ? it : (it && it.cmd ? it.cmd : '');
+                            const lc = String(text || '').toLowerCase().trim();
+                            // Keep only "ארכב מיילים" commands, hide list commands
+                            const keep = /^ארכב\s+מיילים\b/.test(lc);
+                            try { console.log('[HE-ARCHIVE-TIMEFRAME-FILTER] checking:', lc, 'keep:', keep); } catch(e) {}
+                            return keep;
+                        });
+                        
+                        // If no archive commands remain, inject the exact command being typed
+                        if (items.length === 0) {
+                            items = [{ cmd: q.trim() }];
+                            try { console.log('[HE-ARCHIVE-TIMEFRAME-FILTER] Injected exact command:', q.trim()); } catch(e) {}
+                        }
+                        
+                        // Set a flag to prevent other filters from overriding this
+                        window.heArchiveTimeframeFilterActive = true;
+                        try { console.log('[HE-ARCHIVE-TIMEFRAME-FILTER] Set flag to prevent override'); } catch(e) {}
                     } else {
                         // Progressive filtering for category names
                         const isTypingCategory = /^ארכב\s+מיילי\s+(מ|מש|משל|משלוח|ק|קו|קוד|קודי|א|אב|אבט|אבטחת)/.test(q);
@@ -8361,7 +8384,7 @@
                 }
             } catch(e) {}
 
-            // GUARD: Prevent other filters from overriding Hebrew archive from filter
+            // GUARD: Prevent other filters from overriding Hebrew archive filters
             try {
                 if (window.heArchiveFromFilterActive && Array.isArray(items)) {
                     // Restore the Hebrew archive from filter results
@@ -8386,6 +8409,53 @@
                     window.heArchiveFromFilterActive = false;
                     console.log('[HE-ARCHIVE-FROM-GUARD] Restored Hebrew archive from filter results');
                 }
+                
+                if (window.heArchiveTimeframeFilterActive && Array.isArray(items)) {
+                    // Restore the Hebrew archive timeframe filter results - show only archive commands
+                    items = items.filter(it => {
+                        const text = typeof it === 'string' ? it : (it && it.cmd ? it.cmd : '');
+                        const lc = String(text || '').toLowerCase().trim();
+                        return /^ארכב\s+מיילים\b/.test(lc);
+                    });
+                    
+                    // If no items remain, inject the exact command being typed
+                    if (items.length === 0) {
+                        const currentCommand = q.trim();
+                        items = [{ cmd: currentCommand }];
+                        console.log('[HE-ARCHIVE-TIMEFRAME-GUARD] Injected exact command:', currentCommand);
+                    }
+                    
+                    // Clear the flag
+                    window.heArchiveTimeframeFilterActive = false;
+                    console.log('[HE-ARCHIVE-TIMEFRAME-GUARD] Restored Hebrew archive timeframe filter results, items:', items.length);
+                }
+                // Fallback guard: if typing Hebrew archive timeframe prefix but items are not archive timeframe,
+                // rebuild suggestions from canonical archive timeframe list to enable proper bolding
+                (function(){
+                    try {
+                        const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                        const isHe = (document.documentElement.getAttribute('lang') || '').toLowerCase().startsWith('he');
+                        const isArchTfPrefix = isHe && /^ארכב\s+מיילים\s+מ/i.test(qlc);
+                        if (!isArchTfPrefix || !Array.isArray(items)) return;
+
+                        const hasArchiveNow = items.some(function(it){
+                            const s = (it && it.cmd) ? it.cmd : String(it);
+                            return /^ארכב\s+מיילים\s+מ/i.test(String(s || '').toLowerCase());
+                        });
+                        if (hasArchiveNow) return; // nothing to do
+
+                        const tfAll = ['מהיום','מאתמול','מהשבוע','מהחודש','מהשנה','מהשבוע שעבר','מהחודש שעבר','מהשנה שעברה'];
+                        const qLower = qlc;
+                        let next = tfAll.map(function(tf){ return `ארכב מיילים ${tf}`; })
+                                        .filter(function(s){ return s.toLowerCase().startsWith(qLower); });
+                        if (next.length === 0) {
+                            // early stages like 'ארכב מיילים מ' or 'ארכב מיילים מה'
+                            next = tfAll.map(function(tf){ return `ארכב מיילים ${tf}`; });
+                        }
+                        items = next.map(function(s){ return { cmd: s }; });
+                        console.log('[HE-ARCHIVE-TF-FALLBACK]', { qLower, out: items.map(x=>x.cmd) });
+                    } catch(_) {}
+                })();
             } catch (e) {}
 
             // DIAG: show final suggestions head before rendering
@@ -10664,7 +10734,32 @@
                 try {
                     const qNormB = (input || '').toLowerCase().replace(/[\u200e\u200f\u202a\u202b\u202c\u202d\u202e]/g,'').replace(/\u00a0/g,' ').replace(/\s+/g,' ').trim();
                     const cmdNormB = lc.replace(/[\u200e\u200f\u202a\u202b\u202c\u202d\u202e]/g,'').replace(/\u00a0/g,' ').replace(/\s+/g,' ').trim();
-                    if (qNormB && /^רשום\s+מיילי\b/.test(qNormB) && cmdNormB.startsWith(qNormB)) {
+                    // EARLY: Hebrew archive timeframe strict prefix bolding (no random bold)
+                    if (qNormB && /^ארכב\s+מיילים\s+/.test(qNormB)) {
+                        if (cmdNormB.startsWith(qNormB)) {
+                            const targetLen = qNormB.length;
+                            let cutoff = 0;
+                            for (let i = 0; i <= cmd.length; i++) {
+                                const prefNorm = cmd.substring(0, i)
+                                    .toLowerCase()
+                                    .replace(/[\u200e\u200f\u202a\u202b\u202c\u202d\u202e]/g,'')
+                                    .replace(/\u00a0/g,' ')
+                                    .replace(/\s+/g,' ')
+                                    .trim();
+                                if (qNormB.indexOf(prefNorm) === 0 && prefNorm.length <= targetLen) {
+                                    cutoff = i;
+                                    if (prefNorm.length === targetLen) break;
+                                }
+                            }
+                            const bold = escapeHtml(cmd.substring(0, cutoff));
+                            const rest = escapeHtml(cmd.substring(cutoff));
+                            div.innerHTML = `<strong>${bold}</strong>${rest}`;
+                            try { console.log('[HE-TF-BOLD]', { qNorm: qNormB, cmdNorm: cmdNormB, cutoff }); } catch(e) {}
+                        } else {
+                            try { console.log('[HE-TF-BOLD-SKIP]', { qNorm: qNormB, cmdNorm: cmdNormB }); } catch(e) {}
+                        }
+                    }
+                    if (!div.innerHTML && qNormB && /^רשום\s+מיילי\b/.test(qNormB) && cmdNormB.startsWith(qNormB)) {
                         const boldLen = Math.min(cmd.length, (input || '').length);
                         const safeBold = escapeHtml(cmd.substring(0, boldLen));
                         const safeRest = escapeHtml(cmd.substring(boldLen));
