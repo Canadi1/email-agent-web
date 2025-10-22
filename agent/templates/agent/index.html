@@ -10787,6 +10787,28 @@
                 if (isHeb && /^ארכב\s+מיילים\s+מא/i.test(qShow) && Array.isArray(items)) {
                     items = [{ cmd: 'ארכב מיילים מאתמול' }];
                 }
+                // Hebrew archive progressive timeframe guard: when typing "ארכב מיילים מהשב..." show both week suggestions
+                if (isHeb && /^ארכב\s+מיילים\s+מהשב/i.test(qShow) && Array.isArray(items)) {
+                    items = [
+                        { cmd: 'ארכב מיילים מהשבוע' },
+                        { cmd: 'ארכב מיילים מהשבוע שעבר' }
+                    ];
+                }
+                // Hebrew archive progressive timeframe guard: when typing "ארכב מיילים מהשבוע ש..." show only "ארכב מיילים מהשבוע שעבר"
+                if (isHeb && /^ארכב\s+מיילים\s+מהשבוע\s+ש/i.test(qShow) && Array.isArray(items)) {
+                    items = [{ cmd: 'ארכב מיילים מהשבוע שעבר' }];
+                }
+                // Hebrew archive progressive timeframe guard: when typing "ארכב מיילים מהשנ..." show both year suggestions
+                if (isHeb && /^ארכב\s+מיילים\s+מהשנ/i.test(qShow) && Array.isArray(items)) {
+                    items = [
+                        { cmd: 'ארכב מיילים מהשנה' },
+                        { cmd: 'ארכב מיילים מהשנה שעברה' }
+                    ];
+                }
+                // Hebrew archive progressive timeframe guard: when typing "ארכב מיילים מהשנה ש..." show only "ארכב מיילים מהשנה שעברה"
+                if (isHeb && /^ארכב\s+מיילים\s+מהשנה\s+ש/i.test(qShow) && Array.isArray(items)) {
+                    items = [{ cmd: 'ארכב מיילים מהשנה שעברה' }];
+                }
                 if (/^show\s+l(\b|\s|$)/i.test(qShow) && Array.isArray(items)) {
                     items = items.filter(function(it){
                         const s = (it && it.cmd ? it.cmd : String(it)).toLowerCase();
