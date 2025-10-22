@@ -5642,7 +5642,7 @@
                 }
                 
                 // Hebrew archive intent filter: if typing "ארכב" progressively, prioritize archive commands
-                const isHeArchiveIntent = isHeb && /^א(?:ר(?:כ(?:ב(\s+מ(?:י(?:י(?:ל(?:י(?:ם)?)?)?)?)?)?)?)?)?$/.test(q);
+                const isHeArchiveIntent = isHeb && /^א(?:ר(?:כ(?:ב(\s+מ(?:י(?:י(?:ל(?:י(?:ם)?)?)?)?)?)?)?)?)?$/.test(q) || /^ארכב\s+מיילים\s+מ$/.test(q);
                 if (isHeArchiveIntent && Array.isArray(items)) {
                     try { console.log('[HE-ARCHIVE-INTENT-FILTER] BEFORE filtering, items.length:', items.length); } catch(e) {}
                     try { console.log('[HE-ARCHIVE-INTENT-FILTER] BEFORE filtering, first 5 items:', items.slice(0,5).map(x => x.cmd || x)); } catch(e) {}
@@ -5700,15 +5700,43 @@
                                 }
                             }
                         } else {
-                            // When typing "ארכב" or "ארכב מ" etc., only show plain archive commands
-                            items = items.filter(it => {
-                                const text = typeof it === 'string' ? it : (it && it.cmd ? it.cmd : '');
-                                const lc = String(text || '').toLowerCase().trim();
-                                // Keep only plain "ארכב מיילים" commands, hide categories and list commands
-                                const keep = /^ארכב\s+מיילים\b/.test(lc);
-                                try { console.log('[HE-ARCHIVE-INTENT-FILTER] checking:', lc, 'keep:', keep); } catch(e) {}
-                                return keep;
-                            });
+                            // Check if typing "ארכב מיילים מ" - show sender command + timeframe commands
+                            const isTypingArchiveFrom = /^ארכב\s+מיילים\s+מ$/.test(q);
+                            const isTypingArchiveFromFlexible = /^ארכב\s+מיילים\s+מ\s*$/.test(q);
+                            try { console.log('[HE-ARCHIVE-FROM-CHECK] q:', q, 'isTypingArchiveFrom:', isTypingArchiveFrom, 'isTypingArchiveFromFlexible:', isTypingArchiveFromFlexible); } catch(e) {}
+                            
+                            if (isTypingArchiveFrom || isTypingArchiveFromFlexible) {
+                                // Show sender command first, then timeframe commands
+                                const timeframeCommands = [
+                                    'ארכב מיילים מהיום',
+                                    'ארכב מיילים מאתמול', 
+                                    'ארכב מיילים מהשבוע',
+                                    'ארכב מיילים מהחודש',
+                                    'ארכב מיילים מהשנה',
+                                    'ארכב מיילים מהשבוע שעבר',
+                                    'ארכב מיילים מהחודש שעבר',
+                                    'ארכב מיילים מהשנה שעברה'
+                                ];
+                                
+                                items = [
+                                    { cmd: 'ארכב מיילים מ[שולח]' },
+                                    ...timeframeCommands.map(cmd => ({ cmd: cmd }))
+                                ];
+                                
+                                // Set a flag to prevent other filters from overriding this
+                                window.heArchiveFromFilterActive = true;
+                                try { console.log('[HE-ARCHIVE-FROM-FILTER] Set flag to prevent override'); } catch(e) {}
+                            } else {
+                                // When typing "ארכב" or other patterns, only show plain archive commands
+                                items = items.filter(it => {
+                                    const text = typeof it === 'string' ? it : (it && it.cmd ? it.cmd : '');
+                                    const lc = String(text || '').toLowerCase().trim();
+                                    // Keep only plain "ארכב מיילים" commands, hide categories and list commands
+                                    const keep = /^ארכב\s+מיילים\b/.test(lc);
+                                    try { console.log('[HE-ARCHIVE-INTENT-FILTER] checking:', lc, 'keep:', keep); } catch(e) {}
+                                    return keep;
+                                });
+                            }
                         }
                     }
                     
@@ -8332,6 +8360,32 @@
                     try { console.log('[HE-ARCHIVED-STRICT]', { qlc, before, after: items.length }); } catch(e) {}
                 }
             } catch(e) {}
+
+            // GUARD: Prevent other filters from overriding Hebrew archive from filter
+            try {
+                if (window.heArchiveFromFilterActive && Array.isArray(items)) {
+                    // Restore the Hebrew archive from filter results
+                    const timeframeCommands = [
+                        'ארכב מיילים מהיום',
+                        'ארכב מיילים מאתמול', 
+                        'ארכב מיילים מהשבוע',
+                        'ארכב מיילים מהחודש',
+                        'ארכב מיילים מהשנה',
+                        'ארכב מיילים מהשבוע שעבר',
+                        'ארכב מיילים מהחודש שעבר',
+                        'ארכב מיילים מהשנה שעברה'
+                    ];
+                    
+                    items = [
+                        { cmd: 'ארכב מיילים מ[שולח]' },
+                        ...timeframeCommands.map(cmd => ({ cmd: cmd }))
+                    ];
+                    
+                    // Clear the flag
+                    window.heArchiveFromFilterActive = false;
+                    console.log('[HE-ARCHIVE-FROM-GUARD] Restored Hebrew archive from filter results');
+                }
+            } catch (e) {}
 
             // DIAG: show final suggestions head before rendering
             try {
