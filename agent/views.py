@@ -1152,6 +1152,7 @@ def index(request):
                 "ארכב מיילים מ[שולח] מהחודש שעבר",
                 "ארכב מיילים מ[שולח] מהשנה",
                 "ארכב מיילים מ[שולח] מהשנה שעברה",
+                "ארכב מיילים מלפני [משך]",
                 "ארכב מיילי משלוח",
                 "ארכב מיילי משלוח ישנים מ[משך]",
                 "ארכב מיילי קודי אימות",
@@ -1258,8 +1259,32 @@ def _translate_hebrew_command_to_english(command: str) -> str:
             return f"list emails from {sender} from 1 {unit_en} ago"
         c = re.sub(r"^[\s]*רש(?:ו)?ם\s+מיילים\s+מ-?\s*([A-Za-z0-9_.+\-@\u0590-\u05FF]+)\s+מלפני\s*(יום|שבוע|חודש|שנה)\b",
                    _sender_melifney_one_repl, c, flags=re.IGNORECASE)
+        # Archive commands with "מלפני" (from duration ago) - handle before generic replacements
+        # Archive forms: "ארכב מיילים מלפני N יחידה" -> "archive emails from N <unit> ago"
+        def _archive_melifney_repl(m):
+            qty = int(m.group(1))
+            unit_he = m.group(2)
+            unit_en = _he_to_en_unit(unit_he, qty)
+            return f"archive emails from {qty} {unit_en} ago"
+        c = re.sub(r"^[\s]*ארכב\s+מיילים\s+מלפני\s*(\d+)\s*(יום(?:ים)?|שבוע(?:ות)?|חודש(?:ים)?|שנה(?:ים)?)\b",
+                   _archive_melifney_repl, c, flags=re.IGNORECASE)
+        
+        # Archive forms: "ארכב מיילים מלפני יחידה" (without number, assume 1) -> "archive emails from 1 <unit> ago"
+        def _archive_melifney_one_repl(m):
+            unit_he = m.group(1)
+            unit_en = _he_to_en_unit(unit_he, 1)
+            return f"archive emails from 1 {unit_en} ago"
+        c = re.sub(r"^[\s]*ארכב\s+מיילים\s+מלפני\s*(יום|שבוע|חודש|שנה)\b",
+                   _archive_melifney_one_repl, c, flags=re.IGNORECASE)
+        
         # If we produced a fully formed 'list emails from ... from N unit ago', return early
         if re.search(r"^list\s+emails\s+from\s+[A-Za-z0-9_.+\-@\u0590-\u05FF]+\s+from\s+(?:a|\d+)\s+(?:day|days|week|weeks|month|months|year|years)\s+ago\b", c, flags=re.IGNORECASE):
+            c = re.sub(r"\s{2,}", " ", c).strip()
+            print(f"Final translated command: '{c}'")
+            return c
+        
+        # If we produced a fully formed 'archive emails from N unit ago', return early
+        if re.search(r"^archive\s+emails\s+from\s+(?:a|\d+)\s+(?:day|days|week|weeks|month|months|year|years)\s+ago\b", c, flags=re.IGNORECASE):
             c = re.sub(r"\s{2,}", " ", c).strip()
             print(f"Final translated command: '{c}'")
             return c

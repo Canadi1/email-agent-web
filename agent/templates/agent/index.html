@@ -5642,7 +5642,7 @@
                 }
                 
                 // Hebrew archive intent filter: if typing "ארכב" progressively, prioritize archive commands
-                const isHeArchiveIntent = isHeb && (/^א(?:ר(?:כ(?:ב(\s+מ(?:י(?:י(?:ל(?:י(?:ם)?)?)?)?)?)?)?)?)?$/.test(q) || /^ארכב\s+מיילים\s+מ$/.test(q) || /^ארכב\s+מיילים\s+מ(היום|מאתמול|מהשבוע|מהחודש|מהשנה)/.test(q) || /^ארכב\s+מיילים\s+מלפני/.test(q));
+                const isHeArchiveIntent = isHeb && (/^א(?:ר(?:כ(?:ב(\s+מ(?:י(?:י(?:ל(?:י(?:ם)?)?)?)?)?)?)?)?)?$/.test(q) || /^ארכב\s+מיילים\s+מ$/.test(q) || /^ארכב\s+מיילים\s+מ(היום|מאתמול|מהשבוע|מהחודש|מהשנה)/.test(q) || /^ארכב\s+מיילים\s+מל/.test(q));
                 if (isHeArchiveIntent && Array.isArray(items)) {
                     try { console.log('[HE-ARCHIVE-INTENT-FILTER] BEFORE filtering, items.length:', items.length); } catch(e) {}
                     try { console.log('[HE-ARCHIVE-INTENT-FILTER] BEFORE filtering, first 5 items:', items.slice(0,5).map(x => x.cmd || x)); } catch(e) {}
@@ -5650,8 +5650,8 @@
                     // Check if typing exactly "ארכב מיילי" (archive emails) - then show both plain and category commands
                     const isTypingArchiveEmails = /^ארכב\s+מיילי$/.test(q);
                     
-                    // Check if typing Hebrew timeframe or duration archive commands
-                    const isTypingArchiveTimeframe = /^ארכב\s+מיילים\s+מ(היום|מאתמול|מהשבוע|מהחודש|מהשנה)/.test(q) || /^ארכב\s+מיילים\s+מלפני/.test(q);
+                    // Check if typing Hebrew timeframe or duration archive commands (including progressive typing)
+                    const isTypingArchiveTimeframe = /^ארכב\s+מיילים\s+מ(היום|מאתמול|מהשבוע|מהחודש|מהשנה)/.test(q) || /^ארכב\s+מיילים\s+מל/.test(q);
                     
                     if (isTypingArchiveEmails) {
                         try { console.log('[HE-ARCHIVE-INTENT-FILTER] BEFORE filtering - total items:', items.length); } catch(e) {}
@@ -5679,17 +5679,12 @@
                             return keep;
                         });
                         
-                        // Always ensure duration placeholder is present when typing מלפני
-                        if (/^ארכב\s+מיילים\s+מלפני/.test(q)) {
+                        // Always ensure duration placeholder is present when typing מלפני (including progressive typing)
+                        if (/^ארכב\s+מיילים\s+מל/.test(q)) {
                             const durationCmd = 'ארכב מיילים מלפני [משך]';
-                            const hasDurationCmd = items.some(it => {
-                                const cmd = (it && it.cmd) ? it.cmd : String(it);
-                                return cmd === durationCmd;
-                            });
-                            if (!hasDurationCmd) {
-                                items = [{ cmd: durationCmd }];
-                                try { console.log('[HE-ARCHIVE-TIMEFRAME-FILTER] Added duration placeholder command'); } catch(e) {}
-                            }
+                            // Force only the duration command to show
+                            items = [{ cmd: durationCmd }];
+                            try { console.log('[HE-ARCHIVE-TIMEFRAME-FILTER] Forced duration placeholder command for progressive typing'); } catch(e) {}
                         } else if (items.length === 0) {
                             items = [{ cmd: q.trim() }];
                             try { console.log('[HE-ARCHIVE-TIMEFRAME-FILTER] Injected exact command:', q.trim()); } catch(e) {}
@@ -8421,18 +8416,25 @@
                 }
                 
                 if (window.heArchiveTimeframeFilterActive && Array.isArray(items)) {
-                    // Restore the Hebrew archive timeframe filter results - show only archive commands
-                    items = items.filter(it => {
-                        const text = typeof it === 'string' ? it : (it && it.cmd ? it.cmd : '');
-                        const lc = String(text || '').toLowerCase().trim();
-                        return /^ארכב\s+מיילים\b/.test(lc);
-                    });
-                    
-                    // If no items remain, inject the exact command being typed
-                    if (items.length === 0) {
-                        const currentCommand = q.trim();
-                        items = [{ cmd: currentCommand }];
-                        console.log('[HE-ARCHIVE-TIMEFRAME-GUARD] Injected exact command:', currentCommand);
+                    // STRICT FILTERING: Force only the duration command to show for progressive typing
+                    const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                    if (/^ארכב\s+מיילים\s+מל/.test(qlc)) {
+                        items = [{ cmd: 'ארכב מיילים מלפני [משך]' }];
+                        console.log('[HE-ARCHIVE-TIMEFRAME-GUARD] Forced duration command for progressive typing');
+                    } else {
+                        // Restore the Hebrew archive timeframe filter results - show only archive commands
+                        items = items.filter(it => {
+                            const text = typeof it === 'string' ? it : (it && it.cmd ? it.cmd : '');
+                            const lc = String(text || '').toLowerCase().trim();
+                            return /^ארכב\s+מיילים\b/.test(lc);
+                        });
+                        
+                        // If no items remain, inject the exact command being typed
+                        if (items.length === 0) {
+                            const currentCommand = q.trim();
+                            items = [{ cmd: currentCommand }];
+                            console.log('[HE-ARCHIVE-TIMEFRAME-GUARD] Injected exact command:', currentCommand);
+                        }
                     }
                     
                     // Clear the flag
