@@ -2135,6 +2135,39 @@
                     'ארכב מיילים מהחודש שעבר',
                     'ארכב מיילים מהשנה שעברה',
                     'ארכב מיילים מלפני [משך]',
+                    'ארכב מיילי משלוח',
+                    'ארכב מיילי משלוח מהיום',
+                    'ארכב מיילי משלוח מאתמול',
+                    'ארכב מיילי משלוח מהשבוע',
+                    'ארכב מיילי משלוח מהחודש',
+                    'ארכב מיילי משלוח מהשנה',
+                    'ארכב מיילי משלוח מהשבוע שעבר',
+                    'ארכב מיילי משלוח מהחודש שעבר',
+                    'ארכב מיילי משלוח מהשנה שעברה',
+                    'ארכב מיילי משלוח מלפני [משך]',
+                    'ארכב מיילי משלוח ישנים מ[משך]',
+                    'ארכב מיילי קודי אימות',
+                    'ארכב מיילי קודי אימות מהיום',
+                    'ארכב מיילי קודי אימות מאתמול',
+                    'ארכב מיילי קודי אימות מהשבוע',
+                    'ארכב מיילי קודי אימות מהחודש',
+                    'ארכב מיילי קודי אימות מהשנה',
+                    'ארכב מיילי קודי אימות מהשבוע שעבר',
+                    'ארכב מיילי קודי אימות מהחודש שעבר',
+                    'ארכב מיילי קודי אימות מהשנה שעברה',
+                    'ארכב מיילי קודי אימות מלפני [משך]',
+                    'ארכב מיילי קודי אימות ישנים מ[משך]',
+                    'ארכב מיילי אבטחת חשבון',
+                    'ארכב מיילי אבטחת חשבון מהיום',
+                    'ארכב מיילי אבטחת חשבון מאתמול',
+                    'ארכב מיילי אבטחת חשבון מהשבוע',
+                    'ארכב מיילי אבטחת חשבון מהחודש',
+                    'ארכב מיילי אבטחת חשבון מהשנה',
+                    'ארכב מיילי אבטחת חשבון מהשבוע שעבר',
+                    'ארכב מיילי אבטחת חשבון מהחודש שעבר',
+                    'ארכב מיילי אבטחת חשבון מהשנה שעברה',
+                    'ארכב מיילי אבטחת חשבון מלפני [משך]',
+                    'ארכב מיילי אבטחת חשבון ישנים מ[משך]',
                     'תייג מיילים מ[שולח] כ"[תווית]"',
                     'רשום תוויות',
                     'רשום מיילים עם תווית "[תווית]"',
@@ -5621,36 +5654,62 @@
                         try { console.log('[HE-ARCHIVE-INTENT-FILTER] BEFORE filtering - total items:', items.length); } catch(e) {}
                         try { console.log('[HE-ARCHIVE-INTENT-FILTER] BEFORE filtering - all items:', items.map(x => x.cmd || x)); } catch(e) {}
                         
-                        // Filter to keep ALL Hebrew category archive commands (with timeframes, durations, etc.)
-                        items = items.filter(it => {
-                            const text = typeof it === 'string' ? it : (it && it.cmd ? it.cmd : '');
-                            const lc = String(text || '').toLowerCase().trim();
-                            // Keep category commands: ארכב מיילי משלוח, ארכב קודי אימות, ארכב מיילי אבטחת חשבון
-                            // Exclude sender commands: ארכב מיילים מ[שולח]
-                            const keep = /^ארכב\s+מיילי\s+(משלוח|קודי\s+אימות|אבטחת\s+חשבון)/.test(lc);
-                            try { console.log('[HE-ARCHIVE-INTENT-FILTER] checking:', lc, 'keep:', keep, 'regex test:', /^ארכב\s+מיילי\s+(משלוח|קודי\s+אימות|אבטחת\s+חשבון)/.test(lc)); } catch(e) {}
-                            return keep;
-                        });
-                        
-                        try { console.log('[HE-ARCHIVE-INTENT-FILTER] AFTER filtering - total items:', items.length); } catch(e) {}
-                        try { console.log('[HE-ARCHIVE-INTENT-FILTER] AFTER filtering - all items:', items.map(x => x.cmd || x)); } catch(e) {}
-                        
-                        // Always inject "ארכב מיילים מ[שולח]" as first suggestion
-                        items.unshift({ cmd: 'ארכב מיילים מ[שולח]' });
-                        try { console.log('[HE-ARCHIVE-INTENT-FILTER] INJECTED ארכב מיילים מ[שולח] as first item'); } catch(e) {}
+                        // Show only the 4 base commands when typing exactly "ארכב מיילי"
+                        items = [
+                            { cmd: 'ארכב מיילים מ[שולח]' },
+                            { cmd: 'ארכב מיילי משלוח' },
+                            { cmd: 'ארכב מיילי קודי אימות' },
+                            { cmd: 'ארכב מיילי אבטחת חשבון' }
+                        ];
+                        try { console.log('[HE-ARCHIVE-INTENT-FILTER] BUILT final ordered items length:', items.length); } catch(e) {}
                         
                         try { console.log('[HE-ARCHIVE-INTENT-FILTER] FINAL - total items:', items.length); } catch(e) {}
                         try { console.log('[HE-ARCHIVE-INTENT-FILTER] FINAL - all items:', items.map(x => x.cmd || x)); } catch(e) {}
                     } else {
-                        // When typing "ארכב" or "ארכב מ" etc., only show plain archive commands
-                        items = items.filter(it => {
-                            const text = typeof it === 'string' ? it : (it && it.cmd ? it.cmd : '');
-                            const lc = String(text || '').toLowerCase().trim();
-                            // Keep only plain "ארכב מיילים" commands, hide categories and list commands
-                            const keep = /^ארכב\s+מיילים\b/.test(lc);
-                            try { console.log('[HE-ARCHIVE-INTENT-FILTER] checking:', lc, 'keep:', keep); } catch(e) {}
-                            return keep;
-                        });
+                        // Progressive filtering for category names
+                        const isTypingCategory = /^ארכב\s+מיילי\s+(מ|מש|משל|משלוח|ק|קו|קוד|קודי|א|אב|אבט|אבטחת)/.test(q);
+                        
+                        if (isTypingCategory) {
+                            // Determine which category is being typed
+                            let categoryRegex;
+                            if (/^ארכב\s+מיילי\s+(מ|מש|משל|משלוח)/.test(q)) {
+                                // Shipping category
+                                categoryRegex = /^ארכב\s+מיילי\s+משלוח/;
+                            } else if (/^ארכב\s+מיילי\s+(ק|קו|קוד|קודי)/.test(q)) {
+                                // Verification codes category
+                                categoryRegex = /^ארכב\s+מיילי\s+קודי\s+אימות/;
+                            } else if (/^ארכב\s+מיילי\s+(א|אב|אבט|אבטחת)/.test(q)) {
+                                // Account security category
+                                categoryRegex = /^ארכב\s+מיילי\s+אבטחת\s+חשבון/;
+                            }
+                            
+                            if (categoryRegex) {
+                                // Filter to show only commands matching this category
+                                items = items.filter(it => {
+                                    const text = typeof it === 'string' ? it : (it && it.cmd ? it.cmd : '');
+                                    const lc = String(text || '').toLowerCase().trim();
+                                    return categoryRegex.test(lc);
+                                });
+                                
+                                // If no items found, inject category commands from global commands list
+                                if (items.length === 0 && Array.isArray(commands)) {
+                                    const categoryCommands = commands.filter(c => {
+                                        return typeof c === 'string' && categoryRegex.test(String(c).trim());
+                                    });
+                                    items = categoryCommands.map(cmd => ({ cmd: cmd }));
+                                }
+                            }
+                        } else {
+                            // When typing "ארכב" or "ארכב מ" etc., only show plain archive commands
+                            items = items.filter(it => {
+                                const text = typeof it === 'string' ? it : (it && it.cmd ? it.cmd : '');
+                                const lc = String(text || '').toLowerCase().trim();
+                                // Keep only plain "ארכב מיילים" commands, hide categories and list commands
+                                const keep = /^ארכב\s+מיילים\b/.test(lc);
+                                try { console.log('[HE-ARCHIVE-INTENT-FILTER] checking:', lc, 'keep:', keep); } catch(e) {}
+                                return keep;
+                            });
+                        }
                     }
                     
                     try { console.log('[HE-ARCHIVE-INTENT-FILTER] AFTER filtering and sorting, items.length:', items.length); } catch(e) {}
