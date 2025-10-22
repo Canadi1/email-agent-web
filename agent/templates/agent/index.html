@@ -10814,7 +10814,7 @@
                     items = [{ cmd: 'ארכב מיילים ישנים מ[משך]' }];
                 }
                 // Hebrew archive sender guard: when typing "ארכב מיילים מ[שולח]" show only archive sender suggestions
-                if (isHeb && /^ארכב\s+מיילים\s+מ[י-ת]/i.test(qShow) && Array.isArray(items)) {
+                if (isHeb && /^ארכב\s+מיילים\s+מ[א-ת]/i.test(qShow) && !/^ארכב\s+מיילים\s+מ(היום|אתמול|השבוע|השבוע שעבר|החודש|השנה|השנה שעברה|מלפני|ישנים|ל)/i.test(qShow) && Array.isArray(items)) {
                     items = items.filter(function(it){
                         const s = (it && it.cmd ? it.cmd : String(it)).toLowerCase();
                         return /^ארכב\s+מיילים\s+מ/.test(s) && !/מלפני/.test(s);
