@@ -10809,6 +10809,10 @@
                 if (isHeb && /^ארכב\s+מיילים\s+מהשנה\s+ש/i.test(qShow) && Array.isArray(items)) {
                     items = [{ cmd: 'ארכב מיילים מהשנה שעברה' }];
                 }
+                // Hebrew archive progressive timeframe guard: when typing "ארכב מיילים י..." show only "ארכב מיילים ישנים מ[משך]"
+                if (isHeb && /^ארכב\s+מיילים\s+י/i.test(qShow) && Array.isArray(items)) {
+                    items = [{ cmd: 'ארכב מיילים ישנים מ[משך]' }];
+                }
                 if (/^show\s+l(\b|\s|$)/i.test(qShow) && Array.isArray(items)) {
                     items = items.filter(function(it){
                         const s = (it && it.cmd ? it.cmd : String(it)).toLowerCase();
