@@ -5708,6 +5708,7 @@
                             if (isTypingArchiveFrom || isTypingArchiveFromFlexible) {
                                 // Show sender command first, then timeframe commands
                                 const timeframeCommands = [
+                                    'ארכב מיילים מלפני [משך]',
                                     'ארכב מיילים מהיום',
                                     'ארכב מיילים מאתמול', 
                                     'ארכב מיילים מהשבוע',
@@ -5748,16 +5749,15 @@
                         const hebrewArchiveCommands = [
                             'ארכב מיילים מ[שולח]',
                             'ארכב מיילים ישנים מ[משך]',
-                            'ארכב מיילים מ[שולח] ישנים מ[משך]',
+                            'ארכב מיילים מלפני [משך]',
                             'ארכב מיילים מהיום',
                             'ארכב מיילים מאתמול',
-                            'ארכב מיילים מהשבוע הזה',
-                            'ארכב מיילים מהחודש הזה',
-                            'ארכב מיילים מהשנה הזו',
+                            'ארכב מיילים מהשבוע',
+                            'ארכב מיילים מהחודש',
+                            'ארכב מיילים מהשנה',
                             'ארכב מיילים מהשבוע שעבר',
                             'ארכב מיילים מהחודש שעבר',
-                            'ארכב מיילים מהשנה שעברה',
-                            'ארכב מיילים מלפני [משך]'
+                            'ארכב מיילים מהשנה שעברה'
                         ];
                         items = hebrewArchiveCommands.map(cmd => ({ cmd: cmd }));
                         try { console.log('[HE-ARCHIVE-INTENT-FILTER] INJECTED Hebrew archive commands:', items.length); } catch(e) {}
@@ -8366,6 +8366,7 @@
                 if (window.heArchiveFromFilterActive && Array.isArray(items)) {
                     // Restore the Hebrew archive from filter results
                     const timeframeCommands = [
+                        'ארכב מיילים מלפני [משך]',
                         'ארכב מיילים מהיום',
                         'ארכב מיילים מאתמול', 
                         'ארכב מיילים מהשבוע',
