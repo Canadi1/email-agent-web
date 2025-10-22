@@ -8441,6 +8441,21 @@
                     window.heArchiveTimeframeFilterActive = false;
                     console.log('[HE-ARCHIVE-TIMEFRAME-GUARD] Restored Hebrew archive timeframe filter results, items:', items.length);
                 }
+                
+                // GUARD: Fix Hebrew list commands with progressive timeframe typing
+                try {
+                    const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                    const isHeb = (document.documentElement.getAttribute('lang') || '').toLowerCase().startsWith('he');
+                    
+                    // If typing Hebrew list commands with progressive timeframe, filter strictly
+                    if (isHeb && /^רשום\s+מיילים\s+מה/.test(qlc) && Array.isArray(items)) {
+                        // Force only the matching list command to show
+                        if (/^רשום\s+מיילים\s+מהי/.test(qlc)) {
+                            items = [{ cmd: 'רשום מיילים מהיום' }];
+                            console.log('[HE-LIST-TIMEFRAME-GUARD] Forced "רשום מיילים מהיום" for progressive typing');
+                        }
+                    }
+                } catch(e) {}
                 // Fallback guard: if typing Hebrew archive timeframe prefix but items are not archive timeframe,
                 // rebuild suggestions from canonical archive timeframe list to enable proper bolding
                 (function(){
@@ -10759,6 +10774,19 @@
             // FINAL ENFORCEMENT (SHOW): After all other filters, ensure exclusive suggestions while typing
             try {
                 const qShow = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                // Hebrew list progressive timeframe guard: when typing "רשום מיילים מהי" show only "רשום מיילים מהיום"
+                const isHeb = (document.documentElement.getAttribute('lang') || '').toLowerCase().startsWith('he');
+                if (isHeb && /^רש(?:ו)?ם\s+מיילים\s+מהי$/i.test(qShow) && Array.isArray(items)) {
+                    items = [{ cmd: 'רשום מיילים מהיום' }];
+                }
+                // Hebrew archive progressive timeframe guard: when typing "ארכב מיילים מהי" show only "ארכב מיילים מהיום"
+                if (isHeb && /^ארכב\s+מיילים\s+מהי$/i.test(qShow) && Array.isArray(items)) {
+                    items = [{ cmd: 'ארכב מיילים מהיום' }];
+                }
+                // Hebrew archive progressive timeframe guard: when typing "ארכב מיילים מא..." show only "ארכב מיילים מאתמול"
+                if (isHeb && /^ארכב\s+מיילים\s+מא/i.test(qShow) && Array.isArray(items)) {
+                    items = [{ cmd: 'ארכב מיילים מאתמול' }];
+                }
                 if (/^show\s+l(\b|\s|$)/i.test(qShow) && Array.isArray(items)) {
                     items = items.filter(function(it){
                         const s = (it && it.cmd ? it.cmd : String(it)).toLowerCase();
