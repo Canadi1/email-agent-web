@@ -5642,7 +5642,7 @@
                 }
                 
                 // Hebrew archive intent filter: if typing "ארכב" progressively, prioritize archive commands
-                const isHeArchiveIntent = isHeb && (/^א(?:ר(?:כ(?:ב(\s+מ(?:י(?:י(?:ל(?:י(?:ם)?)?)?)?)?)?)?)?)?$/.test(q) || /^ארכב\s+מיילים\s+מ$/.test(q) || /^ארכב\s+מיילים\s+מ(היום|מאתמול|מהשבוע|מהחודש|מהשנה)/.test(q));
+                const isHeArchiveIntent = isHeb && (/^א(?:ר(?:כ(?:ב(\s+מ(?:י(?:י(?:ל(?:י(?:ם)?)?)?)?)?)?)?)?)?$/.test(q) || /^ארכב\s+מיילים\s+מ$/.test(q) || /^ארכב\s+מיילים\s+מ(היום|מאתמול|מהשבוע|מהחודש|מהשנה)/.test(q) || /^ארכב\s+מיילים\s+מלפני/.test(q));
                 if (isHeArchiveIntent && Array.isArray(items)) {
                     try { console.log('[HE-ARCHIVE-INTENT-FILTER] BEFORE filtering, items.length:', items.length); } catch(e) {}
                     try { console.log('[HE-ARCHIVE-INTENT-FILTER] BEFORE filtering, first 5 items:', items.slice(0,5).map(x => x.cmd || x)); } catch(e) {}
@@ -5650,8 +5650,8 @@
                     // Check if typing exactly "ארכב מיילי" (archive emails) - then show both plain and category commands
                     const isTypingArchiveEmails = /^ארכב\s+מיילי$/.test(q);
                     
-                    // Check if typing Hebrew timeframe archive commands
-                    const isTypingArchiveTimeframe = /^ארכב\s+מיילים\s+מ(היום|מאתמול|מהשבוע|מהחודש|מהשנה)/.test(q);
+                    // Check if typing Hebrew timeframe or duration archive commands
+                    const isTypingArchiveTimeframe = /^ארכב\s+מיילים\s+מ(היום|מאתמול|מהשבוע|מהחודש|מהשנה)/.test(q) || /^ארכב\s+מיילים\s+מלפני/.test(q);
                     
                     if (isTypingArchiveEmails) {
                         try { console.log('[HE-ARCHIVE-INTENT-FILTER] BEFORE filtering - total items:', items.length); } catch(e) {}
@@ -5679,8 +5679,18 @@
                             return keep;
                         });
                         
-                        // If no archive commands remain, inject the exact command being typed
-                        if (items.length === 0) {
+                        // Always ensure duration placeholder is present when typing מלפני
+                        if (/^ארכב\s+מיילים\s+מלפני/.test(q)) {
+                            const durationCmd = 'ארכב מיילים מלפני [משך]';
+                            const hasDurationCmd = items.some(it => {
+                                const cmd = (it && it.cmd) ? it.cmd : String(it);
+                                return cmd === durationCmd;
+                            });
+                            if (!hasDurationCmd) {
+                                items = [{ cmd: durationCmd }];
+                                try { console.log('[HE-ARCHIVE-TIMEFRAME-FILTER] Added duration placeholder command'); } catch(e) {}
+                            }
+                        } else if (items.length === 0) {
                             items = [{ cmd: q.trim() }];
                             try { console.log('[HE-ARCHIVE-TIMEFRAME-FILTER] Injected exact command:', q.trim()); } catch(e) {}
                         }
@@ -8435,22 +8445,32 @@
                     try {
                         const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
                         const isHe = (document.documentElement.getAttribute('lang') || '').toLowerCase().startsWith('he');
-                        const isArchTfPrefix = isHe && /^ארכב\s+מיילים\s+מ/i.test(qlc);
+                        const isArchTfPrefix = isHe && (/^ארכב\s+מיילים\s+מ/i.test(qlc) || /^ארכב\s+מיילים\s+מלפני/i.test(qlc));
                         if (!isArchTfPrefix || !Array.isArray(items)) return;
 
                         const hasArchiveNow = items.some(function(it){
                             const s = (it && it.cmd) ? it.cmd : String(it);
-                            return /^ארכב\s+מיילים\s+מ/i.test(String(s || '').toLowerCase());
+                            return /^ארכב\s+מיילים\s+מ/i.test(String(s || '').toLowerCase()) || /^ארכב\s+מיילים\s+מלפני/i.test(String(s || '').toLowerCase());
                         });
                         if (hasArchiveNow) return; // nothing to do
 
                         const tfAll = ['מהיום','מאתמול','מהשבוע','מהחודש','מהשנה','מהשבוע שעבר','מהחודש שעבר','מהשנה שעברה'];
+                        const durAll = ['מלפני [משך]']; // Only the placeholder command
+                        const allCmds = [...tfAll, ...durAll];
                         const qLower = qlc;
-                        let next = tfAll.map(function(tf){ return `ארכב מיילים ${tf}`; })
+                        let next = allCmds.map(function(tf){ return `ארכב מיילים ${tf}`; })
                                         .filter(function(s){ return s.toLowerCase().startsWith(qLower); });
                         if (next.length === 0) {
-                            // early stages like 'ארכב מיילים מ' or 'ארכב מיילים מה'
-                            next = tfAll.map(function(tf){ return `ארכב מיילים ${tf}`; });
+                            // early stages like 'ארכב מיילים מ' or 'ארכב מיילים מלפני'
+                            next = allCmds.map(function(tf){ return `ארכב מיילים ${tf}`; });
+                        }
+                        
+                        // Special case: if typing duration commands, always include the placeholder
+                        if (qLower.includes('מלפני') && !qLower.includes('[משך]')) {
+                            const durationCmd = 'ארכב מיילים מלפני [משך]';
+                            if (!next.includes(durationCmd)) {
+                                next = [durationCmd];
+                            }
                         }
                         items = next.map(function(s){ return { cmd: s }; });
                         console.log('[HE-ARCHIVE-TF-FALLBACK]', { qLower, out: items.map(x=>x.cmd) });
@@ -8463,6 +8483,35 @@
                 var headItems = Array.isArray(items) ? items.slice(0, 10).map(function(it){ return (it && it.cmd) ? it.cmd : String(it); }) : [];
                 console.log('[HE-DIAG][final-head] len=', Array.isArray(items)?items.length:'n/a', headItems);
             } catch (e) {}
+
+            // ENFORCE Hebrew duration placeholder for 'ארכב מיילים מלפני': never materialize typed text
+            try {
+                const qlcFix = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                if (/^ארכב\s+מיילים\s+מלפני\b/.test(qlcFix) && Array.isArray(items)) {
+                    const placeholderCmd = 'ארכב מיילים מלפני [משך]';
+                    // Remove any items that start with the duration phrase but are not the placeholder
+                    items = items.filter(function(it){
+                        const s = (it && it.cmd) ? String(it.cmd) : String(it||'');
+                        const lc = s.toLowerCase();
+                        if (/^ארכב\s+מיילים\s+מלפני\b/.test(lc) && s !== placeholderCmd) return false;
+                        return true;
+                    });
+                    const hasPlaceholder = items.some(function(it){ const s = (it && it.cmd) ? String(it.cmd) : String(it||''); return s === placeholderCmd; });
+                    if (!hasPlaceholder) items.unshift({ cmd: placeholderCmd, score: 1200, type: 'he_duration_placeholder_enforce' });
+                    // FINAL NORMALIZATION: Coerce any remaining non-placeholder variants to the placeholder
+                    items = items.map(function(it){
+                        const s = (it && it.cmd) ? String(it.cmd) : String(it||'');
+                        const lc = s.toLowerCase();
+                        if (/^ארכב\s+מיילים\s+מלפני\b/.test(lc) && s !== placeholderCmd) {
+                            return { cmd: placeholderCmd, score: 1200, type: 'he_duration_placeholder_coerce' };
+                        }
+                        return it;
+                    });
+                    // Deduplicate
+                    const seen = new Set();
+                    items = items.filter(function(it){ const s = (it && it.cmd) ? String(it.cmd) : String(it||''); if (seen.has(s)) return false; seen.add(s); return true; });
+                }
+            } catch(e) {}
 
             // FINAL EN ARCHIVE-FROM NUDGE: If typing 'archive emails f*', forcibly inject '[sender]' and '[duration] ago' at top
             try {
@@ -10730,12 +10779,46 @@
                 const lc = cmd.toLowerCase();
                 const pos = lc.indexOf(input.toLowerCase());
                 let boldLen = 0; // defensive default to avoid ReferenceError during fallback bolding
+                // HARD OVERRIDE: For Hebrew 'ארכב מיילים מלפני', always display placeholder and ignore typed value
+                try {
+                    const qPref = (input || '').toLowerCase().replace(/[\u200e\u200f\u202a\u202b\u202c\u202d\u202e]/g,'').replace(/\u00a0/g,' ').replace(/\s+/g,' ').trim();
+                    const cmdPref = lc.replace(/[\u200e\u200f\u202a\u202b\u202c\u202d\u202e]/g,'').replace(/\u00a0/g,' ').replace(/\s+/g,' ').trim();
+                    if (/^ארכב\s+מיילים\s+מלפני/.test(qPref) && /^ארכב\s+מיילים\s+מלפני/.test(cmdPref)) {
+                        const coerced = 'ארכב מיילים מלפני [משך]';
+                        const typedAfter = /\sמלפני\s+\S/.test(qPref);
+                        if (typedAfter) {
+                            const pref = 'ארכב מיילים מלפני ';
+                            const token = '[משך]';
+                            div.innerHTML = `<strong>${escapeHtml(pref)}</strong><strong>${escapeHtml(token)}</strong>`;
+                        } else {
+                            const pref = 'ארכב מיילים מלפני';
+                            const bold = escapeHtml(pref);
+                            const rest = ' ' + escapeHtml('[משך]');
+                            div.innerHTML = `<strong>${bold}</strong>${rest}`;
+                        }
+                        // Attach handlers now and append, then skip further rendering logic
+                        div.addEventListener('mouseenter', () => { setActive(idx); activeByKeyboard = false; });
+                        div.addEventListener('click', () => { commandInput.value = coerced; closeAllLists(); commandInput.focus(); });
+                        suggestionsContainer.appendChild(div);
+                        suggestionItems.push(div);
+                        return; // skip rest of rendering for this item
+                    }
+                } catch(_) {}
                 // Category-mode robust bolding for normalized prefix
                 try {
                     const qNormB = (input || '').toLowerCase().replace(/[\u200e\u200f\u202a\u202b\u202c\u202d\u202e]/g,'').replace(/\u00a0/g,' ').replace(/\s+/g,' ').trim();
                     const cmdNormB = lc.replace(/[\u200e\u200f\u202a\u202b\u202c\u202d\u202e]/g,'').replace(/\u00a0/g,' ').replace(/\s+/g,' ').trim();
+                    
+                    // ABSOLUTE: Disable any bolding for Hebrew 'ארכב מיילים מלפני…' suggestions
+                    if (!div.innerHTML) {
+                        const isHeDurationInput = /^ארכב\s+מיילים\s+מלפני/.test(qNormB);
+                        const isHeDurationCmd = /^ארכב\s+מיילים\s+מלפני/.test(cmdNormB);
+                        if (isHeDurationInput && isHeDurationCmd) {
+                            div.textContent = cmd; // render plain text, no bold
+                        }
+                    }
                     // EARLY: Hebrew archive timeframe strict prefix bolding (no random bold)
-                    if (qNormB && /^ארכב\s+מיילים\s+/.test(qNormB)) {
+                    if (!div.innerHTML && qNormB && /^ארכב\s+מיילים\s+/.test(qNormB)) {
                         if (cmdNormB.startsWith(qNormB)) {
                             const targetLen = qNormB.length;
                             let cutoff = 0;
@@ -11028,23 +11111,36 @@
                     }
                     }
                 } else if (hasDurationToken) {
-                    // Mirror behavior for duration/timeframe tokens
-                    if (renderDurationMaterialized(div, cmd, input)) {
-                        // done
-                    } else {
-                        // Only bold if input is a strict prefix of the command
-                        const ql = (input || '').toLowerCase();
+                    // Mirror behavior for duration/timeframe tokens, BUT never materialize '[משך]' for Hebrew 'ארכב מיילים מלפני'
+                    const ql = (input || '').toLowerCase();
+                    const isHeDuration = /^ארכב\s+מיילים\s+מלפני/.test(ql);
+                    if (isHeDuration) {
+                        // Skip materialization; keep placeholder intact and use simple prefix bolding
                         const lcCmd2 = cmd.toLowerCase();
                         if (lcCmd2.startsWith(ql)) {
                             const bold = escapeHtml(cmd.substring(0, ql.length));
                             const rest = escapeHtml(cmd.substring(ql.length));
                             div.innerHTML = `<strong>${bold}</strong>${rest}`;
-                            // DEBUG: Log duration token bolding
-                            if (ql.includes('מהשבוע')) {
-                                console.log('[DURATION BOLDING DEBUG] Bolding duration token:', cmd, 'Input:', ql);
-                            }
                         } else {
                             div.textContent = cmd;
+                        }
+                    } else {
+                        if (renderDurationMaterialized(div, cmd, input)) {
+                            // done
+                        } else {
+                            // Only bold if input is a strict prefix of the command
+                            const lcCmd2 = cmd.toLowerCase();
+                            if (lcCmd2.startsWith(ql)) {
+                                const bold = escapeHtml(cmd.substring(0, ql.length));
+                                const rest = escapeHtml(cmd.substring(ql.length));
+                                div.innerHTML = `<strong>${bold}</strong>${rest}`;
+                                // DEBUG: Log duration token bolding
+                                if (ql.includes('מהשבוע')) {
+                                    console.log('[DURATION BOLDING DEBUG] Bolding duration token:', cmd, 'Input:', ql);
+                                }
+                            } else {
+                                div.textContent = cmd;
+                            }
                         }
                     }
                 } else if (type === 'include' && pos >= 0) {
