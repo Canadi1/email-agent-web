@@ -5651,7 +5651,16 @@
                     const isTypingArchiveEmails = /^ארכב\s+מיילי$/.test(q);
                     
                     // Check if typing Hebrew timeframe or duration archive commands (including progressive typing)
-                    const isTypingArchiveTimeframe = /^ארכב\s+מיילים\s+מ(היום|מאתמול|מהשבוע|מהחודש|מהשנה)/.test(q) || /^ארכב\s+מיילים\s+מל/.test(q);
+                    // BUT NOT if there's a sender name before the timeframe
+                    const isTypingArchiveTimeframe = (/^ארכב\s+מיילים\s+מ(היום|מאתמול|מהשבוע|מהחודש|מהשנה)/.test(q) || /^ארכב\s+מיילים\s+מל/.test(q)) && !/^ארכב\s+מיילים\s+מ[A-Za-z0-9@._-]+\s*מ/.test(q);
+                    
+                    // Check if typing Hebrew sender + timeframe archive commands
+                    const isTypingArchiveSenderTimeframe = /^ארכב\s+מיילים\s+מ[A-Za-z0-9@._-]+\s*מ/.test(q);
+                    
+                    // Debug logging
+                    try { console.log('[DEBUG] Query:', q); } catch(e) {}
+                    try { console.log('[DEBUG] isTypingArchiveSenderTimeframe:', isTypingArchiveSenderTimeframe); } catch(e) {}
+                    try { console.log('[DEBUG] isTypingArchiveTimeframe:', isTypingArchiveTimeframe); } catch(e) {}
                     
                     if (isTypingArchiveEmails) {
                         try { console.log('[HE-ARCHIVE-INTENT-FILTER] BEFORE filtering - total items:', items.length); } catch(e) {}
@@ -5668,6 +5677,52 @@
                         
                         try { console.log('[HE-ARCHIVE-INTENT-FILTER] FINAL - total items:', items.length); } catch(e) {}
                         try { console.log('[HE-ARCHIVE-INTENT-FILTER] FINAL - all items:', items.map(x => x.cmd || x)); } catch(e) {}
+                    } else if (isTypingArchiveSenderTimeframe) {
+                        // When typing Hebrew sender + timeframe archive commands, show only sender + timeframe commands
+                        try { console.log('[HE-ARCHIVE-SENDER-TIMEFRAME-FILTER] Detected sender + timeframe pattern'); } catch(e) {}
+                        
+                        // Extract the timeframe part to determine which suggestions to show
+                        const timeframeMatch = q.match(/מ(היום|מאתמול|מהשבוע|מהחודש|מהשנה|הי|מא|השב|השנ|השבוע ש|השנה ש)/);
+                        const timeframe = timeframeMatch ? timeframeMatch[1] : '';
+                        
+                        let senderTimeframeCommands = [];
+                        
+                        if (timeframe === 'הי' || timeframe === 'היום') {
+                            senderTimeframeCommands = [{ cmd: 'ארכב מיילים מ[שולח] מהיום' }];
+                        } else if (timeframe === 'מא' || timeframe === 'מאתמול') {
+                            senderTimeframeCommands = [{ cmd: 'ארכב מיילים מ[שולח] מאתמול' }];
+                        } else if (timeframe === 'השב' || timeframe === 'מהשבוע') {
+                            senderTimeframeCommands = [
+                                { cmd: 'ארכב מיילים מ[שולח] מהשבוע' },
+                                { cmd: 'ארכב מיילים מ[שולח] מהשבוע שעבר' }
+                            ];
+                        } else if (timeframe === 'השבוע ש') {
+                            senderTimeframeCommands = [{ cmd: 'ארכב מיילים מ[שולח] מהשבוע שעבר' }];
+                        } else if (timeframe === 'השנ' || timeframe === 'מהשנה') {
+                            senderTimeframeCommands = [
+                                { cmd: 'ארכב מיילים מ[שולח] מהשנה' },
+                                { cmd: 'ארכב מיילים מ[שולח] מהשנה שעברה' }
+                            ];
+                        } else if (timeframe === 'השנה ש') {
+                            senderTimeframeCommands = [{ cmd: 'ארכב מיילים מ[שולח] מהשנה שעברה' }];
+                        } else if (timeframe === 'מהחודש') {
+                            senderTimeframeCommands = [{ cmd: 'ארכב מיילים מ[שולח] מהחודש' }];
+                        } else {
+                            // When just typing "מ" or other partial patterns, show all sender + timeframe commands
+                            senderTimeframeCommands = [
+                                { cmd: 'ארכב מיילים מ[שולח] מהיום' },
+                                { cmd: 'ארכב מיילים מ[שולח] מאתמול' },
+                                { cmd: 'ארכב מיילים מ[שולח] מהשבוע' },
+                                { cmd: 'ארכב מיילים מ[שולח] מהשבוע שעבר' },
+                                { cmd: 'ארכב מיילים מ[שולח] מהחודש' },
+                                { cmd: 'ארכב מיילים מ[שולח] מהשנה' },
+                                { cmd: 'ארכב מיילים מ[שולח] מהשנה שעברה' }
+                            ];
+                        }
+                        
+                        items = senderTimeframeCommands;
+                        try { console.log('[HE-ARCHIVE-SENDER-TIMEFRAME-FILTER] Set items to:', items.map(x => x.cmd)); } catch(e) {}
+                        
                     } else if (isTypingArchiveTimeframe) {
                         // When typing Hebrew timeframe archive commands, show only archive commands
                         items = items.filter(it => {
@@ -6539,7 +6594,8 @@
                 
                 // Check for sender + timeframe patterns - handle both placeholder tokens and real sender names
                 const hasSenderToken = /\[שולח\]|\[sender\]/.test(input);
-                const hasRealSender = /^רש(?:ו)?ם\s+מיילים\s+מ\s*[^\s]+\s+מ/.test(qlc) && !/^רש(?:ו)?ם\s+מיילים\s+מ(היום|אתמול|השבוע|החודש|השנה|ל|לפ|לפנ|לפני)/.test(qlc);
+                const hasRealSender = (/^רש(?:ו)?ם\s+מיילים\s+מ\s*[^\s]+\s+מ/.test(qlc) && !/^רש(?:ו)?ם\s+מיילים\s+מ(היום|אתמול|השבוע|החודש|השנה|ל|לפ|לפנ|לפני)/.test(qlc)) ||
+                                     (/^ארכב\s+מיילים\s+מ\s*[^\s]+\s+מ/.test(qlc) && !/^ארכב\s+מיילים\s+מ(היום|אתמול|השבוע|החודש|השנה|ל|לפ|לפנ|לפני)/.test(qlc));
                 
                 // Debug logging
                 try { 
@@ -6567,8 +6623,9 @@
                 const senderWithPartialMonth = (hasSenderToken || hasRealSender) && /\s*מ(הח|החו|החוד|החודש)$/.test(qlc);
                 const senderWithPartialYear = (hasSenderToken || hasRealSender) && /\s*מ(השנ)$/.test(qlc); // Only "מהשנ", not "מהש"
                 const senderWithPartialHaShin = (hasSenderToken || hasRealSender) && /\s*מהש$/.test(qlc); // Exactly "מהש" - show both week and year
+                const senderWithPartialM = (hasSenderToken || hasRealSender) && /\s*מ$/.test(qlc); // Just "מ" - show all sender + timeframe options
                 
-                if ((senderWithHaiom || senderWithEtmol || senderWithTimeframe || senderWithPartialTimeframe || senderWithSheaver || senderWithPartialHaiom || senderWithPartialEtmol || senderWithPartialWeekOnly || senderWithPartialMonth || senderWithPartialYear || senderWithPartialHaShin) && Array.isArray(items)) {
+                if ((senderWithHaiom || senderWithEtmol || senderWithTimeframe || senderWithPartialTimeframe || senderWithSheaver || senderWithPartialHaiom || senderWithPartialEtmol || senderWithPartialWeekOnly || senderWithPartialMonth || senderWithPartialYear || senderWithPartialHaShin || senderWithPartialM) && Array.isArray(items)) {
                     if (senderWithHaiom || senderWithPartialHaiom) {
                         // Keep only sender + today suggestions
                         items = items.filter(function(it) {
@@ -6701,6 +6758,14 @@
                                 if (idx > 0) { const it = items.splice(idx,1)[0]; items.unshift(it); }
                             }
                         } catch(e) {}
+                    } else if (senderWithPartialM) {
+                        // When just typing "מ" after sender name, show all sender + timeframe options
+                        items = items.filter(function(it) {
+                            const cmd = (it && it.cmd) ? it.cmd : String(it);
+                            const lcCmd = cmd.toLowerCase();
+                            return /\[שולח\]/.test(lcCmd) && /מ(היום|מאתמול|מהשבוע|מהחודש|מהשנה)/.test(lcCmd);
+                        });
+                        try { console.log('[HE-SENDER-TIMEFRAME-FILTER] restricted to all sender+timeframe options for:', qlc); } catch(e) {}
                     } else if (senderWithPartialYear) {
                         // Keep only sender + year suggestions
                         items = items.filter(function(it) {
@@ -10813,11 +10878,17 @@
                 if (isHeb && /^ארכב\s+מיילים\s+י/i.test(qShow) && Array.isArray(items)) {
                     items = [{ cmd: 'ארכב מיילים ישנים מ[משך]' }];
                 }
-                // Hebrew archive sender guard: when typing "ארכב מיילים מ[שולח]" show only archive sender suggestions
-                if (isHeb && /^ארכב\s+מיילים\s+מ[א-ת]/i.test(qShow) && !/^ארכב\s+מיילים\s+מ(היום|אתמול|השבוע|השבוע שעבר|החודש|השנה|השנה שעברה|מלפני|ישנים|ל)/i.test(qShow) && Array.isArray(items)) {
+                // Hebrew archive sender guard: when typing "ארכב מיילים מ<sender> ..." (Hebrew or Latin sender), keep only archive-from-sender suggestions
+                // Matches: ארכב מיילים מsteam מ..., ארכב מיילים מגוגל מ...
+                if (isHeb && /^ארכב\s+מיילים\s+מ\s*(?!היום|אתמול|השבוע|השבוע\s+שעבר|החודש|השנה|השנה\s+שעברה|מלפני|ישנים|ל)\S+/i.test(qShow) && Array.isArray(items)) {
                     items = items.filter(function(it){
                         const s = (it && it.cmd ? it.cmd : String(it)).toLowerCase();
-                        return /^ארכב\s+מיילים\s+מ/.test(s) && !/מלפני/.test(s);
+                        // Keep ONLY sender + timeframe variants; drop base sender and older-than templates
+                        const isArchiveFromSender = /^ארכב\s+מיילים\s+מ/.test(s);
+                        const isDurationOlder = /\sישנים\s+מ\[משך\]/.test(s);
+                        const hasTimeframe = /\sמ(היום|אתמול|השבוע(?:\s+שעבר)?|החודש(?:\s+שעבר)?|השנה(?:\s+שעברה)?)(?:\s*|$)/.test(s);
+                        const isMelifney = /מלפני/.test(s);
+                        return isArchiveFromSender && hasTimeframe && !isDurationOlder && !isMelifney;
                     });
                 }
                 if (/^show\s+l(\b|\s|$)/i.test(qShow) && Array.isArray(items)) {
