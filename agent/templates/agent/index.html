@@ -8400,24 +8400,13 @@
                 const isArchiveCommand = /^ארכב\s+מיילי(?:ם)?/i.test(qlc);
                 
                 // Handle category archive commands in the final gate (progressive filtering)
-                if (isHeb && /^ארכב\s+מיילי\s+מ/.test(qlc) && Array.isArray(items)) {
-                    // Extract the category from the query (handle progressive typing)
-                    let category = '';
-                    if (/^ארכב\s+מיילי\s+מש/.test(qlc)) {
-                        category = 'משלוח';
-                    } else if (/^ארכב\s+מיילי\s+קוד/.test(qlc)) {
-                        category = 'קודי אימות';
-                    } else if (/^ארכב\s+מיילי\s+אבט/.test(qlc)) {
-                        category = 'אבטחת חשבון';
-                    } else {
-                        // When just typing "ארכב מיילי מ", show משלוח commands
-                        category = 'משלוח';
-                    }
+                if (isHeb && /^ארכב\s+מיילי\s+(מ|ק|אבט)/.test(qlc) && Array.isArray(items)) {
+                    let categoryHandled = false;
                     
-                    if (category === 'משלוח') {
+                    // Check for specific "משלוח מ" pattern first (most specific)
+                    if (/^ארכב\s+מיילי\s+משלוח\s+מ/.test(qlc)) {
+                        // When typing "ארכב מיילי משלוח מ", show מלפני first, then timeframes
                         items = [
-                            { cmd: 'ארכב מיילי משלוח' },
-                            { cmd: 'ארכב מיילי משלוח ישנים מ[משך]' },
                             { cmd: 'ארכב מיילי משלוח מלפני [משך]' },
                             { cmd: 'ארכב מיילי משלוח מהיום' },
                             { cmd: 'ארכב מיילי משלוח מאתמול' },
@@ -8428,10 +8417,11 @@
                             { cmd: 'ארכב מיילי משלוח מהשנה' },
                             { cmd: 'ארכב מיילי משלוח מהשנה שעברה' }
                         ];
-                    } else if (category === 'קודי אימות') {
+                        try { console.log('[HE-ARCHIVE-CATEGORY-FINAL-GATE] Set items to משלוח מלפני + timeframes:', items.map(x => x.cmd)); } catch(e) {}
+                        categoryHandled = true;
+                    } else if (/^ארכב\s+מיילי\s+קודי\s+אימות\s+מ/.test(qlc)) {
+                        // When typing "ארכב מיילי קודי אימות מ", show מלפני first, then timeframes
                         items = [
-                            { cmd: 'ארכב מיילי קודי אימות' },
-                            { cmd: 'ארכב מיילי קודי אימות ישנים מ[משך]' },
                             { cmd: 'ארכב מיילי קודי אימות מלפני [משך]' },
                             { cmd: 'ארכב מיילי קודי אימות מהיום' },
                             { cmd: 'ארכב מיילי קודי אימות מאתמול' },
@@ -8442,22 +8432,69 @@
                             { cmd: 'ארכב מיילי קודי אימות מהשנה' },
                             { cmd: 'ארכב מיילי קודי אימות מהשנה שעברה' }
                         ];
-                    } else if (category === 'אבטחת חשבון') {
-                        items = [
-                            { cmd: 'ארכב מיילי אבטחת חשבון' },
-                            { cmd: 'ארכב מיילי אבטחת חשבון ישנים מ[משך]' },
-                            { cmd: 'ארכב מיילי אבטחת חשבון מלפני [משך]' },
-                            { cmd: 'ארכב מיילי אבטחת חשבון מהיום' },
-                            { cmd: 'ארכב מיילי אבטחת חשבון מאתמול' },
-                            { cmd: 'ארכב מיילי אבטחת חשבון מהשבוע' },
-                            { cmd: 'ארכב מיילי אבטחת חשבון מהשבוע שעבר' },
-                            { cmd: 'ארכב מיילי אבטחת חשבון מהחודש' },
-                            { cmd: 'ארכב מיילי אבטחת חשבון מהחודש שעבר' },
-                            { cmd: 'ארכב מיילי אבטחת חשבון מהשנה' },
-                            { cmd: 'ארכב מיילי אבטחת חשבון מהשנה שעברה' }
-                        ];
+                        try { console.log('[HE-ARCHIVE-CATEGORY-FINAL-GATE] Set items to קודי אימות מלפני + timeframes:', items.map(x => x.cmd)); } catch(e) {}
+                        categoryHandled = true;
                     }
-                    try { console.log('[HE-ARCHIVE-CATEGORY-FINAL-GATE] Set items to:', items.map(x => x.cmd)); } catch(e) {}
+                    
+                    // Extract the category from the query (handle progressive typing) - only if not already handled
+                    if (!categoryHandled) {
+                        let category = '';
+                        if (/^ארכב\s+מיילי\s+מש/.test(qlc)) {
+                            category = 'משלוח';
+                        } else if (/^ארכב\s+מיילי\s+ק/.test(qlc)) {
+                            category = 'קודי אימות';
+                        } else if (/^ארכב\s+מיילי\s+אבט/.test(qlc)) {
+                            category = 'אבטחת חשבון';
+                        } else {
+                            // When just typing "ארכב מיילי מ", show משלוח commands
+                            category = 'משלוח';
+                        }
+                    
+                        if (category === 'משלוח') {
+                            items = [
+                                { cmd: 'ארכב מיילי משלוח' },
+                                { cmd: 'ארכב מיילי משלוח ישנים מ[משך]' },
+                                { cmd: 'ארכב מיילי משלוח מלפני [משך]' },
+                                { cmd: 'ארכב מיילי משלוח מהיום' },
+                                { cmd: 'ארכב מיילי משלוח מאתמול' },
+                                { cmd: 'ארכב מיילי משלוח מהשבוע' },
+                                { cmd: 'ארכב מיילי משלוח מהשבוע שעבר' },
+                                { cmd: 'ארכב מיילי משלוח מהחודש' },
+                                { cmd: 'ארכב מיילי משלוח מהחודש שעבר' },
+                                { cmd: 'ארכב מיילי משלוח מהשנה' },
+                                { cmd: 'ארכב מיילי משלוח מהשנה שעברה' }
+                            ];
+                        } else if (category === 'קודי אימות') {
+                            items = [
+                                { cmd: 'ארכב מיילי קודי אימות' },
+                                { cmd: 'ארכב מיילי קודי אימות ישנים מ[משך]' },
+                                { cmd: 'ארכב מיילי קודי אימות מלפני [משך]' },
+                                { cmd: 'ארכב מיילי קודי אימות מהיום' },
+                                { cmd: 'ארכב מיילי קודי אימות מאתמול' },
+                                { cmd: 'ארכב מיילי קודי אימות מהשבוע' },
+                                { cmd: 'ארכב מיילי קודי אימות מהשבוע שעבר' },
+                                { cmd: 'ארכב מיילי קודי אימות מהחודש' },
+                                { cmd: 'ארכב מיילי קודי אימות מהחודש שעבר' },
+                                { cmd: 'ארכב מיילי קודי אימות מהשנה' },
+                                { cmd: 'ארכב מיילי קודי אימות מהשנה שעברה' }
+                            ];
+                        } else if (category === 'אבטחת חשבון') {
+                            items = [
+                                { cmd: 'ארכב מיילי אבטחת חשבון' },
+                                { cmd: 'ארכב מיילי אבטחת חשבון ישנים מ[משך]' },
+                                { cmd: 'ארכב מיילי אבטחת חשבון מלפני [משך]' },
+                                { cmd: 'ארכב מיילי אבטחת חשבון מהיום' },
+                                { cmd: 'ארכב מיילי אבטחת חשבון מאתמול' },
+                                { cmd: 'ארכב מיילי אבטחת חשבון מהשבוע' },
+                                { cmd: 'ארכב מיילי אבטחת חשבון מהשבוע שעבר' },
+                                { cmd: 'ארכב מיילי אבטחת חשבון מהחודש' },
+                                { cmd: 'ארכב מיילי אבטחת חשבון מהחודש שעבר' },
+                                { cmd: 'ארכב מיילי אבטחת חשבון מהשנה' },
+                                { cmd: 'ארכב מיילי אבטחת חשבון מהשנה שעברה' }
+                            ];
+                        }
+                        try { console.log('[HE-ARCHIVE-CATEGORY-FINAL-GATE] Set items to:', items.map(x => x.cmd)); } catch(e) {}
+                    }
                 } else if ((isHaiom || isPartialHaiom || isEtmol || isPartialEtmol || isCompleteSheaver || isPartialSheaver) && Array.isArray(items) && !isArchiveCommand) {
                     if (isHaiom || isPartialHaiom) {
                         // Filter for "היום" - keep only the exact today command
