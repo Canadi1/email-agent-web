@@ -5851,8 +5851,9 @@
                 qNorm = q.replace(/[\u200e\u200f]/g, '').replace(/\s+/g, ' ');
                 // Check if typing after a sender/domain - either with brackets [שולח] OR actual sender name (text between "מ" and timeframe)
                 const hasShulachToken = /\[(?:שולח|sender|דומיין|domain)\]/i.test(qNorm);
-                // Match complete OR partial timeframes after sender (מה/מהי/מהיו/מהיום/מאת/מאתמול/etc.)
-                hasSenderBeforeTimeframe = /מיילים\s+מ\s+[^\s]+\s+מ[\u0590-\u05FF]/.test(qNorm);
+                // Match complete OR partial timeframes after sender (Hebrew or Latin sender, with or without space):
+                // e.g., "ארכב מיילים מgoogle מהיו", "ארכב מיילים ממיקרוסופט מהי", "ארכב מיילים מ steam מה"
+                hasSenderBeforeTimeframe = /מיילים\s+מ\s*[^\s]+\s+מ[\u0590-\u05FF]/.test(qNorm);
                 // Match complete timeframes OR partial "שעבר" typing (ש, שע, שעב, etc.)
                 hasFixedTokenNorm = !hasShulachToken && !hasSenderBeforeTimeframe && / (מהיום|מאתמול|מהשבוע(?:\s+(?:ש(?:ע(?:ב(?:ר)?)?)?)?)?|מהחודש(?:\s+(?:ש(?:ע(?:ב(?:ר)?)?)?)?)?|מהשנה(?:\s+(?:ש(?:ע(?:ב(?:ר(?:ה)?)?)?)?)?)?)\s*$/.test(qNorm);
                 console.log('[HE-TIMEFRAME-DETECT]', { qNorm, hasShulachToken, hasSenderBeforeTimeframe, hasFixedTokenNorm });
@@ -10841,6 +10842,37 @@
                 const qShow = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
                 // Hebrew list progressive timeframe guard: when typing "רשום מיילים מהי" show only "רשום מיילים מהיום"
                 const isHeb = (document.documentElement.getAttribute('lang') || '').toLowerCase().startsWith('he');
+                // Hebrew archive sender + timeframe progressive guards (force exact sender suggestions)
+                if (isHeb && /^ארכב\s+מיילים\s+מ\s*\S+\s+מהי$/i.test(qShow) && Array.isArray(items)) {
+                    items = [{ cmd: 'ארכב מיילים מ[שולח] מהיום' }];
+                }
+                if (isHeb && /^ארכב\s+מיילים\s+מ\s*\S+\s+מא/i.test(qShow) && Array.isArray(items)) {
+                    items = [{ cmd: 'ארכב מיילים מ[שולח] מאתמול' }];
+                }
+                if (isHeb && /^ארכב\s+מיילים\s+מ\s*\S+\s+מהשב/i.test(qShow) && Array.isArray(items)) {
+                    items = [
+                        { cmd: 'ארכב מיילים מ[שולח] מהשבוע' },
+                        { cmd: 'ארכב מיילים מ[שולח] מהשבוע שעבר' }
+                    ];
+                }
+                if (isHeb && /^ארכב\s+מיילים\s+מ\s*\S+\s+מהשבוע\s+ש/i.test(qShow) && Array.isArray(items)) {
+                    items = [{ cmd: 'ארכב מיילים מ[שולח] מהשבוע שעבר' }];
+                }
+                if (isHeb && /^ארכב\s+מיילים\s+מ\s*\S+\s+מהשנ/i.test(qShow) && Array.isArray(items)) {
+                    items = [
+                        { cmd: 'ארכב מיילים מ[שולח] מהשנה' },
+                        { cmd: 'ארכב מיילים מ[שולח] מהשנה שעברה' }
+                    ];
+                }
+                if (isHeb && /^ארכב\s+מיילים\s+מ\s*\S+\s+מהשנה\s+ש/i.test(qShow) && Array.isArray(items)) {
+                    items = [{ cmd: 'ארכב מיילים מ[שולח] מהשנה שעברה' }];
+                }
+                if (isHeb && /^ארכב\s+מיילים\s+מ\s*\S+\s+מהח/i.test(qShow) && Array.isArray(items)) {
+                    items = [{ cmd: 'ארכב מיילים מ[שולח] מהחודש' }];
+                }
+                if (isHeb && /^ארכב\s+מיילים\s+מ\s*\S+\s+מהחודש\s+ש/i.test(qShow) && Array.isArray(items)) {
+                    items = [{ cmd: 'ארכב מיילים מ[שולח] מהחודש שעבר' }];
+                }
                 if (isHeb && /^רש(?:ו)?ם\s+מיילים\s+מהי$/i.test(qShow) && Array.isArray(items)) {
                     items = [{ cmd: 'רשום מיילים מהיום' }];
                 }
@@ -10877,6 +10909,15 @@
                 // Hebrew archive progressive timeframe guard: when typing "ארכב מיילים י..." show only "ארכב מיילים ישנים מ[משך]"
                 if (isHeb && /^ארכב\s+מיילים\s+י/i.test(qShow) && Array.isArray(items)) {
                     items = [{ cmd: 'ארכב מיילים ישנים מ[משך]' }];
+                }
+                // Hebrew archive sender progressive 'מה' guard: when typing "ארכב מיילים מ<sender> מה" show ONLY suggestions that start with "מה..."
+                if (isHeb && /^ארכב\s+מיילים\s+מ\s*\S+\s+מה$/i.test(qShow) && Array.isArray(items)) {
+                    items = [
+                        { cmd: 'ארכב מיילים מ[שולח] מהיום' },
+                        { cmd: 'ארכב מיילים מ[שולח] מהשבוע' },
+                        { cmd: 'ארכב מיילים מ[שולח] מהחודש' },
+                        { cmd: 'ארכב מיילים מ[שולח] מהשנה' }
+                    ];
                 }
                 // Hebrew archive sender guard: when typing "ארכב מיילים מ<sender> ..." (Hebrew or Latin sender), keep only archive-from-sender suggestions
                 // Matches: ארכב מיילים מsteam מ..., ארכב מיילים מגוגל מ...
