@@ -5657,6 +5657,12 @@
                     // Check if typing Hebrew sender + timeframe archive commands
                     const isTypingArchiveSenderTimeframe = /^ארכב\s+מיילים\s+מ[A-Za-z0-9@._-]+\s*מ/.test(q);
                     
+                    // Check if typing Hebrew sender name only (without timeframe)
+                    const isTypingArchiveSenderOnly = /^ארכב\s+מיילים\s+מ[A-Za-z0-9@._-]+\s*$/.test(q);
+                    
+                    // Debug logging for sender detection
+                    try { console.log('[DEBUG-SENDER-ONLY] Query:', q, 'Match:', isTypingArchiveSenderOnly); } catch(e) {}
+                    
                     // Debug logging
                     try { console.log('[DEBUG] Query:', q); } catch(e) {}
                     try { console.log('[DEBUG] isTypingArchiveSenderTimeframe:', isTypingArchiveSenderTimeframe); } catch(e) {}
@@ -5708,13 +5714,17 @@
                         } else if (timeframe === 'מהחודש') {
                             senderTimeframeCommands = [{ cmd: 'ארכב מיילים מ[שולח] מהחודש' }];
                         } else {
-                            // When just typing "מ" or other partial patterns, show all sender + timeframe commands
+                            // When just typing sender name without timeframe, show the ordered suggestions as requested
                             senderTimeframeCommands = [
+                                { cmd: 'ארכב מיילים מ[שולח]' },
+                                { cmd: 'ארכב מיילים מ[שולח] ישנים מ[משך]' },
+                                { cmd: 'ארכב מיילים מ[שולח] מלפני [משך]' },
                                 { cmd: 'ארכב מיילים מ[שולח] מהיום' },
                                 { cmd: 'ארכב מיילים מ[שולח] מאתמול' },
                                 { cmd: 'ארכב מיילים מ[שולח] מהשבוע' },
                                 { cmd: 'ארכב מיילים מ[שולח] מהשבוע שעבר' },
                                 { cmd: 'ארכב מיילים מ[שולח] מהחודש' },
+                                { cmd: 'ארכב מיילים מ[שולח] מהחודש שעבר' },
                                 { cmd: 'ארכב מיילים מ[שולח] מהשנה' },
                                 { cmd: 'ארכב מיילים מ[שולח] מהשנה שעברה' }
                             ];
@@ -5722,6 +5732,25 @@
                         
                         items = senderTimeframeCommands;
                         try { console.log('[HE-ARCHIVE-SENDER-TIMEFRAME-FILTER] Set items to:', items.map(x => x.cmd)); } catch(e) {}
+                        
+                    } else if (isTypingArchiveSenderOnly) {
+                        // When typing just sender name without timeframe, show the ordered suggestions as requested
+                        try { console.log('[HE-ARCHIVE-SENDER-ONLY-FILTER] Detected sender-only pattern for:', q); } catch(e) {}
+                        
+                        items = [
+                            { cmd: 'ארכב מיילים מ[שולח]' },
+                            { cmd: 'ארכב מיילים מ[שולח] ישנים מ[משך]' },
+                            { cmd: 'ארכב מיילים מ[שולח] מלפני [משך]' },
+                            { cmd: 'ארכב מיילים מ[שולח] מהיום' },
+                            { cmd: 'ארכב מיילים מ[שולח] מאתמול' },
+                            { cmd: 'ארכב מיילים מ[שולח] מהשבוע' },
+                            { cmd: 'ארכב מיילים מ[שולח] מהשבוע שעבר' },
+                            { cmd: 'ארכב מיילים מ[שולח] מהחודש' },
+                            { cmd: 'ארכב מיילים מ[שולח] מהחודש שעבר' },
+                            { cmd: 'ארכב מיילים מ[שולח] מהשנה' },
+                            { cmd: 'ארכב מיילים מ[שולח] מהשנה שעברה' }
+                        ];
+                        try { console.log('[HE-ARCHIVE-SENDER-ONLY-FILTER] Set items to:', items.map(x => x.cmd)); } catch(e) {}
                         
                     } else if (isTypingArchiveTimeframe) {
                         // When typing Hebrew timeframe archive commands, show only archive commands
@@ -8311,7 +8340,10 @@
                 const isPartialSheaver = /^רש(?:ו)?ם\s+מיילים\s+מ(השבוע|החודש|השנה)\s+ש/.test(qlc);
                 try { console.log('[HE-TF-FINAL-GATE]', { qlc, isHaiom, isPartialHaiom, isEtmol, isPartialEtmol, isCompleteSheaver, isPartialSheaver, itemsLen: Array.isArray(items)?items.length:'n/a' }); } catch(e) {}
                 
-                if ((isHaiom || isPartialHaiom || isEtmol || isPartialEtmol || isCompleteSheaver || isPartialSheaver) && Array.isArray(items)) {
+                // Skip this final gate for archive commands - they have their own filtering logic
+                const isArchiveCommand = /^ארכב\s+מיילים/i.test(qlc);
+                
+                if ((isHaiom || isPartialHaiom || isEtmol || isPartialEtmol || isCompleteSheaver || isPartialSheaver) && Array.isArray(items) && !isArchiveCommand) {
                     if (isHaiom || isPartialHaiom) {
                         // Filter for "היום" - keep only the exact today command
                         items = items.filter(function(it) {
@@ -10934,7 +10966,24 @@
                 }
                 // Hebrew archive sender guard: when typing "ארכב מיילים מ<sender> ..." (Hebrew or Latin sender), keep only archive-from-sender suggestions
                 // Matches: ארכב מיילים מsteam מ..., ארכב מיילים מגוגל מ...
-                if (isHeb && /^ארכב\s+מיילים\s+מ\s*(?!היום|אתמול|השבוע|השבוע\s+שעבר|החודש|השנה|השנה\s+שעברה|מלפני|ישנים|ל)\S+/i.test(qShow) && Array.isArray(items)) {
+                // BUT skip this guard if we're just typing a sender name without timeframe (let the earlier logic handle it)
+                const isJustSenderName = /^ארכב\s+מיילים\s+מ\s*(?!היום|אתמול|השבוע|השבוע\s+שעבר|החודש|השנה|השנה\s+שעברה|מלפני|ישנים|ל)\S+\s*$/i.test(qShow);
+                if (isHeb && isJustSenderName && Array.isArray(items)) {
+                    // When typing just sender name, show only sender-related archive commands in the correct order
+                    items = [
+                        { cmd: 'ארכב מיילים מ[שולח]' },
+                        { cmd: 'ארכב מיילים מ[שולח] ישנים מ[משך]' },
+                        { cmd: 'ארכב מיילים מ[שולח] מלפני [משך]' },
+                        { cmd: 'ארכב מיילים מ[שולח] מהיום' },
+                        { cmd: 'ארכב מיילים מ[שולח] מאתמול' },
+                        { cmd: 'ארכב מיילים מ[שולח] מהשבוע' },
+                        { cmd: 'ארכב מיילים מ[שולח] מהשבוע שעבר' },
+                        { cmd: 'ארכב מיילים מ[שולח] מהחודש' },
+                        { cmd: 'ארכב מיילים מ[שולח] מהחודש שעבר' },
+                        { cmd: 'ארכב מיילים מ[שולח] מהשנה' },
+                        { cmd: 'ארכב מיילים מ[שולח] מהשנה שעברה' }
+                    ];
+                } else if (isHeb && /^ארכב\s+מיילים\s+מ\s*(?!היום|אתמול|השבוע|השבוע\s+שעבר|החודש|השנה|השנה\s+שעברה|מלפני|ישנים|ל)\S+/i.test(qShow) && Array.isArray(items)) {
                     // If typing "מהשבוע ש..." or "מהשנה ש..." or "מהחודש ש..." progressively, show only the "שעבר/שעברה" variant
                     const wantsSheaver = /\sמ(השבוע|השנה|החודש)\s+ש/i.test(qShow);
                     if (wantsSheaver) {
