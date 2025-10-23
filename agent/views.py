@@ -1257,23 +1257,6 @@ def _translate_hebrew_command_to_english(command: str) -> str:
             return f"list emails from {sender} from 1 {unit_en} ago"
         c = re.sub(r"^[\s]*רש(?:ו)?ם\s+מיילים\s+מ-?\s*([A-Za-z0-9_.+\-@\u0590-\u05FF]+)\s+מלפני\s*(יום|שבוע|חודש|שנה)\b",
                    _sender_melifney_one_repl, c, flags=re.IGNORECASE)
-        # Archive commands with "מלפני" (from duration ago) - handle before generic replacements
-        # Archive forms: "ארכב מיילים מלפני N יחידה" -> "archive emails from N <unit> ago"
-        def _archive_melifney_repl(m):
-            qty = int(m.group(1))
-            unit_he = m.group(2)
-            unit_en = _he_to_en_unit(unit_he, qty)
-            return f"archive emails from {qty} {unit_en} ago"
-        c = re.sub(r"^[\s]*ארכב\s+מיילים\s+מלפני\s*(\d+)\s*(יום(?:ים)?|שבוע(?:ות)?|חודש(?:ים)?|שנה(?:ים)?)\b",
-                   _archive_melifney_repl, c, flags=re.IGNORECASE)
-        
-        # Archive forms: "ארכב מיילים מלפני יחידה" (without number, assume 1) -> "archive emails from 1 <unit> ago"
-        def _archive_melifney_one_repl(m):
-            unit_he = m.group(1)
-            unit_en = _he_to_en_unit(unit_he, 1)
-            return f"archive emails from 1 {unit_en} ago"
-        c = re.sub(r"^[\s]*ארכב\s+מיילים\s+מלפני\s*(יום|שבוע|חודש|שנה)\b",
-                   _archive_melifney_one_repl, c, flags=re.IGNORECASE)
         
         # If we produced a fully formed 'list emails from ... from N unit ago', return early
         if re.search(r"^list\s+emails\s+from\s+[A-Za-z0-9_.+\-@\u0590-\u05FF]+\s+from\s+(?:a|\d+)\s+(?:day|days|week|weeks|month|months|year|years)\s+ago\b", c, flags=re.IGNORECASE):
@@ -1396,6 +1379,11 @@ def _translate_hebrew_command_to_english(command: str) -> str:
                 print(f"After replacement: '{c}'")  # Debug log
         except re.error:
             continue
+    # Guard: avoid creating the invalid phrase "from older than ..." due to Hebrew 'מ' prefix
+    # Example bad intermediate: "archive emails from older than 5 days" → treated as sender "older"
+    c = re.sub(r"\bfrom\s+older\s+(?:than|then)\b", "older than", c, flags=re.IGNORECASE)
+    # Also drop a stray Hebrew 'מ' (with optional hyphen) immediately before the English token 'older'
+    c = re.sub(r"\bמ[-–—־]?\s*(?=older\b)", "", c, flags=re.IGNORECASE)
     # Convert 'מלפני/לפני' forms to 'from N unit ago' when written as a compound with 'מ'
     def _he_to_en_unit(unit_he: str, qty: int) -> str:
         u = unit_he
@@ -1436,6 +1424,24 @@ def _translate_hebrew_command_to_english(command: str) -> str:
     # If we have 'older than <unit>' without a number, assume 1 unit
     c = re.sub(r"\b(older than|before)\s+(day|days|week|weeks|month|months|year|years)\b",
                lambda m: f"{m.group(1)} 1 {m.group(2)}", c)
+    # Archive commands with "מלפני" (from duration ago) - handle at the very end to avoid interference
+    # Archive forms: "ארכב מיילים מלפני N יחידה" -> "archive emails from N <unit> ago"
+    def _archive_melifney_repl(m):
+        qty = int(m.group(1))
+        unit_he = m.group(2)
+        unit_en = _he_to_en_unit(unit_he, qty)
+        return f"archive emails from {qty} {unit_en} ago"
+    c = re.sub(r"^[\s]*ארכב\s+מיילים\s+מלפני\s*(\d+)\s*(יום(?:ים)?|שבוע(?:ות)?|חודש(?:ים)?|שנה(?:ים)?)",
+               _archive_melifney_repl, c, flags=re.IGNORECASE)
+    
+    # Archive forms: "ארכב מיילים מלפני יחידה" (without number, assume 1) -> "archive emails from 1 <unit> ago"
+    def _archive_melifney_one_repl(m):
+        unit_he = m.group(1)
+        unit_en = _he_to_en_unit(unit_he, 1)
+        return f"archive emails from 1 {unit_en} ago"
+    c = re.sub(r"^[\s]*ארכב\s+מיילים\s+מלפני\s*(יום|שבוע|חודש|שנה)",
+               _archive_melifney_one_repl, c, flags=re.IGNORECASE)
+
     # Normalize accidental duplicate 'from from'
     c = re.sub(r"\bfrom\s+from\b", "from", c, flags=re.IGNORECASE)
     # Normalize multiple spaces that can result from replacements
