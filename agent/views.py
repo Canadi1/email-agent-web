@@ -1215,15 +1215,28 @@ def _translate_hebrew_command_to_english(command: str) -> str:
             return "shipping emails"
         def _he_to_en_unit(unit_he: str, qty: int) -> str:
             u = unit_he
+            print(f"DEBUG: _he_to_en_unit called with unit_he='{unit_he}', qty={qty}")
             if u.startswith('יום'):
-                return 'day' if qty == 1 else 'days'
-            if u.startswith('שבוע'):
-                return 'week' if qty == 1 else 'weeks'
-            if u.startswith('חודש'):
-                return 'month' if qty == 1 else 'months'
-            if u.startswith('שנה') or u.startswith('שנים'):
-                return 'year' if qty == 1 else 'years'
-            return 'days'
+                result = 'day' if qty == 1 else 'days'
+            elif u.startswith('שבוע'):
+                result = 'week' if qty == 1 else 'weeks'
+            elif u.startswith('חודש'):
+                result = 'month' if qty == 1 else 'months'
+            elif u.startswith('שנה') or u.startswith('שנים'):
+                result = 'year' if qty == 1 else 'years'
+            # Handle Hebrew plural forms
+            elif u == 'חודשיים':
+                result = 'months'
+            elif u == 'שבועיים':
+                result = 'weeks'
+            elif u == 'שנתיים':
+                result = 'years'
+            elif u == 'יומיים':
+                result = 'days'
+            else:
+                result = 'days'  # Default fallback
+            print(f"DEBUG: _he_to_en_unit returning '{result}'")
+            return result
         def _cat_melifney_one_repl(m):
             cat = _cat_key_to_en(m.group(1) or '')
             unit_he = m.group(2)
@@ -1275,6 +1288,9 @@ def _translate_hebrew_command_to_english(command: str) -> str:
         # Archive commands with "מלפני" (from duration ago) - handle FIRST to avoid unit conversion interference
         # Archive forms: "ארכב מיילים מלפני N יחידה" -> "archive emails from N <unit> ago"
         (r"^[\s]*ארכב\s+מיילים\s+מלפני\s*(\d+)\s*(יום(?:ים)?|שבוע(?:ות)?|חודש(?:ים)?|שנה(?:ים)?)", lambda m: f"archive emails from {m.group(1)} {_he_to_en_unit(m.group(2), int(m.group(1)))} ago"),
+        # Archive forms: "ארכב מיילים מלפני חודשיים/שבועיים/שנתיים/יומיים" (Hebrew plural forms) -> "archive emails from 2 <unit> ago"
+        # MUST come BEFORE single timeframe patterns to avoid substring matching
+        (r"^[\s]*ארכב\s+מיילים\s+מלפני\s*(חודשיים|שבועיים|שנתיים|יומיים)", lambda m: f"archive emails from 2 {_he_to_en_unit(m.group(1), 2)} ago"),
         # Archive forms: "ארכב מיילים מלפני יחידה" (without number, assume 1) -> "archive emails from 1 <unit> ago"
         (r"^[\s]*ארכב\s+מיילים\s+מלפני\s*(יום|שבוע|חודש|שנה)", lambda m: f"archive emails from 1 {_he_to_en_unit(m.group(1), 1)} ago"),
         # Actions (line-start variants)
@@ -1385,6 +1401,13 @@ def _translate_hebrew_command_to_english(command: str) -> str:
         except re.error:
             continue
     
+    # If we produced a fully formed archive command, return early to avoid interference
+    print(f"DEBUG: Before early return check, command is: '{c}'")
+    if re.search(r"^archive\s+emails\s+from\s+(?:a|\d+)\s+(?:day|days|week|weeks|month|months|year|years)\s+ago\b", c, flags=re.IGNORECASE):
+        c = re.sub(r"\s{2,}", " ", c).strip()
+        print(f"Final translated command: '{c}'")
+        return c
+    
     
     # Guard: avoid creating the invalid phrase "from older than ..." due to Hebrew 'מ' prefix
     # Example bad intermediate: "archive emails from older than 5 days" → treated as sender "older"
@@ -1394,15 +1417,28 @@ def _translate_hebrew_command_to_english(command: str) -> str:
     # Convert 'מלפני/לפני' forms to 'from N unit ago' when written as a compound with 'מ'
     def _he_to_en_unit(unit_he: str, qty: int) -> str:
         u = unit_he
+        print(f"DEBUG: _he_to_en_unit called with unit_he='{unit_he}', qty={qty}")
         if u.startswith('יום'):
-            return 'day' if qty == 1 else 'days'
-        if u.startswith('שבוע'):
-            return 'week' if qty == 1 else 'weeks'
-        if u.startswith('חודש'):
-            return 'month' if qty == 1 else 'months'
-        if u.startswith('שנה') or u.startswith('שנים'):
-            return 'year' if qty == 1 else 'years'
-        return 'days'
+            result = 'day' if qty == 1 else 'days'
+        elif u.startswith('שבוע'):
+            result = 'week' if qty == 1 else 'weeks'
+        elif u.startswith('חודש'):
+            result = 'month' if qty == 1 else 'months'
+        elif u.startswith('שנה') or u.startswith('שנים'):
+            result = 'year' if qty == 1 else 'years'
+        # Handle Hebrew plural forms
+        elif u == 'חודשיים':
+            result = 'months'
+        elif u == 'שבועיים':
+            result = 'weeks'
+        elif u == 'שנתיים':
+            result = 'years'
+        elif u == 'יומיים':
+            result = 'days'
+        else:
+            result = 'days'  # Default fallback
+        print(f"DEBUG: _he_to_en_unit returning '{result}'")
+        return result
     def _mlifnei_repl(m):
         qty = int(m.group(1))
         unit_he = m.group(2)
