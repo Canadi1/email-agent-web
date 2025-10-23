@@ -10881,15 +10881,30 @@
                 // Hebrew archive sender guard: when typing "ארכב מיילים מ<sender> ..." (Hebrew or Latin sender), keep only archive-from-sender suggestions
                 // Matches: ארכב מיילים מsteam מ..., ארכב מיילים מגוגל מ...
                 if (isHeb && /^ארכב\s+מיילים\s+מ\s*(?!היום|אתמול|השבוע|השבוע\s+שעבר|החודש|השנה|השנה\s+שעברה|מלפני|ישנים|ל)\S+/i.test(qShow) && Array.isArray(items)) {
-                    items = items.filter(function(it){
-                        const s = (it && it.cmd ? it.cmd : String(it)).toLowerCase();
-                        // Keep ONLY sender + timeframe variants; drop base sender and older-than templates
-                        const isArchiveFromSender = /^ארכב\s+מיילים\s+מ/.test(s);
-                        const isDurationOlder = /\sישנים\s+מ\[משך\]/.test(s);
-                        const hasTimeframe = /\sמ(היום|אתמול|השבוע(?:\s+שעבר)?|החודש(?:\s+שעבר)?|השנה(?:\s+שעברה)?)(?:\s*|$)/.test(s);
-                        const isMelifney = /מלפני/.test(s);
-                        return isArchiveFromSender && hasTimeframe && !isDurationOlder && !isMelifney;
-                    });
+                    // If typing "מהשבוע ש..." or "מהשנה ש..." or "מהחודש ש..." progressively, show only the "שעבר/שעברה" variant
+                    const wantsSheaver = /\sמ(השבוע|השנה|החודש)\s+ש/i.test(qShow);
+                    if (wantsSheaver) {
+                        const m = qShow.match(/\sמ(השבוע|השנה|החודש)\s+ש/i);
+                        if (m) {
+                            const base = m[1];
+                            const suffix = base === 'השנה' ? 'שעברה' : 'שעבר';
+                            items = items.filter(function(it) {
+                                const s = (it && it.cmd ? it.cmd : String(it)).toLowerCase();
+                                return /^ארכב\s+מיילים\s+מ/.test(s) && s.endsWith(`מ${base} ${suffix}`);
+                            });
+                        }
+                    } else {
+                        // Normal filtering for sender+timeframe
+                        items = items.filter(function(it){
+                            const s = (it && it.cmd ? it.cmd : String(it)).toLowerCase();
+                            // Keep ONLY sender + timeframe variants; drop base sender and older-than templates
+                            const isArchiveFromSender = /^ארכב\s+מיילים\s+מ/.test(s);
+                            const isDurationOlder = /\sישנים\s+מ\[משך\]/.test(s);
+                            const hasTimeframe = /\sמ(היום|אתמול|השבוע(?:\s+שעבר)?|החודש(?:\s+שעבר)?|השנה(?:\s+שעברה)?)(?:\s*|$)/.test(s);
+                            const isMelifney = /מלפני/.test(s);
+                            return isArchiveFromSender && hasTimeframe && !isDurationOlder && !isMelifney;
+                        });
+                    }
                 }
                 if (/^show\s+l(\b|\s|$)/i.test(qShow) && Array.isArray(items)) {
                     items = items.filter(function(it){
