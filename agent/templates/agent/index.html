@@ -5657,8 +5657,14 @@
                     // Check if typing Hebrew sender + timeframe archive commands
                     const isTypingArchiveSenderTimeframe = /^ארכב\s+מיילים\s+מ[A-Za-z0-9@._-]+\s*מ/.test(q);
                     
-                    // Check if typing Hebrew sender name only (without timeframe)
-                    const isTypingArchiveSenderOnly = /^ארכב\s+מיילים\s+מ[A-Za-z0-9@._-]+\s*$/.test(q);
+                // Check if typing Hebrew sender name only (without timeframe)
+                const isTypingArchiveSenderOnly = /^ארכב\s+מיילים\s+מ[A-Za-z0-9@._-]+\s*$/.test(q);
+                
+                // Check if typing Hebrew category archive commands
+                const isTypingArchiveCategory = /^ארכב\s+מיילי\s+(משלוח|קודי\s+אימות|אבטחת\s+חשבון)/.test(q);
+                
+                // Debug logging for category detection
+                try { console.log('[DEBUG-CATEGORY] Query:', q, 'Match:', isTypingArchiveCategory); } catch(e) {}
                     
                     // Debug logging for sender detection
                     try { console.log('[DEBUG-SENDER-ONLY] Query:', q, 'Match:', isTypingArchiveSenderOnly); } catch(e) {}
@@ -5751,6 +5757,56 @@
                             { cmd: 'ארכב מיילים מ[שולח] מהשנה שעברה' }
                         ];
                         try { console.log('[HE-ARCHIVE-SENDER-ONLY-FILTER] Set items to:', items.map(x => x.cmd)); } catch(e) {}
+                        
+                    } else if (isTypingArchiveCategory) {
+                        // When typing category archive commands, show only category-related suggestions
+                        try { console.log('[HE-ARCHIVE-CATEGORY-FILTER] Detected category pattern for:', q); } catch(e) {}
+                        
+                        // Extract the category from the query
+                        const categoryMatch = q.match(/^ארכב\s+מיילי\s+(משלוח|קודי\s+אימות|אבטחת\s+חשבון)/);
+                        const category = categoryMatch ? categoryMatch[1] : '';
+                        
+                        if (category === 'משלוח') {
+                            items = [
+                                { cmd: 'ארכב מיילי משלוח' },
+                                { cmd: 'ארכב מיילי משלוח ישנים מ[משך]' },
+                                { cmd: 'ארכב מיילי משלוח מהיום' },
+                                { cmd: 'ארכב מיילי משלוח מאתמול' },
+                                { cmd: 'ארכב מיילי משלוח מהשבוע' },
+                                { cmd: 'ארכב מיילי משלוח מהשבוע שעבר' },
+                                { cmd: 'ארכב מיילי משלוח מהחודש' },
+                                { cmd: 'ארכב מיילי משלוח מהחודש שעבר' },
+                                { cmd: 'ארכב מיילי משלוח מהשנה' },
+                                { cmd: 'ארכב מיילי משלוח מהשנה שעברה' }
+                            ];
+                        } else if (category === 'קודי אימות') {
+                            items = [
+                                { cmd: 'ארכב מיילי קודי אימות' },
+                                { cmd: 'ארכב מיילי קודי אימות ישנים מ[משך]' },
+                                { cmd: 'ארכב מיילי קודי אימות מהיום' },
+                                { cmd: 'ארכב מיילי קודי אימות מאתמול' },
+                                { cmd: 'ארכב מיילי קודי אימות מהשבוע' },
+                                { cmd: 'ארכב מיילי קודי אימות מהשבוע שעבר' },
+                                { cmd: 'ארכב מיילי קודי אימות מהחודש' },
+                                { cmd: 'ארכב מיילי קודי אימות מהחודש שעבר' },
+                                { cmd: 'ארכב מיילי קודי אימות מהשנה' },
+                                { cmd: 'ארכב מיילי קודי אימות מהשנה שעברה' }
+                            ];
+                        } else if (category === 'אבטחת חשבון') {
+                            items = [
+                                { cmd: 'ארכב מיילי אבטחת חשבון' },
+                                { cmd: 'ארכב מיילי אבטחת חשבון ישנים מ[משך]' },
+                                { cmd: 'ארכב מיילי אבטחת חשבון מהיום' },
+                                { cmd: 'ארכב מיילי אבטחת חשבון מאתמול' },
+                                { cmd: 'ארכב מיילי אבטחת חשבון מהשבוע' },
+                                { cmd: 'ארכב מיילי אבטחת חשבון מהשבוע שעבר' },
+                                { cmd: 'ארכב מיילי אבטחת חשבון מהחודש' },
+                                { cmd: 'ארכב מיילי אבטחת חשבון מהחודש שעבר' },
+                                { cmd: 'ארכב מיילי אבטחת חשבון מהשנה' },
+                                { cmd: 'ארכב מיילי אבטחת חשבון מהשנה שעברה' }
+                            ];
+                        }
+                        try { console.log('[HE-ARCHIVE-CATEGORY-FILTER] Set items to:', items.map(x => x.cmd)); } catch(e) {}
                         
                     } else if (isTypingArchiveTimeframe) {
                         // When typing Hebrew timeframe archive commands, show only archive commands
@@ -8341,9 +8397,68 @@
                 try { console.log('[HE-TF-FINAL-GATE]', { qlc, isHaiom, isPartialHaiom, isEtmol, isPartialEtmol, isCompleteSheaver, isPartialSheaver, itemsLen: Array.isArray(items)?items.length:'n/a' }); } catch(e) {}
                 
                 // Skip this final gate for archive commands - they have their own filtering logic
-                const isArchiveCommand = /^ארכב\s+מיילים/i.test(qlc);
+                const isArchiveCommand = /^ארכב\s+מיילי(?:ם)?/i.test(qlc);
                 
-                if ((isHaiom || isPartialHaiom || isEtmol || isPartialEtmol || isCompleteSheaver || isPartialSheaver) && Array.isArray(items) && !isArchiveCommand) {
+                // Handle category archive commands in the final gate (progressive filtering)
+                if (isHeb && /^ארכב\s+מיילי\s+מ/.test(qlc) && Array.isArray(items)) {
+                    // Extract the category from the query (handle progressive typing)
+                    let category = '';
+                    if (/^ארכב\s+מיילי\s+מש/.test(qlc)) {
+                        category = 'משלוח';
+                    } else if (/^ארכב\s+מיילי\s+קוד/.test(qlc)) {
+                        category = 'קודי אימות';
+                    } else if (/^ארכב\s+מיילי\s+אבט/.test(qlc)) {
+                        category = 'אבטחת חשבון';
+                    } else {
+                        // When just typing "ארכב מיילי מ", show משלוח commands
+                        category = 'משלוח';
+                    }
+                    
+                    if (category === 'משלוח') {
+                        items = [
+                            { cmd: 'ארכב מיילי משלוח' },
+                            { cmd: 'ארכב מיילי משלוח ישנים מ[משך]' },
+                            { cmd: 'ארכב מיילי משלוח מלפני [משך]' },
+                            { cmd: 'ארכב מיילי משלוח מהיום' },
+                            { cmd: 'ארכב מיילי משלוח מאתמול' },
+                            { cmd: 'ארכב מיילי משלוח מהשבוע' },
+                            { cmd: 'ארכב מיילי משלוח מהשבוע שעבר' },
+                            { cmd: 'ארכב מיילי משלוח מהחודש' },
+                            { cmd: 'ארכב מיילי משלוח מהחודש שעבר' },
+                            { cmd: 'ארכב מיילי משלוח מהשנה' },
+                            { cmd: 'ארכב מיילי משלוח מהשנה שעברה' }
+                        ];
+                    } else if (category === 'קודי אימות') {
+                        items = [
+                            { cmd: 'ארכב מיילי קודי אימות' },
+                            { cmd: 'ארכב מיילי קודי אימות ישנים מ[משך]' },
+                            { cmd: 'ארכב מיילי קודי אימות מלפני [משך]' },
+                            { cmd: 'ארכב מיילי קודי אימות מהיום' },
+                            { cmd: 'ארכב מיילי קודי אימות מאתמול' },
+                            { cmd: 'ארכב מיילי קודי אימות מהשבוע' },
+                            { cmd: 'ארכב מיילי קודי אימות מהשבוע שעבר' },
+                            { cmd: 'ארכב מיילי קודי אימות מהחודש' },
+                            { cmd: 'ארכב מיילי קודי אימות מהחודש שעבר' },
+                            { cmd: 'ארכב מיילי קודי אימות מהשנה' },
+                            { cmd: 'ארכב מיילי קודי אימות מהשנה שעברה' }
+                        ];
+                    } else if (category === 'אבטחת חשבון') {
+                        items = [
+                            { cmd: 'ארכב מיילי אבטחת חשבון' },
+                            { cmd: 'ארכב מיילי אבטחת חשבון ישנים מ[משך]' },
+                            { cmd: 'ארכב מיילי אבטחת חשבון מלפני [משך]' },
+                            { cmd: 'ארכב מיילי אבטחת חשבון מהיום' },
+                            { cmd: 'ארכב מיילי אבטחת חשבון מאתמול' },
+                            { cmd: 'ארכב מיילי אבטחת חשבון מהשבוע' },
+                            { cmd: 'ארכב מיילי אבטחת חשבון מהשבוע שעבר' },
+                            { cmd: 'ארכב מיילי אבטחת חשבון מהחודש' },
+                            { cmd: 'ארכב מיילי אבטחת חשבון מהחודש שעבר' },
+                            { cmd: 'ארכב מיילי אבטחת חשבון מהשנה' },
+                            { cmd: 'ארכב מיילי אבטחת חשבון מהשנה שעברה' }
+                        ];
+                    }
+                    try { console.log('[HE-ARCHIVE-CATEGORY-FINAL-GATE] Set items to:', items.map(x => x.cmd)); } catch(e) {}
+                } else if ((isHaiom || isPartialHaiom || isEtmol || isPartialEtmol || isCompleteSheaver || isPartialSheaver) && Array.isArray(items) && !isArchiveCommand) {
                     if (isHaiom || isPartialHaiom) {
                         // Filter for "היום" - keep only the exact today command
                         items = items.filter(function(it) {
