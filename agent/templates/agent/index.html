@@ -8403,8 +8403,50 @@
                 if (isHeb && /^ארכב\s+מיילי\s+(מ|ק|א)/.test(qlc) && Array.isArray(items)) {
                     let categoryHandled = false;
                     
-                    // Check for specific "משלוח מה" pattern first (most specific)
-                    if (/^ארכב.*משלוח.*מה/.test(qlc)) {
+                    // Check for "מהי" patterns FIRST (most specific)
+                    if (/^ארכב.*משלוח.*מהי/.test(qlc)) {
+                        // When typing "ארכב מיילי משלוח מהי", show only "מהיום" command
+                        items = [
+                            { cmd: 'ארכב מיילי משלוח מהיום' }
+                        ];
+                        try { console.log('[HE-ARCHIVE-CATEGORY-FINAL-GATE] Set items to משלוח מהיום:', items.map(x => x.cmd)); } catch(e) {}
+                        categoryHandled = true;
+                    } else if (/^ארכב.*קודי.*אימות.*מהי/.test(qlc)) {
+                        // When typing "ארכב מיילי קודי אימות מהי", show only "מהיום" command
+                        items = [
+                            { cmd: 'ארכב מיילי קודי אימות מהיום' }
+                        ];
+                        try { console.log('[HE-ARCHIVE-CATEGORY-FINAL-GATE] Set items to קודי אימות מהיום:', items.map(x => x.cmd)); } catch(e) {}
+                        categoryHandled = true;
+                    } else if (/^ארכב.*אבטחת.*חשבון.*מהי/.test(qlc)) {
+                        // When typing "ארכב מיילי אבטחת חשבון מהי", show only "מהיום" command
+                        items = [
+                            { cmd: 'ארכב מיילי אבטחת חשבון מהיום' }
+                        ];
+                        try { console.log('[HE-ARCHIVE-CATEGORY-FINAL-GATE] Set items to אבטחת חשבון מהיום:', items.map(x => x.cmd)); } catch(e) {}
+                        categoryHandled = true;
+                    } else if (/^ארכב.*משלוח.*מא/.test(qlc)) {
+                        // When typing "ארכב מיילי משלוח מא", show only "מאתמול" command
+                        items = [
+                            { cmd: 'ארכב מיילי משלוח מאתמול' }
+                        ];
+                        try { console.log('[HE-ARCHIVE-CATEGORY-FINAL-GATE] Set items to משלוח מאתמול:', items.map(x => x.cmd)); } catch(e) {}
+                        categoryHandled = true;
+                    } else if (/^ארכב.*קודי.*אימות.*מא/.test(qlc)) {
+                        // When typing "ארכב מיילי קודי אימות מא", show only "מאתמול" command
+                        items = [
+                            { cmd: 'ארכב מיילי קודי אימות מאתמול' }
+                        ];
+                        try { console.log('[HE-ARCHIVE-CATEGORY-FINAL-GATE] Set items to קודי אימות מאתמול:', items.map(x => x.cmd)); } catch(e) {}
+                        categoryHandled = true;
+                    } else if (/^ארכב.*אבטחת.*חשבון.*מא/.test(qlc)) {
+                        // When typing "ארכב מיילי אבטחת חשבון מא", show only "מאתמול" command
+                        items = [
+                            { cmd: 'ארכב מיילי אבטחת חשבון מאתמול' }
+                        ];
+                        try { console.log('[HE-ARCHIVE-CATEGORY-FINAL-GATE] Set items to אבטחת חשבון מאתמול:', items.map(x => x.cmd)); } catch(e) {}
+                        categoryHandled = true;
+                    } else if (/^ארכב.*משלוח.*מה/.test(qlc)) {
                         // When typing "ארכב מיילי משלוח מה", show only "מה..." commands
                         items = [
                             { cmd: 'ארכב מיילי משלוח מהיום' },
