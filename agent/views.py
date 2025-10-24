@@ -1294,6 +1294,12 @@ def _translate_hebrew_command_to_english(command: str) -> str:
         (r"^[\s]*ארכב\s+מיילים\s+מלפני\s*(חודשיים|שבועיים|שנתיים|יומיים)", lambda m: f"archive emails from 2 {_he_to_en_unit(m.group(1), 2)} ago"),
         # Archive forms: "ארכב מיילים מלפני יחידה" (without number, assume 1) -> "archive emails from 1 <unit> ago"
         (r"^[\s]*ארכב\s+מיילים\s+מלפני\s*(יום|שבוע|חודש|שנה)", lambda m: f"archive emails from 1 {_he_to_en_unit(m.group(1), 1)} ago"),
+        # Archive category forms: "ארכב מיילי <קטגוריה> מלפני N יחידה" -> "archive <category> from N <unit> ago"
+        (r"^[\s]*ארכב\s+מיילי(?:ם)?\s+([\u0590-\u05FF\s]+?)\s+מלפני\s*(\d+)\s*(יום(?:ים)?|שבוע(?:ות)?|חודש(?:ים)?|שנה(?:ים)?)",
+         lambda m: f"archive {_cat_key_to_en(m.group(1) or '')} from {int(m.group(2))} {_he_to_en_unit(m.group(3), int(m.group(2)))} ago"),
+        # Archive category forms: "ארכב מיילי <קטגוריה> מלפני יחידה" (without number, assume 1)
+        (r"^[\s]*ארכב\s+מיילי(?:ם)?\s+([\u0590-\u05FF\s]+?)\s+מלפני\s*(יום|שבוע|חודש|שנה)",
+         lambda m: f"archive {_cat_key_to_en(m.group(1) or '')} from 1 {_he_to_en_unit(m.group(2), 1)} ago"),
         # Archive forms: "ארכב מיילים מ[שולח] מלפני N יחידה" -> "archive emails from [sender] from N <unit> ago"
         (r"^[\s]*ארכב\s+מיילים\s+מ-?\s*([A-Za-z0-9_.+\-@\u0590-\u05FF]+)\s+מלפני\s*(\d+)\s*(יום(?:ים)?|שבוע(?:ות)?|חודש(?:ים)?|שנה(?:ים)?)", lambda m: f"archive emails from {m.group(1).strip()} from {m.group(2)} {_he_to_en_unit(m.group(3), int(m.group(2)))} ago"),
         # Archive forms: "ארכב מיילים מ[שולח] מלפני חודשיים/שבועיים/שנתיים/יומיים" (Hebrew plural forms) -> "archive emails from [sender] from 2 <unit> ago"
