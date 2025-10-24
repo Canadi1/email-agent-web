@@ -8597,6 +8597,27 @@
                         ];
                         try { console.log('[HE-ARCHIVE-CATEGORY-FINAL-GATE] Set items to אבטחת חשבון מהשנה (+שעברה):', items.map(x => x.cmd)); } catch(e) {}
                         categoryHandled = true;
+                    } else if (/^ארכב.*משלוח.*מל/i.test(qlc)) {
+                        // When typing "ארכב מיילי משלוח מל", show only "מלפני [משך]" command
+                        items = [
+                            { cmd: 'ארכב מיילי משלוח מלפני [משך]' }
+                        ];
+                        try { console.log('[HE-ARCHIVE-CATEGORY-FINAL-GATE] Set items to משלוח מלפני [משך]:', items.map(x => x.cmd)); } catch(e) {}
+                        categoryHandled = true;
+                    } else if (/^ארכב.*קודי.*אימות.*מל/i.test(qlc)) {
+                        // When typing "ארכב מיילי קודי אימות מל", show only "מלפני [משך]" command
+                        items = [
+                            { cmd: 'ארכב מיילי קודי אימות מלפני [משך]' }
+                        ];
+                        try { console.log('[HE-ARCHIVE-CATEGORY-FINAL-GATE] Set items to קודי אימות מלפני [משך]:', items.map(x => x.cmd)); } catch(e) {}
+                        categoryHandled = true;
+                    } else if (/^ארכב.*אבטחת.*חשבון.*מל/i.test(qlc)) {
+                        // When typing "ארכב מיילי אבטחת חשבון מל", show only "מלפני [משך]" command
+                        items = [
+                            { cmd: 'ארכב מיילי אבטחת חשבון מלפני [משך]' }
+                        ];
+                        try { console.log('[HE-ARCHIVE-CATEGORY-FINAL-GATE] Set items to אבטחת חשבון מלפני [משך]:', items.map(x => x.cmd)); } catch(e) {}
+                        categoryHandled = true;
                     } else if (/^ארכב.*משלוח.*י/i.test(qlc)) {
                         // When typing "ארכב מיילי משלוח י", show only "ישנים מ[משך]" command
                         items = [
