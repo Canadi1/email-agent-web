@@ -8432,6 +8432,61 @@
                         ];
                         try { console.log('[HE-ARCHIVE-CATEGORY-FINAL-GATE] Set items to משלוח מאתמול:', items.map(x => x.cmd)); } catch(e) {}
                         categoryHandled = true;
+                    } else if (/^ארכב.*משלוח.*מהש$/i.test(qlc)) {
+                        // Ambiguous 'מהש' → show week/year including 'שעבר/שעברה'
+                        items = [
+                            { cmd: 'ארכב מיילי משלוח מהשבוע' },
+                            { cmd: 'ארכב מיילי משלוח מהשבוע שעבר' },
+                            { cmd: 'ארכב מיילי משלוח מהשנה' },
+                            { cmd: 'ארכב מיילי משלוח מהשנה שעברה' }
+                        ];
+                        try { console.log('[HE-ARCHIVE-CATEGORY-FINAL-GATE] Set items to משלוח מהש (week/year + last):', items.map(x => x.cmd)); } catch(e) {}
+                        categoryHandled = true;
+                    } else if (/^ארכב.*משלוח.*מהשבוע\s+ש/i.test(qlc)) {
+                        // Typing longer week timeframe: only "מהשבוע שעבר"
+                        items = [
+                            { cmd: 'ארכב מיילי משלוח מהשבוע שעבר' }
+                        ];
+                        try { console.log('[HE-ARCHIVE-CATEGORY-FINAL-GATE] Set items to משלוח מהשבוע שעבר (longer):', items.map(x => x.cmd)); } catch(e) {}
+                        categoryHandled = true;
+                    } else if (/^ארכב.*משלוח.*מהשב/i.test(qlc)) {
+                        // Week timeframe progressive: show week and last week
+                        items = [
+                            { cmd: 'ארכב מיילי משלוח מהשבוע' },
+                            { cmd: 'ארכב מיילי משלוח מהשבוע שעבר' }
+                        ];
+                        try { console.log('[HE-ARCHIVE-CATEGORY-FINAL-GATE] Set items to משלוח מהשבוע (+שעבר):', items.map(x => x.cmd)); } catch(e) {}
+                        categoryHandled = true;
+                    } else if (/^ארכב.*משלוח.*מהחודש\s+ש/i.test(qlc)) {
+                        // Typing longer month timeframe: only "מהחודש שעבר"
+                        items = [
+                            { cmd: 'ארכב מיילי משלוח מהחודש שעבר' }
+                        ];
+                        try { console.log('[HE-ARCHIVE-CATEGORY-FINAL-GATE] Set items to משלוח מהחודש שעבר (longer):', items.map(x => x.cmd)); } catch(e) {}
+                        categoryHandled = true;
+                    } else if (/^ארכב.*משלוח.*מהח/i.test(qlc)) {
+                        // Month timeframe progressive: show month and last month
+                        items = [
+                            { cmd: 'ארכב מיילי משלוח מהחודש' },
+                            { cmd: 'ארכב מיילי משלוח מהחודש שעבר' }
+                        ];
+                        try { console.log('[HE-ARCHIVE-CATEGORY-FINAL-GATE] Set items to משלוח מהחודש (+שעבר):', items.map(x => x.cmd)); } catch(e) {}
+                        categoryHandled = true;
+                    } else if (/^ארכב.*משלוח.*מהשנה\s+ש/i.test(qlc)) {
+                        // Typing longer year timeframe: only "מהשנה שעברה"
+                        items = [
+                            { cmd: 'ארכב מיילי משלוח מהשנה שעברה' }
+                        ];
+                        try { console.log('[HE-ARCHIVE-CATEGORY-FINAL-GATE] Set items to משלוח מהשנה שעברה (longer):', items.map(x => x.cmd)); } catch(e) {}
+                        categoryHandled = true;
+                    } else if (/^ארכב.*משלוח.*מהשנ/i.test(qlc)) {
+                        // Year timeframe progressive: show year and last year
+                        items = [
+                            { cmd: 'ארכב מיילי משלוח מהשנה' },
+                            { cmd: 'ארכב מיילי משלוח מהשנה שעברה' }
+                        ];
+                        try { console.log('[HE-ARCHIVE-CATEGORY-FINAL-GATE] Set items to משלוח מהשנה (+שעברה):', items.map(x => x.cmd)); } catch(e) {}
+                        categoryHandled = true;
                     } else if (/^ארכב.*קודי.*אימות.*מא/.test(qlc)) {
                         // When typing "ארכב מיילי קודי אימות מא", show only "מאתמול" command
                         items = [
@@ -8439,12 +8494,108 @@
                         ];
                         try { console.log('[HE-ARCHIVE-CATEGORY-FINAL-GATE] Set items to קודי אימות מאתמול:', items.map(x => x.cmd)); } catch(e) {}
                         categoryHandled = true;
+                    } else if (/^ארכב.*קודי.*אימות.*מהש$/i.test(qlc)) {
+                        items = [
+                            { cmd: 'ארכב מיילי קודי אימות מהשבוע' },
+                            { cmd: 'ארכב מיילי קודי אימות מהשבוע שעבר' },
+                            { cmd: 'ארכב מיילי קודי אימות מהשנה' },
+                            { cmd: 'ארכב מיילי קודי אימות מהשנה שעברה' }
+                        ];
+                        try { console.log('[HE-ARCHIVE-CATEGORY-FINAL-GATE] Set items to קודי אימות מהש (week/year + last):', items.map(x => x.cmd)); } catch(e) {}
+                        categoryHandled = true;
+                    } else if (/^ארכב.*קודי.*אימות.*מהשבוע\s+ש/i.test(qlc)) {
+                        items = [
+                            { cmd: 'ארכב מיילי קודי אימות מהשבוע שעבר' }
+                        ];
+                        try { console.log('[HE-ARCHIVE-CATEGORY-FINAL-GATE] Set items to קודי אימות מהשבוע שעבר (longer):', items.map(x => x.cmd)); } catch(e) {}
+                        categoryHandled = true;
+                    } else if (/^ארכב.*קודי.*אימות.*מהשב/i.test(qlc)) {
+                        items = [
+                            { cmd: 'ארכב מיילי קודי אימות מהשבוע' },
+                            { cmd: 'ארכב מיילי קודי אימות מהשבוע שעבר' }
+                        ];
+                        try { console.log('[HE-ARCHIVE-CATEGORY-FINAL-GATE] Set items to קודי אימות מהשבוע (+שעבר):', items.map(x => x.cmd)); } catch(e) {}
+                        categoryHandled = true;
+                    } else if (/^ארכב.*קודי.*אימות.*מהחודש\s+ש/i.test(qlc)) {
+                        items = [
+                            { cmd: 'ארכב מיילי קודי אימות מהחודש שעבר' }
+                        ];
+                        try { console.log('[HE-ARCHIVE-CATEGORY-FINAL-GATE] Set items to קודי אימות מהחודש שעבר (longer):', items.map(x => x.cmd)); } catch(e) {}
+                        categoryHandled = true;
+                    } else if (/^ארכב.*קודי.*אימות.*מהח/i.test(qlc)) {
+                        items = [
+                            { cmd: 'ארכב מיילי קודי אימות מהחודש' },
+                            { cmd: 'ארכב מיילי קודי אימות מהחודש שעבר' }
+                        ];
+                        try { console.log('[HE-ARCHIVE-CATEGORY-FINAL-GATE] Set items to קודי אימות מהחודש (+שעבר):', items.map(x => x.cmd)); } catch(e) {}
+                        categoryHandled = true;
+                    } else if (/^ארכב.*קודי.*אימות.*מהשנה\s+ש/i.test(qlc)) {
+                        items = [
+                            { cmd: 'ארכב מיילי קודי אימות מהשנה שעברה' }
+                        ];
+                        try { console.log('[HE-ARCHIVE-CATEGORY-FINAL-GATE] Set items to קודי אימות מהשנה שעברה (longer):', items.map(x => x.cmd)); } catch(e) {}
+                        categoryHandled = true;
+                    } else if (/^ארכב.*קודי.*אימות.*מהשנ/i.test(qlc)) {
+                        items = [
+                            { cmd: 'ארכב מיילי קודי אימות מהשנה' },
+                            { cmd: 'ארכב מיילי קודי אימות מהשנה שעברה' }
+                        ];
+                        try { console.log('[HE-ARCHIVE-CATEGORY-FINAL-GATE] Set items to קודי אימות מהשנה (+שעברה):', items.map(x => x.cmd)); } catch(e) {}
+                        categoryHandled = true;
                     } else if (/^ארכב.*אבטחת.*חשבון.*מא/.test(qlc)) {
                         // When typing "ארכב מיילי אבטחת חשבון מא", show only "מאתמול" command
                         items = [
                             { cmd: 'ארכב מיילי אבטחת חשבון מאתמול' }
                         ];
                         try { console.log('[HE-ARCHIVE-CATEGORY-FINAL-GATE] Set items to אבטחת חשבון מאתמול:', items.map(x => x.cmd)); } catch(e) {}
+                        categoryHandled = true;
+                    } else if (/^ארכב.*אבטחת.*חשבון.*מהש$/i.test(qlc)) {
+                        items = [
+                            { cmd: 'ארכב מיילי אבטחת חשבון מהשבוע' },
+                            { cmd: 'ארכב מיילי אבטחת חשבון מהשבוע שעבר' },
+                            { cmd: 'ארכב מיילי אבטחת חשבון מהשנה' },
+                            { cmd: 'ארכב מיילי אבטחת חשבון מהשנה שעברה' }
+                        ];
+                        try { console.log('[HE-ARCHIVE-CATEGORY-FINAL-GATE] Set items to אבטחת חשבון מהש (week/year + last):', items.map(x => x.cmd)); } catch(e) {}
+                        categoryHandled = true;
+                    } else if (/^ארכב.*אבטחת.*חשבון.*מהשבוע\s+ש/i.test(qlc)) {
+                        items = [
+                            { cmd: 'ארכב מיילי אבטחת חשבון מהשבוע שעבר' }
+                        ];
+                        try { console.log('[HE-ARCHIVE-CATEGORY-FINAL-GATE] Set items to אבטחת חשבון מהשבוע שעבר (longer):', items.map(x => x.cmd)); } catch(e) {}
+                        categoryHandled = true;
+                    } else if (/^ארכב.*אבטחת.*חשבון.*מהשב/i.test(qlc)) {
+                        items = [
+                            { cmd: 'ארכב מיילי אבטחת חשבון מהשבוע' },
+                            { cmd: 'ארכב מיילי אבטחת חשבון מהשבוע שעבר' }
+                        ];
+                        try { console.log('[HE-ARCHIVE-CATEGORY-FINAL-GATE] Set items to אבטחת חשבון מהשבוע (+שעבר):', items.map(x => x.cmd)); } catch(e) {}
+                        categoryHandled = true;
+                    } else if (/^ארכב.*אבטחת.*חשבון.*מהחודש\s+ש/i.test(qlc)) {
+                        items = [
+                            { cmd: 'ארכב מיילי אבטחת חשבון מהחודש שעבר' }
+                        ];
+                        try { console.log('[HE-ARCHIVE-CATEGORY-FINAL-GATE] Set items to אבטחת חשבון מהחודש שעבר (longer):', items.map(x => x.cmd)); } catch(e) {}
+                        categoryHandled = true;
+                    } else if (/^ארכב.*אבטחת.*חשבון.*מהח/i.test(qlc)) {
+                        items = [
+                            { cmd: 'ארכב מיילי אבטחת חשבון מהחודש' },
+                            { cmd: 'ארכב מיילי אבטחת חשבון מהחודש שעבר' }
+                        ];
+                        try { console.log('[HE-ARCHIVE-CATEGORY-FINAL-GATE] Set items to אבטחת חשבון מהחודש (+שעבר):', items.map(x => x.cmd)); } catch(e) {}
+                        categoryHandled = true;
+                    } else if (/^ארכב.*אבטחת.*חשבון.*מהשנה\s+ש/i.test(qlc)) {
+                        items = [
+                            { cmd: 'ארכב מיילי אבטחת חשבון מהשנה שעברה' }
+                        ];
+                        try { console.log('[HE-ARCHIVE-CATEGORY-FINAL-GATE] Set items to אבטחת חשבון מהשנה שעברה (longer):', items.map(x => x.cmd)); } catch(e) {}
+                        categoryHandled = true;
+                    } else if (/^ארכב.*אבטחת.*חשבון.*מהשנ/i.test(qlc)) {
+                        items = [
+                            { cmd: 'ארכב מיילי אבטחת חשבון מהשנה' },
+                            { cmd: 'ארכב מיילי אבטחת חשבון מהשנה שעברה' }
+                        ];
+                        try { console.log('[HE-ARCHIVE-CATEGORY-FINAL-GATE] Set items to אבטחת חשבון מהשנה (+שעברה):', items.map(x => x.cmd)); } catch(e) {}
                         categoryHandled = true;
                     } else if (/^ארכב.*משלוח.*מה/.test(qlc)) {
                         // When typing "ארכב מיילי משלוח מה", show only "מה..." commands
