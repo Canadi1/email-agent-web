@@ -1330,6 +1330,21 @@ msgstr "עברית"
 msgid "Save custom command"
 msgstr "שמור פקודה מותאמת אישית"
 
+#: .\agent\email_ai_agent.py:4240
+#, python-format
+msgid "No emails found from %(duration)s to archive."
+msgstr "לא נמצאו מיילים מ-%(duration)s לארכוב."
+
+#: .\agent\email_ai_agent.py:4244
+#, python-format
+msgid "Found %(count)d emails from %(duration)s. Do you want to archive them?"
+msgstr "נמצאו %(count)d מיילים מ-%(duration)s. לארכב אותם?"
+
+#: .\agent\email_ai_agent.py:4296
+#, python-format
+msgid "Archived %(count)d emails from %(duration)s."
+msgstr "נארכבו %(count)d מיילים מ-%(duration)s."
+
 msgid "Processing..."
 msgstr "מעבד..."
 
