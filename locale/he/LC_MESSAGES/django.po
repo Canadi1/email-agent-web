@@ -332,6 +332,16 @@ msgstr "מיילי אבטחת חשבון"
 msgid "No emails found for %(what)s."
 msgstr "לא נמצאו מיילים עבור %(what)s."
 
+#: .\agent\email_ai_agent.py:2006
+#, python-format
+msgid "No emails found for %(what)s%(time)s%(age)s."
+msgstr "לא נמצאו מיילים עבור %(what)s%(time)s%(age)s."
+
+#: .\agent\email_ai_agent.py:2007
+#, python-format
+msgid " from %(range)s"
+msgstr " מ-%(range)s"
+
 #: .\agent\email_ai_agent.py:964 .\agent\email_ai_agent.py:1017
 #: .\agent\email_ai_agent.py:1103 .\agent\email_ai_agent.py:1107
 #: .\agent\email_ai_agent.py:1180 .\agent\email_ai_agent.py:1184

@@ -2000,8 +2000,54 @@ class GmailAIAgent:
                 # If it's not a retryable error or we've exhausted retries
                 return {"status": "error", "message": f"Error archiving emails: {error_msg}"}
         
+        # Translate date_range to Hebrew if needed
+        def _hebrew_date_phrase(eng_phrase: str) -> str:
+            mapping = {
+                "this week": "מהשבוע",
+                "this month": "מהחודש",
+                "this year": "מהשנה",
+                "today": "מהיום",
+                "yesterday": "מאתמול",
+                "last week": "מהשבוע שעבר",
+                "last month": "מהחודש שעבר",
+                "last year": "מהשנה שעברה",
+            }
+            if eng_phrase in mapping:
+                return mapping[eng_phrase]
+            # Also support duration-ago phrases
+            def _hebrew_duration_phrase(eng_phrase: str) -> str:
+                eng_lower = (eng_phrase or "").lower().strip()
+                import re
+                if 'ago' not in eng_lower:
+                    return eng_phrase
+                m = re.search(r"(a|one|\d+)\s+(day|days|week|weeks|month|months|year|years)\s+ago", eng_lower)
+                if not m:
+                    return eng_phrase
+                qty_raw, unit = m.group(1), m.group(2)
+                qty = 1 if qty_raw in ['a', 'one'] else int(qty_raw)
+                if unit.startswith('day'):
+                    return f"לפני {qty} יום" if qty == 1 else f"לפני {qty} ימים"
+                if unit.startswith('week'):
+                    return f"לפני {qty} שבוע" if qty == 1 else f"לפני {qty} שבועות"
+                if unit.startswith('month'):
+                    return f"לפני {qty} חודש" if qty == 1 else f"לפני {qty} חודשים"
+                if unit.startswith('year'):
+                    return f"לפני {qty} שנה" if qty == 1 else f"לפני {qty} שנים"
+                return eng_phrase
+            # Check if it's a duration-ago phrase
+            eng_lower = (eng_phrase or "").lower().strip()
+            import re
+            if re.search(r"\b(a|one|\d+)\s+(day|days|week|weeks|month|months|year|years)\s+ago\b", eng_lower):
+                return _hebrew_duration_phrase(eng_phrase)
+            return eng_phrase
+        
+        # Get Hebrew mode from Django's current language
+        lang_code = (_dj_translation.get_language() if _dj_translation else None) or 'en'
+        hebrew_mode = str(lang_code).startswith('he')
+        display_date_range = _hebrew_date_phrase(date_range) if (hebrew_mode and date_range) else date_range
+        
         if not all_messages:
-            time_txt = _(" from %(range)s") % {"range": date_range} if date_range else ""
+            time_txt = _(" from %(range)s") % {"range": display_date_range} if date_range else ""
             age_txt = _(" older than %(days)d days") % {"days": older_than_days} if older_than_days else ""
             return {
                 "status": "success",
@@ -2013,7 +2059,7 @@ class GmailAIAgent:
                 "archived_count": 0
             }
         if not confirm:
-            time_txt = _(" from %(range)s") % {"range": date_range} if date_range else ""
+            time_txt = _(" from %(range)s") % {"range": display_date_range} if date_range else ""
             age_txt = _(" older than %(days)d days") % {"days": older_than_days} if older_than_days else ""
             return {
                 "status": "confirmation_required",
