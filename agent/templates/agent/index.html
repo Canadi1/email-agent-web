@@ -2045,6 +2045,11 @@
                 const isArchivedCtx = /archived/i.test(lcMode) || lcArchivedFlag === 'true' || lcArchivedFlag === '1';
                 const itemCount = parseInt("{{ result.data|length|default:0 }}", 10) || 0;
                 const isHeb = (document.documentElement.getAttribute('lang') || '').toLowerCase().startsWith('he');
+                // Hebrew archive timeframe exact 'מא' guard: when typing exactly "ארכב מיילים מא" show only "מאתמול"
+                if (isHeb && /^ארכב\s+מיילים\s+מא$/i.test(qShow) && Array.isArray(items)) {
+                    items = [ { cmd: 'ארכב מיילים מאתמול' } ];
+                    try { console.log('[HE-ARCHIVE-MA-GUARD] Applied exact-מא suggestion'); } catch(e) {}
+                }
                 const displaySender = shortSenderName(lcSender);
                 if (initialType === 'email_list') {
                     if (isHeb) {
@@ -5651,8 +5656,8 @@
                     const isTypingArchiveEmails = /^ארכב\s+מיילי$/.test(q);
                     
                     // Check if typing Hebrew timeframe or duration archive commands (including progressive typing)
-                    // Match patterns like: מהי (today), מאת (yesterday), מהש (week/month/year), מהח (month)
-                    const isTypingArchiveTimeframe = (/^ארכב\s+מיילים\s+מ(היום|מאתמול|מהשבוע|מהחודש|מהשנה|הי[וי]?|א[תתמ]|הש[בוע]?[ובוע]?|הח[ודש]?[ודש]?|שנ[ה]?[ה]?)/.test(q) || /^ארכב\s+מיילים\s+מל/.test(q)) && !/^ארכב\s+מיילים\s+מ[A-Za-z0-9@._-]+\s*מ/.test(q);
+                    // BUT NOT if there's a sender name before the timeframe
+                    const isTypingArchiveTimeframe = (/^ארכב\s+מיילים\s+מ(היום|מאתמול|מהשבוע|מהחודש|מהשנה)/.test(q) || /^ארכב\s+מיילים\s+מל/.test(q)) && !/^ארכב\s+מיילים\s+מ[A-Za-z0-9@._-]+\s*מ/.test(q);
                     
                     // Check if typing Hebrew sender + timeframe archive commands
                     const isTypingArchiveSenderTimeframe = /^ארכב\s+מיילים\s+מ[A-Za-z0-9@._-]+\s*מ/.test(q);
@@ -5818,29 +5823,6 @@
                             try { console.log('[HE-ARCHIVE-TIMEFRAME-FILTER] checking:', lc, 'keep:', keep); } catch(e) {}
                             return keep;
                         });
-                        
-                        // Progressive filtering for timeframe typing
-                        if (/^ארכב\s+מיילים\s+מהי/.test(q)) {
-                            // Typing "מהי" or "מהיו" - show "מהיום" suggestion
-                            items = [{ cmd: 'ארכב מיילים מהיום' }];
-                        } else if (/^ארכב\s+מיילים\s+מאת/.test(q)) {
-                            // Typing "מאת" - show "מאתמול" suggestion
-                            items = [{ cmd: 'ארכב מיילים מאתמול' }];
-                        } else if (/^ארכב\s+מיילים\s+מהח/.test(q)) {
-                            // Typing "מהח" - show month suggestions
-                            items = [
-                                { cmd: 'ארכב מיילים מהחודש' },
-                                { cmd: 'ארכב מיילים מהחודש שעבר' }
-                            ];
-                        } else if (/^ארכב\s+מיילים\s+מהש/.test(q)) {
-                            // Typing "מהש" - show week/year suggestions
-                            items = [
-                                { cmd: 'ארכב מיילים מהשבוע' },
-                                { cmd: 'ארכב מיילים מהשבוע שעבר' },
-                                { cmd: 'ארכב מיילים מהשנה' },
-                                { cmd: 'ארכב מיילים מהשנה שעברה' }
-                            ];
-                        }
                         
                         // Always ensure duration placeholder is present when typing מלפני (including progressive typing)
                         if (/^ארכב\s+מיילים\s+מל/.test(q)) {
@@ -8985,11 +8967,14 @@
                         items = [{ cmd: 'ארכב מיילים מלפני [משך]' }];
                         console.log('[HE-ARCHIVE-TIMEFRAME-GUARD] Forced duration command for progressive typing');
                     } else {
-                        // Restore the Hebrew archive timeframe filter results - show only archive commands
+                        // Restore the Hebrew archive timeframe filter results - show only archive commands (no placeholders)
                         items = items.filter(it => {
                             const text = typeof it === 'string' ? it : (it && it.cmd ? it.cmd : '');
                             const lc = String(text || '').toLowerCase().trim();
-                            return /^ארכב\s+מיילים\b/.test(lc);
+                            if (!/^ארכב\s+מיילים\b/.test(lc)) return false;
+                            // Exclude placeholder variants like מ[שולח], [דומיין], etc.
+                            if (/\[/.test(String(text || ''))) return false;
+                            return true;
                         });
                         
                         // If no items remain, inject the exact command being typed
@@ -9038,8 +9023,18 @@
                         const durAll = ['מלפני [משך]']; // Only the placeholder command
                         const allCmds = [...tfAll, ...durAll];
                         const qLower = qlc;
-                        let next = allCmds.map(function(tf){ return `ארכב מיילים ${tf}`; })
-                                        .filter(function(s){ return s.toLowerCase().startsWith(qLower); });
+                        let next;
+                        if (/^ארכב\s+מיילים\s+מה$/.test(qLower)) {
+                            // Exact generic 'מה' → show base (without מאתמול) + 'שעבר' variants
+                            const basePlus = ['מהיום','מהשבוע','מהחודש','מהשנה','מהשבוע שעבר','מהחודש שעבר','מהשנה שעברה'];
+                            next = basePlus.map(function(tf){ return `ארכב מיילים ${tf}`; });
+                        } else if (/^ארכב\s+מיילים\s+מא$/.test(qLower)) {
+                            // Exact 'מא' → only yesterday
+                            next = ['ארכב מיילים מאתמול'];
+                        } else {
+                            next = allCmds.map(function(tf){ return `ארכב מיילים ${tf}`; })
+                                           .filter(function(s){ return s.toLowerCase().startsWith(qLower); });
+                        }
                         if (next.length === 0) {
                             // early stages like 'ארכב מיילים מ' or 'ארכב מיילים מלפני'
                             next = allCmds.map(function(tf){ return `ארכב מיילים ${tf}`; });
@@ -11339,6 +11334,19 @@
                 const qShow = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
                 // Hebrew list progressive timeframe guard: when typing "רשום מיילים מהי" show only "רשום מיילים מהיום"
                 const isHeb = (document.documentElement.getAttribute('lang') || '').toLowerCase().startsWith('he');
+                // Hebrew archive timeframe generic 'מה' guard: when typing exactly "ארכב מיילים מה" show only timeframe options
+                if (isHeb && /^ארכב\s+מיילים\s+מה$/i.test(qShow) && Array.isArray(items)) {
+                    items = [
+                        { cmd: 'ארכב מיילים מהיום' },
+                        { cmd: 'ארכב מיילים מהשבוע' },
+                        { cmd: 'ארכב מיילים מהשבוע שעבר' },
+                        { cmd: 'ארכב מיילים מהחודש' },
+                        { cmd: 'ארכב מיילים מהחודש שעבר' },
+                        { cmd: 'ארכב מיילים מהשנה' },
+                        { cmd: 'ארכב מיילים מהשנה שעברה' }
+                    ];
+                    try { console.log('[HE-ARCHIVE-MAH-GUARD] Applied exact-what suggestions, items:', items.map(x=>x.cmd)); } catch(e) {}
+                }
                 // Hebrew archive sender + timeframe progressive guards (force exact sender suggestions)
                 if (isHeb && /^ארכב\s+מיילים\s+מ\s*\S+\s+מהי$/i.test(qShow) && Array.isArray(items)) {
                     items = [{ cmd: 'ארכב מיילים מ[שולח] מהיום' }];
@@ -11382,16 +11390,25 @@
                 if (isHeb && /^ארכב\s+מיילים\s+מ\s*\S+\s+ישנים\s+מ/i.test(qShow) && Array.isArray(items)) {
                     items = [{ cmd: 'ארכב מיילים מ[שולח] ישנים מ[משך]' }];
                 }
+                // Hebrew archive timeframe cleanup: when typing any 'מה' prefix (no sender), allow only pure timeframe items
+                if (isHeb && /^ארכב\s+מיילים\s+מה/i.test(qShow) && Array.isArray(items) && !/^ארכב\s+מיילים\s+מ\s*\S+\s+מה/i.test(qShow)) {
+                    items = items.filter(function(it){
+                        const s = (it && it.cmd ? it.cmd : String(it)).toLowerCase().trim();
+                        return /^ארכב\s+מיילים\s+מ(היום|אתמול|השבוע(?:\s+שעבר)?|החודש(?:\s+שעבר)?|השנה(?:\s+שעברה)?)$/.test(s);
+                    });
+                }
                 if (isHeb && /^רש(?:ו)?ם\s+מיילים\s+מהי$/i.test(qShow) && Array.isArray(items)) {
                     items = [{ cmd: 'רשום מיילים מהיום' }];
                 }
                 // Hebrew archive progressive timeframe guard: when typing "ארכב מיילים מהי" show only "ארכב מיילים מהיום"
                 if (isHeb && /^ארכב\s+מיילים\s+מהי$/i.test(qShow) && Array.isArray(items)) {
                     items = [{ cmd: 'ארכב מיילים מהיום' }];
+                    try { console.log('[HE-ARCHIVE-TF-GUARD] matched מהי, set:', items.map(x=>x.cmd)); } catch(e) {}
                 }
                 // Hebrew archive progressive timeframe guard: when typing "ארכב מיילים מא..." show only "ארכב מיילים מאתמול"
                 if (isHeb && /^ארכב\s+מיילים\s+מא/i.test(qShow) && Array.isArray(items)) {
                     items = [{ cmd: 'ארכב מיילים מאתמול' }];
+                    try { console.log('[HE-ARCHIVE-TF-GUARD] matched מא*, set:', items.map(x=>x.cmd)); } catch(e) {}
                 }
                 // Hebrew archive progressive timeframe guard: when typing "ארכב מיילים מהשב..." show both week suggestions
                 if (isHeb && /^ארכב\s+מיילים\s+מהשב/i.test(qShow) && Array.isArray(items)) {
@@ -11399,6 +11416,7 @@
                         { cmd: 'ארכב מיילים מהשבוע' },
                         { cmd: 'ארכב מיילים מהשבוע שעבר' }
                     ];
+                    try { console.log('[HE-ARCHIVE-TF-GUARD] matched מהשב*, set:', items.map(x=>x.cmd)); } catch(e) {}
                 }
                 // Hebrew archive progressive timeframe guard: when typing "ארכב מיילים מהשבוע ש..." show only "ארכב מיילים מהשבוע שעבר"
                 if (isHeb && /^ארכב\s+מיילים\s+מהשבוע\s+ש/i.test(qShow) && Array.isArray(items)) {
@@ -11410,10 +11428,12 @@
                         { cmd: 'ארכב מיילים מהשנה' },
                         { cmd: 'ארכב מיילים מהשנה שעברה' }
                     ];
+                    try { console.log('[HE-ARCHIVE-TF-GUARD] matched מהשנ*, set:', items.map(x=>x.cmd)); } catch(e) {}
                 }
                 // Hebrew archive progressive timeframe guard: when typing "ארכב מיילים מהשנה ש..." show only "ארכב מיילים מהשנה שעברה"
                 if (isHeb && /^ארכב\s+מיילים\s+מהשנה\s+ש/i.test(qShow) && Array.isArray(items)) {
                     items = [{ cmd: 'ארכב מיילים מהשנה שעברה' }];
+                    try { console.log('[HE-ARCHIVE-TF-GUARD] matched מהשנה ש*, set:', items.map(x=>x.cmd)); } catch(e) {}
                 }
                 // Hebrew archive progressive timeframe guard: when typing "ארכב מיילים י..." show only "ארכב מיילים ישנים מ[משך]"
                 if (isHeb && /^ארכב\s+מיילים\s+י/i.test(qShow) && Array.isArray(items)) {
@@ -11515,6 +11535,45 @@
                     });
                 }
             } catch(e) {}
+
+            // LAST-MILE RENDER FILTER: For Hebrew 'ארכב מיילים מה*' (no sender), render only pure timeframe items
+            try {
+                const qRender = (input || '').toLowerCase().replace(/[\u200e\u200f\u202a\u202b\u202c\u202d\u202e]/g,'').replace(/\u00a0/g,' ').replace(/\s+/g,' ').trim();
+                const isHebRender = (document.documentElement.getAttribute('lang') || '').toLowerCase().startsWith('he');
+                const noSenderCue = !/^ארכב\s+מיילים\s+מ\s*\S+\s+מה/i.test(qRender);
+                if (isHebRender && /^ארכב\s+מיילים\s+מה/i.test(qRender) && noSenderCue && Array.isArray(items)) {
+                    let before = Array.isArray(items) ? items.slice() : [];
+                    items = items.filter(function(it){
+                        const s = (it && it.cmd ? it.cmd : String(it)).toLowerCase().trim();
+                        // Keep timeframe starts (מה..., מאת...) and drop placeholders and duration/older-than variants
+                        const startsTf = /^ארכב\s+מיילים\s+מ(ה|את)/.test(s);
+                        const hasPlaceholder = /\[/.test(s);
+                        const isOlder = /\sישנים\s*מ/.test(s) || /\sמלפני\b/.test(s);
+                        return startsTf && !hasPlaceholder && !isOlder;
+                    });
+                    if (!items.length) {
+                        // Fallbacks: match the exact prefix
+                        if (/^ארכב\s+מיילים\s+מה/.test(qRender)) {
+                            const basePlus = ['מהיום','מהשבוע','מהחודש','מהשנה','מהשבוע שעבר','מהחודש שעבר','מהשנה שעברה'];
+                            items = basePlus.map(function(tf){ return { cmd: `ארכב מיילים ${tf}` }; });
+                        } else if (/^ארכב\s+מיילים\s+מא/.test(qRender)) {
+                            items = [{ cmd: 'ארכב מיילים מאתמול' }];
+                        }
+                    }
+                    try {
+                        console.log('[HE-ARCHIVE-RENDER-FILTER] pruned items at render to timeframe-only', {
+                            qRender,
+                            before: before.map(function(x){ return x && x.cmd ? x.cmd : String(x); }),
+                            after: items.map(function(x){ return x && x.cmd ? x.cmd : String(x); })
+                        });
+                    } catch(_) {}
+                }
+                // LAST-MILE: exact 'מא' → only yesterday
+                if (isHebRender && /^ארכב\s+מיילים\s+מא$/i.test(qRender) && Array.isArray(items)) {
+                    items = [{ cmd: 'ארכב מיילים מאתמול' }];
+                    try { console.log('[HE-ARCHIVE-RENDER-FILTER] exact מא → only מאתמול'); } catch(_) {}
+                }
+            } catch(_) {}
 
             items.forEach((item, idx) => {
                 const { cmd, type } = item;
