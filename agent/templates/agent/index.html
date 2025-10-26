@@ -5651,8 +5651,8 @@
                     const isTypingArchiveEmails = /^ארכב\s+מיילי$/.test(q);
                     
                     // Check if typing Hebrew timeframe or duration archive commands (including progressive typing)
-                    // BUT NOT if there's a sender name before the timeframe
-                    const isTypingArchiveTimeframe = (/^ארכב\s+מיילים\s+מ(היום|מאתמול|מהשבוע|מהחודש|מהשנה)/.test(q) || /^ארכב\s+מיילים\s+מל/.test(q)) && !/^ארכב\s+מיילים\s+מ[A-Za-z0-9@._-]+\s*מ/.test(q);
+                    // Match patterns like: מהי (today), מאת (yesterday), מהש (week/month/year), מהח (month)
+                    const isTypingArchiveTimeframe = (/^ארכב\s+מיילים\s+מ(היום|מאתמול|מהשבוע|מהחודש|מהשנה|הי[וי]?|א[תתמ]|הש[בוע]?[ובוע]?|הח[ודש]?[ודש]?|שנ[ה]?[ה]?)/.test(q) || /^ארכב\s+מיילים\s+מל/.test(q)) && !/^ארכב\s+מיילים\s+מ[A-Za-z0-9@._-]+\s*מ/.test(q);
                     
                     // Check if typing Hebrew sender + timeframe archive commands
                     const isTypingArchiveSenderTimeframe = /^ארכב\s+מיילים\s+מ[A-Za-z0-9@._-]+\s*מ/.test(q);
@@ -5818,6 +5818,29 @@
                             try { console.log('[HE-ARCHIVE-TIMEFRAME-FILTER] checking:', lc, 'keep:', keep); } catch(e) {}
                             return keep;
                         });
+                        
+                        // Progressive filtering for timeframe typing
+                        if (/^ארכב\s+מיילים\s+מהי/.test(q)) {
+                            // Typing "מהי" or "מהיו" - show "מהיום" suggestion
+                            items = [{ cmd: 'ארכב מיילים מהיום' }];
+                        } else if (/^ארכב\s+מיילים\s+מאת/.test(q)) {
+                            // Typing "מאת" - show "מאתמול" suggestion
+                            items = [{ cmd: 'ארכב מיילים מאתמול' }];
+                        } else if (/^ארכב\s+מיילים\s+מהח/.test(q)) {
+                            // Typing "מהח" - show month suggestions
+                            items = [
+                                { cmd: 'ארכב מיילים מהחודש' },
+                                { cmd: 'ארכב מיילים מהחודש שעבר' }
+                            ];
+                        } else if (/^ארכב\s+מיילים\s+מהש/.test(q)) {
+                            // Typing "מהש" - show week/year suggestions
+                            items = [
+                                { cmd: 'ארכב מיילים מהשבוע' },
+                                { cmd: 'ארכב מיילים מהשבוע שעבר' },
+                                { cmd: 'ארכב מיילים מהשנה' },
+                                { cmd: 'ארכב מיילים מהשנה שעברה' }
+                            ];
+                        }
                         
                         // Always ensure duration placeholder is present when typing מלפני (including progressive typing)
                         if (/^ארכב\s+מיילים\s+מל/.test(q)) {
