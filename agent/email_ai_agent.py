@@ -3996,43 +3996,7 @@ class GmailAIAgent:
                         try:
                             results = self.service.users().messages().list(**kwargs).execute()
                             messages = results.get('messages', []) or []
-                            print(f"DEBUG: Found {len(messages)} messages in this batch")
-                            
-                            # Filter messages to only include those from the exact target time period
-                            filtered_messages = []
-                            target_start = None
-                            target_end = None
-                            
-                            # Use the same precise window for local filtering
-                            target_start = start_dt
-                            target_end = end_dt
-                            
-                            if target_start and target_end:
-                                for msg in messages:
-                                    try:
-                                        # Get the message details to check the internal date
-                                        msg_details = self.service.users().messages().get(
-                                            userId='me', id=msg['id'], format='metadata'
-                                        ).execute()
-                                        
-                                        # Use the internal date (timestamp in milliseconds)
-                                        internal_date = int(msg_details.get('internalDate', '0'))
-                                        if internal_date:
-                                            from datetime import datetime
-                                            msg_datetime = datetime.fromtimestamp(internal_date / 1000)
-                                            if target_start <= msg_datetime < target_end:
-                                                filtered_messages.append(msg)
-                                        else:
-                                            # If no internal date, include it to be safe
-                                            filtered_messages.append(msg)
-                                    except:
-                                        # If we can't get message details, include it to be safe
-                                        filtered_messages.append(msg)
-                                
-                                print(f"DEBUG: Filtered to {len(filtered_messages)} messages from {target_start} to {target_end}")
-                                all_messages.extend(filtered_messages)
-                            else:
-                                all_messages.extend(messages)
+                            all_messages.extend(messages)
                             
                             page_token = results.get('nextPageToken')
                             if not page_token:
