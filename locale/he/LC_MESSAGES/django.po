@@ -359,6 +359,11 @@ msgstr "הועברו לאשפה %(count)d מיילים מ-%(what)s."
 msgid "Found %(count)d emails in %(what)s%(age)s. Do you want to archive them?"
 msgstr "נמצאו %(count)d מיילים ב-%(what)s%(age)s. לארכב אותם?"
 
+#: .\agent\email_ai_agent.py:2020
+#, python-format
+msgid "Found %(count)d emails in %(what)s%(time)s%(age)s. Do you want to archive them?"
+msgstr "נמצאו %(count)d מיילים ב-%(what)s%(time)s%(age)s. לארכב אותם?"
+
 #: .\agent\email_ai_agent.py:1045
 #, python-format
 msgid "Archived %(count)d emails from %(what)s."
