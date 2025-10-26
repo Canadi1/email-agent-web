@@ -5825,7 +5825,8 @@
                         });
                         
                         // Always ensure duration placeholder is present when typing מלפני (including progressive typing)
-                        if (/^ארכב\s+מיילים\s+מל/.test(q)) {
+                        // Match "מלפני" (including partial typing like "מל", "מלפ", "מלפנ", "מלפני", and progressive typing like "מלפני י")
+                        if (/^ארכב\s+מיילים\s+מל/i.test(q) || /^ארכב\s+מיילים\s+מלפני/i.test(q)) {
                             const durationCmd = 'ארכב מיילים מלפני [משך]';
                             // Force only the duration command to show
                             items = [{ cmd: durationCmd }];
@@ -8963,7 +8964,8 @@
                 if (window.heArchiveTimeframeFilterActive && Array.isArray(items)) {
                     // STRICT FILTERING: Force only the duration command to show for progressive typing
                     const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
-                    if (/^ארכב\s+מיילים\s+מל/.test(qlc)) {
+                    // Match "מלפני" (including partial typing like "מל", "מלפ", "מלפנ", "מלפני", and progressive typing like "מלפני י")
+                    if (/^ארכב\s+מיילים\s+מל/i.test(qlc) || /^ארכב\s+מיילים\s+מלפני/i.test(qlc)) {
                         items = [{ cmd: 'ארכב מיילים מלפני [משך]' }];
                         console.log('[HE-ARCHIVE-TIMEFRAME-GUARD] Forced duration command for progressive typing');
                     } else {
@@ -11382,7 +11384,8 @@
                     items = [{ cmd: 'ארכב מיילים מ[שולח] מהחודש שעבר' }];
                 }
                 // Hebrew archive sender + older than guard: when typing "ארכב מיילים מ<sender> י..." progressively show only sender + older-than placeholder
-                if (isHeb && /^ארכב\s+מיילים\s+מ\s*\S+\s+י/i.test(qShow) && Array.isArray(items)) {
+                // BUT skip if "מלפני" context anywhere (duration-ago), only apply for "ישנים" (older than)
+                if (isHeb && /^ארכב\s+מיילים\s+מ\s*\S+\s+י/i.test(qShow) && !/מלפני/.test(qShow) && Array.isArray(items)) {
                     try { console.log('[HE-SENDER-OLDER-GUARD] Matched progressive older-than after sender'); } catch(e) {}
                     items = [{ cmd: 'ארכב מיילים מ[שולח] ישנים מ[משך]' }];
                 }
@@ -11440,7 +11443,8 @@
                     try { console.log('[HE-ARCHIVE-TF-GUARD] matched מהשנה ש*, set:', items.map(x=>x.cmd)); } catch(e) {}
                 }
                 // Hebrew archive progressive timeframe guard: when typing "ארכב מיילים י..." show only "ארכב מיילים ישנים מ[משך]"
-                if (isHeb && /^ארכב\s+מיילים\s+י/i.test(qShow) && Array.isArray(items)) {
+                // BUT skip if "לפני" context (duration-ago), only apply for base "ישנים" command
+                if (isHeb && /^ארכב\s+מיילים\s+י/i.test(qShow) && !/^ארכב\s+מיילים\s+מלפני/.test(qShow) && Array.isArray(items)) {
                     items = [{ cmd: 'ארכב מיילים ישנים מ[משך]' }];
                 }
                 // Hebrew archive sender progressive 'מה' guard: when typing "ארכב מיילים מ<sender> מה" show ONLY suggestions that start with "מה..."
@@ -11518,7 +11522,8 @@
                     }
                 }
                 // FINAL enforcement: sender + older-than progressive typing should show ONLY the placeholder
-                if (isHeb && /^ארכב\s+מיילים\s+מ\s*\S+\s+י/i.test(qShow) && Array.isArray(items)) {
+                // BUT skip if "מלפני" context anywhere (duration-ago), only apply for "ישנים" (older than)
+                if (isHeb && /^ארכב\s+מיילים\s+מ\s*\S+\s+י/i.test(qShow) && !/מלפני/.test(qShow) && Array.isArray(items)) {
                     items = [{ cmd: 'ארכב מיילים מ[שולח] ישנים מ[משך]' }];
                 } else if (isHeb && /^ארכב\s+מיילים\s+מ\s*\S+\s+יש/i.test(qShow) && Array.isArray(items)) {
                     items = [{ cmd: 'ארכב מיילים מ[שולח] ישנים מ[משך]' }];
