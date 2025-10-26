@@ -2992,6 +2992,16 @@ class GmailAIAgent:
             domain_match = re.search(r'from\s+([a-zA-Z0-9.-]+\.(?:com|org|net|edu|gov|co\.[a-z.]+|[a-z]{2}))', command_lower)
             if domain_match:
                 return {"action": "archive", "target_type": "domain", "target": domain_match.group(1), "confirmation_required": True, "older_than_days": older_than_days}
+            # Archive emails from sender from [duration] ago pattern (e.g., "archive emails from sender from 7 days ago")
+            # Check this BEFORE the general from_time_match to catch duration-ago patterns specifically
+            sender_duration_ago_match = re.search(r'archive(?:\s+emails?)?\s+from\s+([a-zA-Z0-9._\-+@\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff ]+?)\s+from\s+(\d+\s+(?:day|days|week|weeks|month|months|year|years)\s+ago|a\s+(?:day|week|month|year)\s+ago)', command_lower)
+            if sender_duration_ago_match:
+                sender_keyword = sender_duration_ago_match.group(1).strip()
+                duration_ago = sender_duration_ago_match.group(2)
+                print(f"DEBUG: sender_duration_ago_match found - sender='{sender_keyword}', duration_ago='{duration_ago}'")
+                if sender_keyword not in ['emails','all','the','my','any','this','that','these','those']:
+                    return {"action": "archive", "target_type": "sender_from_duration_ago", "target": sender_keyword, "duration_ago": duration_ago, "confirmation_required": True}
+
             # Archive emails from sender from specific time periods (today/yesterday/this X/last X/N ago)
             from_time_match = re.search(r'from\s+([a-zA-Z0-9._\-+@\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff ]+?)\s+from\s+(today|yesterday|last\s+week|last\s+month|last\s+year|this\s+week|this\s+month|this\s+year|(a|\d+)\s+(?:day|days|week|weeks|month|months|year|years)\s+ago)', command_lower)
             if from_time_match:
@@ -3524,6 +3534,8 @@ class GmailAIAgent:
                     return self.archive_emails_by_sender(target, confirm=not confirm_required, older_than_days=older_than_days)
                 elif target_type == "sender_from_time":
                     return self.archive_emails_by_sender_from_time(target, parsed.get("time_period"), confirm=not confirm_required)
+                elif target_type == "sender_from_duration_ago":
+                    return self.archive_emails_by_sender_from_duration_ago(target, parsed.get("duration_ago"), confirm=not confirm_required)
                 elif target_type == "time":
                     return self.archive_emails_from_time(parsed.get("time_period"), confirm=not confirm_required)
                 elif target_type == "duration_ago":
@@ -3977,11 +3989,39 @@ class GmailAIAgent:
                 if eng_phrase in mapping:
                     return mapping[eng_phrase]
                 return eng_phrase
+            # Also support duration-ago phrases for sender variant (e.g., "1 month ago")
+            def _hebrew_duration_phrase(eng_phrase: str) -> str:
+                eng_lower = (eng_phrase or "").lower().strip()
+                import re
+                if 'ago' not in eng_lower:
+                    return eng_phrase
+                m = re.search(r"(a|one|\d+)\s+(day|days|week|weeks|month|months|year|years)\s+ago", eng_lower)
+                if not m:
+                    return eng_phrase
+                qty_raw, unit = m.group(1), m.group(2)
+                qty = 1 if qty_raw in ['a', 'one'] else int(qty_raw)
+                if unit.startswith('day'):
+                    return f"לפני {qty} יום" if qty == 1 else f"לפני {qty} ימים"
+                if unit.startswith('week'):
+                    return f"לפני {qty} שבוע" if qty == 1 else f"לפני {qty} שבועות"
+                if unit.startswith('month'):
+                    return f"לפני {qty} חודש" if qty == 1 else f"לפני {qty} חודשים"
+                if unit.startswith('year'):
+                    return f"לפני {qty} שנה" if qty == 1 else f"לפני {qty} שנים"
+                return eng_phrase
             
             # Get Hebrew mode from Django's current language
             lang_code = (_dj_translation.get_language() if _dj_translation else None) or 'en'
             hebrew_mode = str(lang_code).startswith('he')
-            display_time = _hebrew_date_phrase(time_period) if hebrew_mode else time_period
+            if hebrew_mode:
+                tp_lower = str(time_period or '').strip().lower()
+                import re
+                if re.search(r"\b(a|one|\d+)\s+(day|days|week|weeks|month|months|year|years)\s+ago\b", tp_lower):
+                    display_time = _hebrew_duration_phrase(time_period)
+                else:
+                    display_time = _hebrew_date_phrase(time_period)
+            else:
+                display_time = time_period
             
             # Debug logging
             print(f"DEBUG: archive_emails_by_sender_from_time called with sender='{sender_email}', time_period='{time_period}'")
@@ -4114,6 +4154,165 @@ class GmailAIAgent:
             print(f"Unexpected error in archive_emails_by_sender_from_time: {e}")
             return {"error": f"Unexpected error: {str(e)}"}
 
+    def archive_emails_by_sender_from_duration_ago(self, sender_email, duration_ago, confirm=False):
+        """Archive emails from a specific sender from a specific duration ago (e.g., 'from 7 days ago').
+        This is for commands like "archive emails from sender from 7 days ago".
+        """
+        try:
+            if not sender_email or not duration_ago:
+                return {"error": "Missing required parameters: sender_email and duration_ago"}
+            
+            # Translate duration to Hebrew if needed - reuse the same helper from archive_emails_from_duration_ago
+            def _hebrew_duration_phrase(eng_phrase: str) -> str:
+                """Convert English duration phrase to Hebrew."""
+                print(f"DEBUG: _hebrew_duration_phrase called with eng_phrase='{eng_phrase}'")
+                eng_lower = eng_phrase.lower().strip()
+                import re
+                # Common patterns
+                if 'month' in eng_lower and 'ago' in eng_lower:
+                    match = re.search(r'(\d+|\w+)\s+months?', eng_lower)
+                    if match:
+                        num = match.group(1)
+                        if num.isdigit():
+                            return f"לפני {num} חודשים"
+                        elif num.lower() in ['a', 'one']:
+                            return "לפני חודש"
+                elif 'week' in eng_lower and 'ago' in eng_lower:
+                    match = re.search(r'(\d+|\w+)\s+weeks?', eng_lower)
+                    if match:
+                        num = match.group(1)
+                        if num.isdigit():
+                            return f"לפני {num} שבועות"
+                        elif num.lower() in ['a', 'one']:
+                            return "לפני שבוע"
+                elif 'year' in eng_lower and 'ago' in eng_lower:
+                    match = re.search(r'(\d+|\w+)\s+years?', eng_lower)
+                    if match:
+                        num = match.group(1)
+                        if num.isdigit():
+                            return f"לפני {num} שנים"
+                        elif num.lower() in ['a', 'one']:
+                            return "לפני שנה"
+                elif 'day' in eng_lower and 'ago' in eng_lower:
+                    match = re.search(r'(\d+|\w+)\s+days?', eng_lower)
+                    if match:
+                        num = match.group(1)
+                        if num.isdigit():
+                            result = f"לפני {num} ימים"
+                            print(f"DEBUG: _hebrew_duration_phrase returning '{result}'")
+                            return result
+                        elif num.lower() in ['a', 'one']:
+                            result = "לפני יום"
+                            print(f"DEBUG: _hebrew_duration_phrase returning '{result}'")
+                            return result
+                print(f"DEBUG: _hebrew_duration_phrase returning original eng_phrase '{eng_phrase}'")
+                return eng_phrase
+            
+            # Get Hebrew mode
+            lang_code = (_dj_translation.get_language() if _dj_translation else None) or 'en'
+            hebrew_mode = str(lang_code).startswith('he')
+            display_duration = _hebrew_duration_phrase(duration_ago) if hebrew_mode else duration_ago
+
+            print(f"DEBUG: archive_emails_by_sender_from_duration_ago called with sender='{sender_email}', duration_ago='{duration_ago}', hebrew_mode={hebrew_mode}, display_duration='{display_duration}'")
+            
+            # Build search query with sender and duration window
+            query_parts = [f"from:{sender_email}"]
+            
+            start_dt, end_dt = self._compute_precise_date_range_window(str(duration_ago).strip().lower())
+            if not start_dt or not end_dt:
+                return {"error": f"Invalid or unsupported duration: {duration_ago}"}
+            
+            start_date = start_dt.strftime('%Y/%m/%d')
+            end_date = end_dt.strftime('%Y/%m/%d')
+            query_parts.append(f"after:{start_date}")
+            query_parts.append(f"before:{end_date}")
+            
+            query = " ".join(query_parts)
+            print(f"DEBUG: Final Gmail query for {sender_email} from {duration_ago}: {query}")
+
+            max_retries = 5
+            retry_delay = 1
+            all_messages = []
+            next_page_token = None
+            
+            for attempt in range(max_retries):
+                try:
+                    while True:
+                        kwargs = {"userId": 'me', "q": query, "maxResults": 500}
+                        if next_page_token:
+                            kwargs["pageToken"] = next_page_token
+                        results = self.service.users().messages().list(**kwargs).execute()
+                        msgs = results.get('messages', []) or []
+                        all_messages.extend(msgs)
+                        next_page_token = results.get('nextPageToken')
+                        if not next_page_token:
+                            break
+                    break
+                except Exception as e:
+                    err_text = str(e)
+                    if (("SSL" in err_text or "WRONG_VERSION_NUMBER" in err_text or "DECRYPTION_FAILED_OR_BAD_RECORD_MAC" in err_text or
+                         "timeout" in err_text.lower() or "connection" in err_text.lower() or
+                         "WinError 10060" in err_text or "failed to respond" in err_text.lower()) and attempt < max_retries - 1):
+                        print(f"Connection error in archive_emails_by_sender_from_duration_ago (attempt {attempt + 1}): {err_text}")
+                        time.sleep(retry_delay)
+                        retry_delay *= 2
+                        continue
+                    else:
+                        raise
+
+            if not all_messages:
+                return {"status": "success", "message": _("No emails found from %(sender)s from %(duration)s to archive.") % {"sender": sender_email, "duration": display_duration}, "archived_count": 0}
+
+            if not confirm:
+                return {
+                    "status": "confirmation_required",
+                    "message": _("Found %(count)d emails from %(sender)s from %(duration)s. Do you want to archive them?") % {"count": len(all_messages), "sender": sender_email, "duration": display_duration},
+                    "count": len(all_messages),
+                    "total_estimated": len(all_messages),
+                    "preview": self._build_preview(all_messages),
+                    "action_details": {"action": "archive_by_sender_from_duration_ago", "sender": sender_email, "duration_ago": duration_ago}
+                }
+
+            # Archive in batches
+            total_processed = 0
+            total_emails = len(all_messages)
+            message_ids = [m['id'] for m in all_messages]
+
+            if hasattr(self, 'command_id') and self.command_id:
+                from agent.views import update_email_progress
+                update_email_progress(self.command_id, 0, total_emails)
+
+            for i in range(0, len(all_messages), 100):
+                batch = all_messages[i:i+100]
+                batch_ids = [m['id'] for m in batch]
+                try:
+                    self.service.users().messages().batchModify(
+                        userId='me', body={'ids': batch_ids, 'removeLabelIds': ['INBOX']}
+                    ).execute()
+                    total_processed += len(batch)
+                    if hasattr(self, 'command_id') and self.command_id:
+                        update_email_progress(self.command_id, total_processed, total_emails)
+                except Exception as e:
+                    err_text = str(e)
+                    print(f"WARN: batchModify failed, falling back to single modify: {err_text}")
+                    for m in batch:
+                        try:
+                            self.service.users().messages().modify(userId='me', id=m['id'], body={'removeLabelIds': ['INBOX']}).execute()
+                            total_processed += 1
+                            if hasattr(self, 'command_id') and self.command_id:
+                                update_email_progress(self.command_id, total_processed, total_emails)
+                        except Exception:
+                            continue
+
+            action_id = self._record_undo('archive', message_ids)
+            return {"status": "success", "message": _("Archived %(count)d emails from %(sender)s from %(duration)s.") % {"count": total_processed, "sender": sender_email, "duration": display_duration}, "archived_count": total_processed, "undo_action_id": action_id}
+
+        except HttpError as error:
+            return {"status": "error", "message": f"Error archiving emails: {error}"}
+        except Exception as e:
+            print(f"Unexpected error in archive_emails_by_sender_from_duration_ago: {e}")
+            return {"error": f"Unexpected error: {str(e)}"}
+
     def archive_emails_from_time(self, time_period, confirm=False):
         """Archive emails from a specific time window: today, yesterday, this/last week/month/year.
         This archives any messages within the time window, regardless of sender.
@@ -4137,11 +4336,40 @@ class GmailAIAgent:
                 if eng_phrase in mapping:
                     return mapping[eng_phrase]
                 return eng_phrase
+            # Also support duration-ago phrases (e.g., "1 month ago")
+            def _hebrew_duration_phrase(eng_phrase: str) -> str:
+                eng_lower = (eng_phrase or "").lower().strip()
+                import re
+                if 'ago' not in eng_lower:
+                    return eng_phrase
+                m = re.search(r"(a|one|\d+)\s+(day|days|week|weeks|month|months|year|years)\s+ago", eng_lower)
+                if not m:
+                    return eng_phrase
+                qty_raw, unit = m.group(1), m.group(2)
+                qty = 1 if qty_raw in ['a', 'one'] else int(qty_raw)
+                if unit.startswith('day'):
+                    return f"לפני {qty} יום" if qty == 1 else f"לפני {qty} ימים"
+                if unit.startswith('week'):
+                    return f"לפני {qty} שבוע" if qty == 1 else f"לפני {qty} שבועות"
+                if unit.startswith('month'):
+                    return f"לפני {qty} חודש" if qty == 1 else f"לפני {qty} חודשים"
+                if unit.startswith('year'):
+                    return f"לפני {qty} שנה" if qty == 1 else f"לפני {qty} שנים"
+                return eng_phrase
             
             # Get Hebrew mode from Django's current language
             lang_code = (_dj_translation.get_language() if _dj_translation else None) or 'en'
             hebrew_mode = str(lang_code).startswith('he')
-            display_time = _hebrew_date_phrase(time_period) if hebrew_mode else time_period
+            if hebrew_mode:
+                tp_lower = str(time_period or '').strip().lower()
+                # If it's an "N unit ago" duration, prefer the duration phrase; otherwise map fixed periods
+                import re
+                if re.search(r"\b(a|one|\d+)\s+(day|days|week|weeks|month|months|year|years)\s+ago\b", tp_lower):
+                    display_time = _hebrew_duration_phrase(time_period)
+                else:
+                    display_time = _hebrew_date_phrase(time_period)
+            else:
+                display_time = time_period
 
             print(f"DEBUG: archive_emails_from_time called with time_period='{time_period}'")
             start_dt, end_dt = self._compute_precise_date_range_window(str(time_period).strip().lower())

@@ -364,7 +364,7 @@ msgstr "נמצאו %(count)d מיילים ב-%(what)s%(age)s. לארכב אות�
 msgid "Archived %(count)d emails from %(what)s."
 msgstr "נארכבו %(count)d מיילים מ-%(what)s."
 
-#: .\agent\email_ai_agent.py:1104 .\agent\email_ai_agent.py:2086
+#: .\agent\email_ai_agent.py:1104 .\agent\email_ai_agent.py:2086 .\agent\email_ai_agent.py:3632
 #, python-format
 msgid "No emails found from %(sender)s%(age)s."
 msgstr "לא נמצאו מיילים מ-%(sender)s%(age)s."
@@ -444,32 +444,48 @@ msgstr "לא נמצאו מיילים מהשולח: %(sender)s."
 msgid "No emails found with subject: '%(subject)s'."
 msgstr "לא נמצאו מיילים עם נושא: '%(subject)s'."
 
-#: .\agent\email_ai_agent.py:2091
+#: .\agent\email_ai_agent.py:2091 .\agent\email_ai_agent.py:3638
 #, python-format
 msgid ""
 "Found %(count)d emails from %(sender)s%(age)s. Do you want to archive them?"
 msgstr "נמצאו %(count)d מיילים מ-%(sender)s%(age)s. לארכב אותם?"
 
-#: .\agent\email_ai_agent.py:2119
+#: .\agent\email_ai_agent.py:2119 .\agent\email_ai_agent.py:3682
 #, python-format
-msgid "Archived %(count)d emails from %(sender)s."
-msgstr "נארכבו %(count)d מיילים מ-%(sender)s."
+msgid "Archived %(count)d emails from %(sender)s%(age)s."
+msgstr "נארכבו %(count)d מיילים מ-%(sender)s%(age)s."
 
-#: .\agent\email_ai_agent.py:4048
+#: .\agent\email_ai_agent.py:4036 .\agent\email_ai_agent.py:4048
 #, python-format
 msgid "No emails found from %(sender)s from %(time)s."
 msgstr "לא נמצאו מיילים מ-%(sender)s מ-%(time)s."
 
-#: .\agent\email_ai_agent.py:4054
+#: .\agent\email_ai_agent.py:4041 .\agent\email_ai_agent.py:4054
 #, python-format
 msgid ""
 "Found %(count)d emails from %(sender)s from %(time)s. Do you want to archive them?"
 msgstr "נמצאו %(count)d מיילים מ-%(sender)s מ-%(time)s. לארכב אותם?"
 
-#: .\agent\email_ai_agent.py:4119
+#: .\agent\email_ai_agent.py:4084 .\agent\email_ai_agent.py:4119
 #, python-format
 msgid "Archived %(count)d emails from %(sender)s from %(time)s."
 msgstr "נארכבו %(count)d מיילים מ-%(sender)s מ-%(time)s."
+
+#: .\agent\email_ai_agent.py
+#, python-format
+msgid "No emails found from %(sender)s from %(duration)s to archive."
+msgstr "לא נמצאו מיילים מ-%(sender)s מלפני %(duration)s לארכיון."
+
+#: .\agent\email_ai_agent.py
+#, python-format
+msgid ""
+"Found %(count)d emails from %(sender)s from %(duration)s. Do you want to archive them?"
+msgstr "נמצאו %(count)d מיילים מ-%(sender)s מלפני %(duration)s. לארכב אותם?"
+
+#: .\agent\email_ai_agent.py
+#, python-format
+msgid "Archived %(count)d emails from %(sender)s from %(duration)s."
+msgstr "נארכבו %(count)d מיילים מ-%(sender)s מלפני %(duration)s."
 
 #: .\agent\email_ai_agent.py:2148
 #, python-format
