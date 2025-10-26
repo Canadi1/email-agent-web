@@ -4097,6 +4097,27 @@ class GmailAIAgent:
             if not time_period:
                 return {"error": "Missing required parameter: time_period"}
 
+            # Translate time_period to Hebrew if needed
+            def _hebrew_date_phrase(eng_phrase: str) -> str:
+                mapping = {
+                    "this week": "מהשבוע",
+                    "this month": "מהחודש",
+                    "this year": "מהשנה",
+                    "today": "מהיום",
+                    "yesterday": "מאתמול",
+                    "last week": "מהשבוע שעבר",
+                    "last month": "מהחודש שעבר",
+                    "last year": "מהשנה שעברה",
+                }
+                if eng_phrase in mapping:
+                    return mapping[eng_phrase]
+                return eng_phrase
+            
+            # Get Hebrew mode from Django's current language
+            lang_code = (_dj_translation.get_language() if _dj_translation else None) or 'en'
+            hebrew_mode = str(lang_code).startswith('he')
+            display_time = _hebrew_date_phrase(time_period) if hebrew_mode else time_period
+
             print(f"DEBUG: archive_emails_from_time called with time_period='{time_period}'")
             start_dt, end_dt = self._compute_precise_date_range_window(str(time_period).strip().lower())
             if not start_dt or not end_dt:
@@ -4137,12 +4158,12 @@ class GmailAIAgent:
                         raise
 
             if not all_messages:
-                return {"status": "success", "message": _("No emails found from %(time)s to archive.") % {"time": time_period}, "archived_count": 0}
+                return {"status": "success", "message": _("No emails found from %(time)s to archive.") % {"time": display_time}, "archived_count": 0}
 
             if not confirm:
                 return {
                     "status": "confirmation_required",
-                    "message": _("Found %(count)d emails from %(time)s. Do you want to archive them?") % {"count": len(all_messages), "time": time_period},
+                    "message": _("Found %(count)d emails from %(time)s. Do you want to archive them?") % {"count": len(all_messages), "time": display_time},
                     "count": len(all_messages),
                     "total_estimated": len(all_messages),
                     "preview": self._build_preview(all_messages),
@@ -4182,7 +4203,7 @@ class GmailAIAgent:
                             continue
 
             action_id = self._record_undo('archive', message_ids)
-            return {"status": "success", "message": _("Archived %(count)d emails from %(time)s.") % {"count": total_processed, "time": time_period}, "archived_count": total_processed, "undo_action_id": action_id}
+            return {"status": "success", "message": _("Archived %(count)d emails from %(time)s.") % {"count": total_processed, "time": display_time}, "archived_count": total_processed, "undo_action_id": action_id}
 
         except HttpError as error:
             return {"status": "error", "message": f"Error archiving emails: {error}"}
