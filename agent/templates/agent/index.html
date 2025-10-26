@@ -11411,12 +11411,16 @@
                     try { console.log('[HE-ARCHIVE-TF-GUARD] matched מא*, set:', items.map(x=>x.cmd)); } catch(e) {}
                 }
                 // Hebrew archive progressive timeframe guard: when typing "ארכב מיילים מהשב..." show both week suggestions
+                // BUT NOT when typing "מהשנה" (check that we have שב/שבו/שבוע after מ)
                 if (isHeb && /^ארכב\s+מיילים\s+מהשב/i.test(qShow) && Array.isArray(items)) {
-                    items = [
-                        { cmd: 'ארכב מיילים מהשבוע' },
-                        { cmd: 'ארכב מיילים מהשבוע שעבר' }
-                    ];
-                    try { console.log('[HE-ARCHIVE-TF-GUARD] matched מהשב*, set:', items.map(x=>x.cmd)); } catch(e) {}
+                    // Exclude מהשנה variants - require שב/שבו/שבוע
+                    if (!/^ארכב\s+מיילים\s+מהשנה/i.test(qShow)) {
+                        items = [
+                            { cmd: 'ארכב מיילים מהשבוע' },
+                            { cmd: 'ארכב מיילים מהשבוע שעבר' }
+                        ];
+                        try { console.log('[HE-ARCHIVE-TF-GUARD] matched מהשב* (not מהשנה), set:', items.map(x=>x.cmd)); } catch(e) {}
+                    }
                 }
                 // Hebrew archive progressive timeframe guard: when typing "ארכב מיילים מהשבוע ש..." show only "ארכב מיילים מהשבוע שעבר"
                 if (isHeb && /^ארכב\s+מיילים\s+מהשבוע\s+ש/i.test(qShow) && Array.isArray(items)) {
@@ -11572,6 +11576,72 @@
                 if (isHebRender && /^ארכב\s+מיילים\s+מא$/i.test(qRender) && Array.isArray(items)) {
                     items = [{ cmd: 'ארכב מיילים מאתמול' }];
                     try { console.log('[HE-ARCHIVE-RENDER-FILTER] exact מא → only מאתמול'); } catch(_) {}
+                }
+                // LAST-MILE: 'מהי' or 'מהיו' or 'מהיום' → only today (progressive)
+                if (isHebRender && /^ארכב\s+מיילים\s+מהי/i.test(qRender) && Array.isArray(items)) {
+                    items = [{ cmd: 'ארכב מיילים מהיום' }];
+                    try { console.log('[HE-ARCHIVE-RENDER-FILTER] מהי* → only מהיום'); } catch(_) {}
+                }
+                // LAST-MILE: 'מאת' or 'מאתמול' → only yesterday (progressive)
+                if (isHebRender && /^ארכב\s+מיילים\s+מאת/i.test(qRender) && Array.isArray(items)) {
+                    items = [{ cmd: 'ארכב מיילים מאתמול' }];
+                    try { console.log('[HE-ARCHIVE-RENDER-FILTER] מאת* → only מאתמול'); } catch(_) {}
+                }
+                // LAST-MILE: 'מהח' or 'מהחודש' → month suggestions (progressive)
+                if (isHebRender && /^ארכב\s+מיילים\s+מהח/i.test(qRender) && Array.isArray(items)) {
+                    if (/^ארכב\s+מיילים\s+מהחודש\s+ש/i.test(qRender)) {
+                        // specific: only "שעבר" variant
+                        items = [{ cmd: 'ארכב מיילים מהחודש שעבר' }];
+                    } else {
+                        items = [
+                            { cmd: 'ארכב מיילים מהחודש' },
+                            { cmd: 'ארכב מיילים מהחודש שעבר' }
+                        ];
+                    }
+                    try { console.log('[HE-ARCHIVE-RENDER-FILTER] מהח* → month options'); } catch(_) {}
+                }
+                // LAST-MILE: 'מהש' or 'מהשבוע' or 'מהשנה' → week/year suggestions (progressive)
+                if (isHebRender && /^ארכב\s+מיילים\s+מהש/i.test(qRender) && Array.isArray(items)) {
+                    if (/^ארכב\s+מיילים\s+מהשבוע\s+ש/i.test(qRender)) {
+                        // specific: only week "שעבר" variant
+                        items = [{ cmd: 'ארכב מיילים מהשבוע שעבר' }];
+                    } else if (/^ארכב\s+מיילים\s+מהשנה\s+ש/i.test(qRender)) {
+                        // specific: only year "שעברה" variant
+                        items = [{ cmd: 'ארכב מיילים מהשנה שעברה' }];
+                    } else if (/^ארכב\s+מיילים\s+מהשבוע/i.test(qRender)) {
+                        // week specific (including progressive: מהשב, מהשבו, מהשבוע)
+                        items = [
+                            { cmd: 'ארכב מיילים מהשבוע' },
+                            { cmd: 'ארכב מיילים מהשבוע שעבר' }
+                        ];
+                    } else if (/^ארכב\s+מיילים\s+מהשנה/i.test(qRender)) {
+                        // year specific (including progressive: מהשנ, מהשנה)
+                        items = [
+                            { cmd: 'ארכב מיילים מהשנה' },
+                            { cmd: 'ארכב מיילים מהשנה שעברה' }
+                        ];
+                    } else if (/^ארכב\s+מיילים\s+מהשב/i.test(qRender)) {
+                        // Explicit מהשב match (but not מהשבוע yet) - week only
+                        items = [
+                            { cmd: 'ארכב מיילים מהשבוע' },
+                            { cmd: 'ארכב מיילים מהשבוע שעבר' }
+                        ];
+                    } else if (/^ארכב\s+מיילים\s+מהשנ/i.test(qRender)) {
+                        // Explicit מהשנ match (but not מהשנה yet) - year only
+                        items = [
+                            { cmd: 'ארכב מיילים מהשנה' },
+                            { cmd: 'ארכב מיילים מהשנה שעברה' }
+                        ];
+                    } else {
+                        // ambiguous מהש prefix - show both week and year
+                        items = [
+                            { cmd: 'ארכב מיילים מהשבוע' },
+                            { cmd: 'ארכב מיילים מהשבוע שעבר' },
+                            { cmd: 'ארכב מיילים מהשנה' },
+                            { cmd: 'ארכב מיילים מהשנה שעברה' }
+                        ];
+                    }
+                    try { console.log('[HE-ARCHIVE-RENDER-FILTER] מהש* → week/year options'); } catch(_) {}
                 }
             } catch(_) {}
 
