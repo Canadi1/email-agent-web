@@ -1431,6 +1431,12 @@ def _translate_hebrew_command_to_english(command: str) -> str:
     c = re.sub(r"\bfrom\s+older\s+(?:than|then)\b", "older than", c, flags=re.IGNORECASE)
     # Also drop a stray Hebrew 'מ' (with optional hyphen) immediately before the English token 'older'
     c = re.sub(r"\bמ[-–—־]?\s*(?=older\b)", "", c, flags=re.IGNORECASE)
+    # If original contained 'מלפני', coerce any 'older than N <unit>' into 'from N <unit> ago'
+    if re.search(r"\bמלפני\b|\bמ\s*לפני\b", orig):
+        c = re.sub(r"\bfrom\s+older\s+(?:than|then)\s+(\d+)\s+(day|days|week|weeks|month|months|year|years)\b",
+                   r"from \1 \2 ago", c, flags=re.IGNORECASE)
+        c = re.sub(r"\bolder\s+(?:than|then)\s+(\d+)\s+(day|days|week|weeks|month|months|year|years)\b",
+                   r"from \1 \2 ago", c, flags=re.IGNORECASE)
     # Convert 'מלפני/לפני' forms to 'from N unit ago' when written as a compound with 'מ'
     def _he_to_en_unit(unit_he: str, qty: int) -> str:
         u = unit_he

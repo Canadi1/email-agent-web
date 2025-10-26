@@ -428,7 +428,6 @@ class GmailAIAgent:
         except Exception as e:
             print(f"❌ Error in list_emails_by_domain: {e}")
             return {"emails": [], "next_page_token": None}
-
     def list_emails_by_sender(self, sender_keyword, max_results=None, page_token=None, older_than_days=None, date_range=None):
         """List emails from a sender containing specific keyword with pagination."""
         try:
@@ -819,7 +818,6 @@ class GmailAIAgent:
             term_counts = {}
             
             start_time = time.time()
-            
             # Use optimized sequential processing for maximum speed while analyzing ALL emails
             try:
                 # Build the processing list directly from the chosen sample IDs
@@ -1250,7 +1248,6 @@ class GmailAIAgent:
         result = self._execute_list_query(query, description, max_results, page_token=page_token)
         # pass through next page token
         return result
-
     def _compute_precise_date_range_window(self, date_range_str):
         """
         Compute precise calendar windows for "from [duration] ago" and "last [period]" commands.
@@ -1729,7 +1726,6 @@ class GmailAIAgent:
             'CATEGORY_FORUMS': _('Forums'),
         }
         return mapping.get(alias, raw)
-
     def _compute_date_range_window(self, date_range_str):
         """Compute (start_date, end_date) datetimes for simple phrases like 'last month', 'last week', etc."""
         if not date_range_str:
@@ -2228,7 +2224,6 @@ class GmailAIAgent:
             
         except HttpError as error:
             return {"status": "error", "message": f"Error deleting emails: {error}"}
-    
     def delete_emails_by_subject_keywords(self, keywords, confirm=False, older_than_days=None):
         """Delete emails containing specific keywords in subject by moving them to Trash.
         Optionally filter by age using older_than_days.
@@ -2723,7 +2718,6 @@ class GmailAIAgent:
                     "confirmation_required": True,
                     "older_than_days": older_than_days
                 }
-        
         # Stats
         if best_match_action == "stats":
             return {
@@ -3029,12 +3023,23 @@ class GmailAIAgent:
                 time_period = plain_time_match.group(2)
                 print(f"DEBUG: plain_time_match for archive found time_period='{time_period}'")
                 return {"action": "archive", "target_type": "time", "time_period": time_period, "confirmation_required": True}
+            # Fallback: if translator produced 'from older than N <unit>', treat it as 'from N <unit> ago'
+            from_older_than_match = re.search(r'(^|\b)archive(?:\s+emails?)?\s+from\s+older\s+(?:than|then)\s+(\d+)\s+(day|days|week|weeks|month|months|year|years)(\b|$)', command_lower)
+            if from_older_than_match:
+                qty = int(from_older_than_match.group(2))
+                unit = from_older_than_match.group(3)
+                duration_ago = f"{qty} {unit} ago"
+                print(f"DEBUG: from_older_than_match for archive coerced to duration_ago='{duration_ago}'")
+                return {"action": "archive", "target_type": "duration_ago", "duration_ago": duration_ago, "confirmation_required": True}
+             # Flexible sender match - but NOT if it looks like a duration phrase (contains "days ago", "weeks ago", etc.)
             flexible_sender_match = re.search(r'from\s+([a-zA-Z0-9._\-+@\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff ]+?)(?=\s+|$)', command_lower)
             if flexible_sender_match:
                 sender_keyword = flexible_sender_match.group(1).strip()
-                if sender_keyword not in ['emails','all','the','my','any','this','that','these','those']:
-                    return {"action": "archive", "target_type": "sender", "target": sender_keyword, "confirmation_required": True, "older_than_days": older_than_days}
-            
+                # Skip if it looks like a duration phrase (e.g., '7 days ago')
+                if not re.search(r'\b\d+\s+(?:day|days|week|weeks|month|months|year|years)\s+ago\b', sender_keyword.lower()):
+                    if sender_keyword not in ['emails','all','the','my','any','this','that','these','those']:
+                        return {"action": "archive", "target_type": "sender", "target": sender_keyword, "confirmation_required": True, "older_than_days": older_than_days}
+
             # Custom categories
             if "verification" in command_lower and "code" in command_lower:
                 return {"action": "archive", "target_type": "custom_category", "target": "verification_codes", "confirmation_required": True, "older_than_days": older_than_days}
@@ -3044,7 +3049,6 @@ class GmailAIAgent:
                 return {"action": "archive", "target_type": "custom_category", "target": "account_security", "confirmation_required": True, "older_than_days": older_than_days}
 
         return {"debug_info": f"Action '{best_match_action}' was recognized, but no specific pattern was matched for the rest of the command."}
-
     def process_natural_language_command(self, command, confirmation_data=None):
         """Process natural language commands using AI or manual parsing"""
         
@@ -3542,7 +3546,6 @@ class GmailAIAgent:
                 labels = self.list_labels()
                 if not labels: return {"status": "success", "message": "You have no custom labels."}
                 return {"status": "success", "data": labels, "type": "label_list"}
-
             elif action == "show_label":
                 res = self.get_emails_by_label(target)
                 emails = res.get("emails", []) if isinstance(res, dict) else res
@@ -3627,15 +3630,39 @@ class GmailAIAgent:
                         else:
                             raise e
                 
+                # Helper to convert days to readable duration string (Hebrew-aware)
+                def _days_to_duration_string(days, hebrew_mode=False):
+                    """Convert days to a readable duration string."""
+                    if not days:
+                        return ""
+                    if hebrew_mode:
+                        if days < 7:
+                            return f" ישנים מ-{days} ימים"
+                        elif days < 30:
+                            weeks = days // 7
+                            return f" ישנים מ-{weeks} שבועות"
+                        elif days < 365:
+                            months = days // 30
+                            return f" ישנים מ-{months} חודשים"
+                        else:
+                            years = days // 365
+                            return f" ישנים מ-{years} שנים"
+                    else:
+                        return _(" older than %(days)d days") % {"days": days}
+                
+                # Get Hebrew mode
+                lang_code = (_dj_translation.get_language() if _dj_translation else None) or 'en'
+                hebrew_mode = str(lang_code).startswith('he')
+                age_txt = _days_to_duration_string(older_than_days, hebrew_mode) if older_than_days else ""
+                
                 # If we get here, the message fetching was successful, now do the archiving
                 if not all_messages:
-                    age_txt = _(" older than %(days)d days") % {"days": older_than_days} if older_than_days else ""
                     return {"status": "success", "message": _("No emails found from %(sender)s%(age)s.") % {"sender": sender_email, "age": age_txt}, "archived_count": 0}
                 
                 if not confirm:
                     return {
                         "status": "confirmation_required", 
-                        "message": _("Found %(count)d emails from %(sender)s%(age)s. Do you want to archive them?") % {"count": len(all_messages), "sender": sender_email, "age": (_(' older than %(days)d days') % {'days': older_than_days}) if older_than_days else ''},
+                        "message": _("Found %(count)d emails from %(sender)s%(age)s. Do you want to archive them?") % {"count": len(all_messages), "sender": sender_email, "age": age_txt},
                         "count": len(all_messages),
                         "total_estimated": len(all_messages),
                         "preview": self._build_preview(all_messages),
@@ -3680,7 +3707,6 @@ class GmailAIAgent:
                 
                 # Record undo action
                 action_id = self._record_undo('archive', message_ids)
-                age_txt = _(" older than %(days)d days") % {"days": older_than_days} if older_than_days else ""
                 return {"status": "success", "message": _("Archived %(count)d emails from %(sender)s%(age)s.") % {"count": total_processed, "sender": sender_email, "age": age_txt}, "archived_count": total_processed, "undo_action_id": action_id}
                 
             except Exception as e:
@@ -3929,7 +3955,6 @@ class GmailAIAgent:
             
         except HttpError as error:
             return {"status": "error", "message": f"Error archiving emails: {error}"}
-    
     def archive_emails_by_sender_from_time(self, sender_email, time_period, confirm=False):
         """Archive emails from a specific sender from a specific time period (e.g., 'from today', 'from yesterday')."""
         try:
@@ -4216,6 +4241,55 @@ class GmailAIAgent:
             if not duration_ago:
                 return {"error": "Missing required parameter: duration_ago"}
 
+            # Translate duration to Hebrew if needed
+            def _hebrew_duration_phrase(eng_phrase: str) -> str:
+                """Convert English duration phrase to Hebrew."""
+                eng_lower = eng_phrase.lower().strip()
+                import re
+                # Common patterns
+                if 'month' in eng_lower and 'ago' in eng_lower:
+                    # "2 months ago" -> "לפני 2 חודשים"
+                    match = re.search(r'(\d+|\w+)\s+months?', eng_lower)
+                    if match:
+                        num = match.group(1)
+                        if num.isdigit():
+                            return f"לפני {num} חודשים"
+                        elif num.lower() in ['a', 'one']:
+                            return "לפני חודש"
+                elif 'week' in eng_lower and 'ago' in eng_lower:
+                    # "2 weeks ago" -> "לפני 2 שבועות"
+                    match = re.search(r'(\d+|\w+)\s+weeks?', eng_lower)
+                    if match:
+                        num = match.group(1)
+                        if num.isdigit():
+                            return f"לפני {num} שבועות"
+                        elif num.lower() in ['a', 'one']:
+                            return "לפני שבוע"
+                elif 'year' in eng_lower and 'ago' in eng_lower:
+                    # "2 years ago" -> "לפני 2 שנים"
+                    match = re.search(r'(\d+|\w+)\s+years?', eng_lower)
+                    if match:
+                        num = match.group(1)
+                        if num.isdigit():
+                            return f"לפני {num} שנים"
+                        elif num.lower() in ['a', 'one']:
+                            return "לפני שנה"
+                elif 'day' in eng_lower and 'ago' in eng_lower:
+                    # "5 days ago" -> "לפני 5 ימים"
+                    match = re.search(r'(\d+|\w+)\s+days?', eng_lower)
+                    if match:
+                        num = match.group(1)
+                        if num.isdigit():
+                            return f"לפני {num} ימים"
+                        elif num.lower() in ['a', 'one']:
+                            return "לפני יום"
+                return eng_phrase
+            
+            # Get Hebrew mode
+            lang_code = (_dj_translation.get_language() if _dj_translation else None) or 'en'
+            hebrew_mode = str(lang_code).startswith('he')
+            display_duration = _hebrew_duration_phrase(duration_ago) if hebrew_mode else duration_ago
+
             print(f"DEBUG: archive_emails_from_duration_ago called with duration_ago='{duration_ago}'")
             start_dt, end_dt = self._compute_precise_date_range_window(str(duration_ago).strip().lower())
             if not start_dt or not end_dt:
@@ -4256,12 +4330,12 @@ class GmailAIAgent:
                         raise
 
             if not all_messages:
-                return {"status": "success", "message": _("No emails found from %(duration)s to archive.") % {"duration": duration_ago}, "archived_count": 0}
+                return {"status": "success", "message": _("No emails found from %(duration)s to archive.") % {"duration": display_duration}, "archived_count": 0}
 
             if not confirm:
                 return {
                     "status": "confirmation_required",
-                    "message": _("Found %(count)d emails from %(duration)s. Do you want to archive them?") % {"count": len(all_messages), "duration": duration_ago},
+                    "message": _("Found %(count)d emails from %(duration)s. Do you want to archive them?") % {"count": len(all_messages), "duration": display_duration},
                     "count": len(all_messages),
                     "total_estimated": len(all_messages),
                     "preview": self._build_preview(all_messages),
@@ -4299,72 +4373,10 @@ class GmailAIAgent:
                             continue
 
             action_id = self._record_undo('archive', message_ids)
-            return {"status": "success", "message": _("Archived %(count)d emails from %(duration)s.") % {"count": total_processed, "duration": duration_ago}, "archived_count": total_processed, "undo_action_id": action_id}
+            return {"status": "success", "message": _("Archived %(count)d emails from %(duration)s.") % {"count": total_processed, "duration": display_duration}, "archived_count": total_processed, "undo_action_id": action_id}
 
         except HttpError as error:
             return {"status": "error", "message": f"Error archiving emails: {error}"}
-    
-    def list_archived_emails_from_duration_ago(self, duration_ago, max_results=None, page_token=None):
-        """List archived emails from a specific duration ago (e.g., '2 weeks ago', 'a month ago')."""
-        try:
-            if not duration_ago:
-                return {"error": "Missing required parameter: duration_ago"}
-            
-            print(f"DEBUG: list_archived_emails_from_duration_ago called with duration_ago='{duration_ago}'")
-            start_dt, end_dt = self._compute_precise_date_range_window(str(duration_ago).strip().lower())
-            
-            if not start_dt or not end_dt:
-                return {"error": f"Invalid or unsupported duration: {duration_ago}"}
-            
-            # Format dates for Gmail query
-            start_date_str = start_dt.strftime('%Y/%m/%d')
-            end_date_str = end_dt.strftime('%Y/%m/%d')
-            
-            # Query for archived emails from the specific duration ago
-            # Archived = not in INBOX; also exclude common non-inbox/system buckets
-            q = f"-in:inbox -in:spam -in:trash -in:chats -in:sent -in:drafts after:{start_date_str} before:{end_date_str}"
-            
-            if max_results is None:
-                max_results = self.default_max_results
-            
-            print(f"DEBUG: Gmail query for archived emails from duration ago: {q}")
-            
-            # Execute the query
-            results = self.service.users().messages().list(
-                userId='me',
-                q=q,
-                maxResults=max_results,
-                pageToken=page_token
-            ).execute()
-            
-            messages = results.get('messages', [])
-            if not messages:
-                return {"status": "success", "message": _("No archived emails found from %(duration)s.") % {"duration": duration_ago}, "emails": [], "archived_count": 0}
-            
-            # Get full message details
-            emails = []
-            for message in messages:
-                try:
-                    msg = self.service.users().messages().get(userId='me', id=message['id']).execute()
-                    email_data = self._extract_email_data(msg)
-                    if email_data:
-                        emails.append(email_data)
-                except Exception as e:
-                    print(f"Error fetching message {message['id']}: {e}")
-                    continue
-            
-            return {
-                "status": "success", 
-                "message": _("Found %(count)d archived emails from %(duration)s.") % {"count": len(emails), "duration": duration_ago}, 
-                "emails": emails, 
-                "archived_count": len(emails),
-                "next_page_token": results.get('nextPageToken')
-            }
-            
-        except Exception as e:
-            print(f"Error in list_archived_emails_from_duration_ago: {e}")
-            return {"error": f"Failed to list archived emails from {duration_ago}: {str(e)}"}
-
     def list_archived_emails(self, max_results=None, page_token=None):
         """List archived emails (messages not in Inbox, excluding Sent/Drafts/Spam/Trash)."""
         from agent.views import update_email_progress  # Import at function start
@@ -4716,7 +4728,6 @@ class GmailAIAgent:
             return {"emails": emails, "next_page_token": next_token}
         except Exception:
             return {"emails": [], "next_page_token": None}
-
     def list_all_emails(self, max_results=None, page_token=None):
         """List all emails in All Mail (excludes Spam/Trash/Chats)."""
         from agent.views import update_email_progress  # Import at function start
@@ -4962,259 +4973,6 @@ class GmailAIAgent:
                     print(f"Error processing message {message['id']}: {e}")
                     continue
             return {"emails": emails, "next_page_token": next_token}
-    
-    def restore_emails_from_sender(self, sender_email, confirm=False):
-        """Restore archived emails from a specific sender back to inbox"""
-        try:
-            # Search for emails from the sender
-            # Quote multi-word senders so both words are matched as a single unit
-            sender_term = f'"{sender_email}"' if ' ' in str(sender_email).strip() else sender_email
-            query = f"from:{sender_term}"
-            results = self.service.users().messages().list(
-                userId='me', q=query, maxResults=100).execute()
-            messages = results.get('messages', [])
-            
-            if not messages:
-                return {"status": "success", "message": _("No emails found from %(sender)s to restore.") % {"sender": sender_email}, "restored_count": 0}
-            
-            # Filter for emails that are not in inbox (archived)
-            archived_messages = []
-            
-            # Use batch processing for much faster execution
-            if len(messages) > 10:  # Only batch if we have enough messages
-                batch_size = 100  # Gmail batch API limit
-                for i in range(0, len(messages), batch_size):
-                    batch_messages = messages[i:i + batch_size]
-                    
-                    # Create batch request
-                    batch = self.service.new_batch_http_request()
-                    for message in batch_messages:
-                        batch.add(
-                            self.service.users().messages().get(
-                                userId='me', 
-                                id=message['id']
-                            )
-                        )
-                    
-                    try:
-                        # Execute batch request
-                        batch_responses = batch.execute()
-                        
-                        # Process batch responses
-                        for message, response in zip(batch_messages, batch_responses):
-                            try:
-                                if isinstance(response, Exception):
-                                    continue  # Skip failed requests
-                                    
-                                msg = response
-                                labels = msg.get('labelIds', [])
-                                if 'INBOX' not in labels:
-                                    archived_messages.append(message)
-                                
-                            except Exception as e:
-                                print(f"Error processing message {message['id']}: {e}")
-                                continue
-                                
-                    except Exception as e:
-                        print(f"Batch request failed: {e}")
-                        # Fallback to individual requests for this batch
-                        for message in batch_messages:
-                            try:
-                                msg = self.service.users().messages().get(
-                                    userId='me', id=message['id']).execute()
-                                labels = msg.get('labelIds', [])
-                                if 'INBOX' not in labels:
-                                    archived_messages.append(message)
-                            except HttpError:
-                                continue
-            else:
-                # For small numbers, use individual requests
-                for message in messages:
-                    msg = self.service.users().messages().get(
-                        userId='me', id=message['id']).execute()
-                    labels = msg.get('labelIds', [])
-                    if 'INBOX' not in labels:
-                        archived_messages.append(message)
-            
-            if not archived_messages:
-                return {"status": "success", "message": _("No archived emails found from %(sender)s.") % {"sender": sender_email}, "restored_count": 0}
-            
-            if not confirm:
-                return {
-                    "status": "confirmation_required",
-                    "message": _("Found %(count)d archived emails from %(sender)s. Restore to Inbox?") % {"count": len(archived_messages), "sender": sender_email},
-                    "count": len(archived_messages),
-                    "total_estimated": len(archived_messages),
-                    "preview": self._build_preview(archived_messages),
-                    "action_details": {"action": "restore_by_sender", "sender": sender_email}
-                }
-            
-            # Restore the emails to inbox using batch processing
-            if len(archived_messages) > 10:  # Only batch if we have enough messages
-                batch_size = 100  # Gmail batch API limit
-                for i in range(0, len(archived_messages), batch_size):
-                    batch_messages = archived_messages[i:i + batch_size]
-                    
-                    # Create batch request
-                    batch = self.service.new_batch_http_request()
-                    for message in batch_messages:
-                        batch.add(
-                            self.service.users().messages().modify(
-                                userId='me', 
-                                id=message['id'],
-                                body={'addLabelIds': ['INBOX']}
-                            )
-                        )
-                    
-                    try:
-                        # Execute batch request
-                        batch.execute()
-                    except Exception as e:
-                        print(f"Batch restore failed: {e}")
-                        # Fallback to individual requests for this batch
-                        for message in batch_messages:
-                            try:
-                                self.service.users().messages().modify(
-                                    userId='me', 
-                                    id=message['id'],
-                                    body={'addLabelIds': ['INBOX']}
-                                ).execute()
-                            except HttpError:
-                                continue
-            else:
-                # For small numbers, use individual requests
-                for message in archived_messages:
-                    self.service.users().messages().modify(
-                        userId='me', 
-                        id=message['id'],
-                        body={'addLabelIds': ['INBOX']}
-                    ).execute()
-            
-            return {"status": "success", "message": _("Restored %(count)d emails from %(sender)s to Inbox.") % {"count": len(archived_messages), "sender": sender_email}, "restored_count": len(archived_messages)}
-            
-        except HttpError as error:
-            return {"status": "error", "message": f"Error restoring emails: {error}"}
-
-    def create_label(self, label_name):
-        """Create a new Gmail label"""
-        try:
-            # Check if label already exists
-            labels = self.api_list_labels()
-            existing_labels = [label['name'] for label in labels.get('labels', [])]
-            
-            if label_name in existing_labels:
-                return label_name
-            
-            # Create new label
-            label_object = {
-                'name': label_name,
-                'labelListVisibility': 'labelShow',
-                'messageListVisibility': 'show'
-            }
-            
-            created_label = self.api_create_label(label_object)
-            
-            return label_name
-            
-        except HttpError as error:
-            print(f"❌ Error creating label: {error}")
-            return None
-
-    def get_label_id(self, label_name):
-        """Get the ID of a label by name"""
-        try:
-            labels = self.api_list_labels()
-            for label in labels.get('labels', []):
-                if label['name'].lower() == label_name.lower():
-                    return label['id']
-            return None
-        except HttpError as error:
-            print(f"❌ Error getting label ID: {error}")
-            return None
-
-    def label_emails_by_sender(self, sender_email, label_name, confirm=False):
-        """Label all emails from a specific sender"""
-        try:
-            # Search for emails from the sender first
-            sender_term = f'"{sender_email}"' if ' ' in str(sender_email).strip() else sender_email
-            query = f"from:{sender_term}"
-            results = self.service.users().messages().list(
-                userId='me', q=query).execute()
-            messages = results.get('messages', [])
-            
-            if not messages:
-                return {"status": "success", "message": f"No emails found from {sender_email}.", "labeled_count": 0}
-            
-            if not confirm:
-                return {
-                    "status": "confirmation_required",
-                    "message": f"Found {len(messages)} emails from {sender_email}. Do you want to label them as '{label_name}'?",
-                    "count": len(messages),
-                    "total_estimated": len(messages),
-                    "preview": self._build_preview(messages),
-                    "action_details": {"action": "label_by_sender", "sender": sender_email, "label": label_name}
-                }
-
-            # Create label if it doesn't exist (only on confirm)
-            self.create_label(label_name)
-            label_id = self.get_label_id(label_name)
-            if not label_id:
-                return {"status": "error", "message": f"Could not create or find label '{label_name}'"}
-            
-            # Label the emails
-            for message in messages:
-                self.service.users().messages().modify(
-                    userId='me', 
-                    id=message['id'],
-                    body={'addLabelIds': [label_id]}
-                ).execute()
-            action_id = self._record_undo('label_add', [m['id'] for m in messages], extra={'label_id': label_id})
-            return {"status": "success", "message": f"Labeled {len(messages)} emails from {sender_email} as '{label_name}'.", "labeled_count": len(messages), "undo_action_id": action_id}
-            
-        except HttpError as error:
-            return {"status": "error", "message": f"Error labeling emails: {error}"}
-
-    def label_emails_by_domain(self, domain, label_name, confirm=False):
-        """Label all emails from a specific domain"""
-        try:
-            # Search for emails from the domain first
-            query = f"from:*@{domain}"
-            results = self.service.users().messages().list(
-                userId='me', q=query).execute()
-            messages = results.get('messages', [])
-            
-            if not messages:
-                return {"status": "success", "message": f"No emails found from {domain}.", "labeled_count": 0}
-            
-            if not confirm:
-                return {
-                    "status": "confirmation_required",
-                    "message": f"Found {len(messages)} emails from {domain}. Do you want to label them as '{label_name}'?",
-                    "count": len(messages),
-                    "total_estimated": len(messages),
-                    "preview": self._build_preview(messages),
-                    "action_details": {"action": "label_by_domain", "domain": domain, "label": label_name}
-                }
-
-            # Create label only on confirm
-            self.create_label(label_name)
-            label_id = self.get_label_id(label_name)
-            if not label_id:
-                return {"status": "error", "message": f"Could not create or find label '{label_name}'"}
-            
-            # Label the emails
-            for message in messages:
-                self.service.users().messages().modify(
-                    userId='me', 
-                    id=message['id'],
-                    body={'addLabelIds': [label_id]}
-                ).execute()
-            action_id = self._record_undo('label_add', [m['id'] for m in messages], extra={'label_id': label_id})
-            return {"status": "success", "message": f"Labeled {len(messages)} emails from {domain} as '{label_name}'.", "labeled_count": len(messages), "undo_action_id": action_id}
-            
-        except HttpError as error:
-            return {"status": "error", "message": f"Error labeling emails: {error}"}
-
     def label_emails_by_keywords(self, keywords, label_name, confirm=False):
         """Label emails containing specific keywords in subject"""
         try:
