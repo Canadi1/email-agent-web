@@ -8398,14 +8398,20 @@
             try {
                 const qlcHeArch = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
                 const isHeArchivedBase = /^רש(?:ו)?ם\s+מיילים\s+מארכיון\s*$/.test(qlcHeArch);
-                const isHeArchivedFrom = /^רש(?:ו)?ם\s+מיילים\s+מארכיון\s+מ(?:$|[^\s].*)$/i.test(qlcHeArch);
+                const isHeArchivedFrom = /^רש(?:ו)?ם\s+מיילים\s+מארכיון\s+מ/i.test(qlcHeArch); // Matches any "מארכיון מ" (even bare "מ" or "מ " followed by text)
+                const isHeArchivedFromBare = /^רש(?:ו)?ם\s+מיילים\s+מארכיון\s+מ\s*$/i.test(qlcHeArch); // Specifically "מארכיון מ" or "מארכיון מ " with no text after
                 // Partial typing for 'מארכיון' (e.g., מאר, מארכ, מארכי, מארכיו, מארכיון)
                 const isHeArchivedPartial = /^רש(?:ו)?ם\s+מיילים\s+מארכ/i.test(qlcHeArch);
                 if ((isHeArchivedBase || isHeArchivedFrom || isHeArchivedPartial) && Array.isArray(items) && items.length) {
                     items = items.filter(function(it){
                         const cmd = (it && it.cmd) ? it.cmd : String(it);
                         const lc = String(cmd || '').toLowerCase();
-                        // Allow base archived and archived-from-sender only
+                        // If typing any "רשום מיילים מארכיון מ" (with or without sender text), only allow archived-from-sender
+                        if (isHeArchivedFrom) {
+                            if (/^רש(?:ו)?ם\s+מיילים\s+מארכיון\s+מ\[שולח\]/i.test(lc)) return true;
+                            return false;
+                        }
+                        // For base or partial typing, allow both base and sender variants
                         if (/^רש(?:ו)?ם\s+מיילים\s+מארכיון$/i.test(lc)) return true;
                         if (/^רש(?:ו)?ם\s+מיילים\s+מארכיון\s+מ\[שולח\]/i.test(lc)) return true;
                         return false;
@@ -8939,7 +8945,7 @@
                 const isHeb = (document.documentElement.getAttribute('lang') || '').toLowerCase().startsWith('he');
                 const isMaBare = /^רש(?:ו)?ם\s+מיילים\s+מא$/i.test(qlc); // ambiguous 'מא'
                 const isArchiveFlow = /^רש(?:ו)?ם\s+מיילים\s+מארכ/i.test(qlc); // partial or full 'מארכיון'
-                const isArchiveFromSender = /מארכיון\s+מ(?:\s|$)/i.test(qlc); // specifically 'מארכיון מ'
+                const isArchiveFromSender = /מארכיון\s+מ[^\s]/i.test(qlc); // Any character after "מ" (not just space or end)
                 if (isHeb && (isMaBare || isArchiveFlow) && Array.isArray(items)) {
                     const before = items.length;
                     // Keep archived suggestions; if 'מא' (bare) also keep 'מאתמול'
@@ -9015,7 +9021,7 @@
                 const isHeb = (document.documentElement.getAttribute('lang') || '').toLowerCase().startsWith('he');
                 const isArchShort = /^רש(?:ו)?ם\s+מיילים\s+מאר$/i.test(qlc);
                 const isArchFlow = /^רש(?:ו)?ם\s+מיילים\s+מארכ/i.test(qlc);
-                const isArchiveFromSender = /מארכיון\s+מ(?:\s|$)/i.test(qlc);
+                const isArchiveFromSender = /^רש(?:ו)?ם\s+מיילים\s+מארכיון\s+מ/i.test(qlc); // Matches any "מארכיון מ" (even bare "מ" or "מ " followed by text)
                 if (isHeb && (isArchShort || isArchFlow) && Array.isArray(items) && items.length) {
                     const before = items.length;
                     items = items.filter(function(it){
