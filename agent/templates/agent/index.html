@@ -9171,9 +9171,20 @@
                 const isHeProgCue = /^רש(?:ו)?ם\s+מ(?:י(?:י(?:ל(?:י(?:ם)?)?)?)?)?\s*$/.test(qProg);
                 const isExactMaily = /^רש(?:ו)?ם\s+מיילי\s*$/.test(qProg);
                 const isExactM = /^רש(?:ו)?ם\s+מיילים\s+מ\s*$/.test(qProg);
+                const isMelfneTyping = /^רש(?:ו)?ם\s+מיילים\s+מל/.test(qProg); // Progressive "מלפני" typing
+                
+                // Filter for progressive "מלפני" typing - show only duration-based suggestions
+                if (isMelfneTyping && Array.isArray(items) && items.length) {
+                    // Keep only "מלפני" suggestions and filter out everything else
+                    items = items.filter(function(it){
+                        const raw = (it && it.cmd) ? String(it.cmd) : String(it||'');
+                        const s = raw.toLowerCase().replace(/[\u200e\u200f\u202a-\u202e]/g,'').replace(/\u00a0/g,' ').replace(/\s+/g,' ').trim();
+                        return /^רשום\s+מיילים\s+מלפני/.test(s);
+                    });
+                }
                 
                 // Special handling for "רשום מיילים מ" - boost "מלפני [משך]" to second position and remove sender+timeframe combinations
-                if (isExactM && Array.isArray(items) && items.length) {
+                if (isExactM && !isMelfneTyping && Array.isArray(items) && items.length) {
                     // Remove unwanted sender+timeframe combinations
                     items = items.filter(function(it){
                         const raw = (it && it.cmd) ? String(it.cmd) : String(it||'');
