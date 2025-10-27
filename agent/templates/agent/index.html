@@ -9172,6 +9172,9 @@
                 const isExactMaily = /^רש(?:ו)?ם\s+מיילי\s*$/.test(qProg);
                 const isExactM = /^רש(?:ו)?ם\s+מיילים\s+מ\s*$/.test(qProg);
                 const isMelfneTyping = /^רש(?:ו)?ם\s+מיילים\s+מל/.test(qProg); // Progressive "מלפני" typing
+                const isMihashavuahTyping = /^רש(?:ו)?ם\s+מיילים\s+מהשב/.test(qProg); // Progressive "מהשבוע" typing (from "ב" onwards)
+                const isMihahodeshTyping = /^רש(?:ו)?ם\s+מיילים\s+מהח/.test(qProg); // Progressive "מהחודש" typing (from "ח" onwards)
+                const isMihashanaTyping = /^רש(?:ו)?ם\s+מיילים\s+מהשנ/.test(qProg); // Progressive "מהשנה" typing (from "שנ" onwards)
                 
                 // Filter for progressive "מלפני" typing - show only duration-based suggestions
                 if (isMelfneTyping && Array.isArray(items) && items.length) {
@@ -9180,6 +9183,36 @@
                         const raw = (it && it.cmd) ? String(it.cmd) : String(it||'');
                         const s = raw.toLowerCase().replace(/[\u200e\u200f\u202a-\u202e]/g,'').replace(/\u00a0/g,' ').replace(/\s+/g,' ').trim();
                         return /^רשום\s+מיילים\s+מלפני/.test(s);
+                    });
+                }
+                
+                // Filter for progressive "מהשבוע" typing - show only שבוע/שבוע שעבר
+                if (isMihashavuahTyping && Array.isArray(items) && items.length) {
+                    // Keep only "מהשבוע" suggestions
+                    items = items.filter(function(it){
+                        const raw = (it && it.cmd) ? String(it.cmd) : String(it||'');
+                        const s = raw.toLowerCase().replace(/[\u200e\u200f\u202a-\u202e]/g,'').replace(/\u00a0/g,' ').replace(/\s+/g,' ').trim();
+                        return /^רשום\s+מיילים\s+מהשבוע/.test(s);
+                    });
+                }
+                
+                // Filter for progressive "מהחודש" typing - show only חודש/חודש שעבר
+                if (isMihahodeshTyping && Array.isArray(items) && items.length) {
+                    // Keep only "מהחודש" suggestions
+                    items = items.filter(function(it){
+                        const raw = (it && it.cmd) ? String(it.cmd) : String(it||'');
+                        const s = raw.toLowerCase().replace(/[\u200e\u200f\u202a-\u202e]/g,'').replace(/\u00a0/g,' ').replace(/\s+/g,' ').trim();
+                        return /^רשום\s+מיילים\s+מהחודש/.test(s);
+                    });
+                }
+                
+                // Filter for progressive "מהשנה" typing - show only שנה/שנה שעברה
+                if (isMihashanaTyping && Array.isArray(items) && items.length) {
+                    // Keep only "מהשנה" suggestions
+                    items = items.filter(function(it){
+                        const raw = (it && it.cmd) ? String(it.cmd) : String(it||'');
+                        const s = raw.toLowerCase().replace(/[\u200e\u200f\u202a-\u202e]/g,'').replace(/\u00a0/g,' ').replace(/\s+/g,' ').trim();
+                        return /^רשום\s+מיילים\s+מהשנה/.test(s);
                     });
                 }
                 
