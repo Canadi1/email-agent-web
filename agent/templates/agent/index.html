@@ -9170,6 +9170,29 @@
                     .trim();
                 const isHeProgCue = /^רש(?:ו)?ם\s+מ(?:י(?:י(?:ל(?:י(?:ם)?)?)?)?)?\s*$/.test(qProg);
                 const isExactMaily = /^רש(?:ו)?ם\s+מיילי\s*$/.test(qProg);
+                const isExactM = /^רש(?:ו)?ם\s+מיילים\s+מ\s*$/.test(qProg);
+                
+                // Special handling for "רשום מיילים מ" - boost "מלפני [משך]" to second position and remove sender+timeframe combinations
+                if (isExactM && Array.isArray(items) && items.length) {
+                    // Remove unwanted sender+timeframe combinations
+                    items = items.filter(function(it){
+                        const raw = (it && it.cmd) ? String(it.cmd) : String(it||'');
+                        const s = raw.toLowerCase().replace(/[\u200e\u200f\u202a-\u202e]/g,'').replace(/\u00a0/g,' ').replace(/\s+/g,' ').trim();
+                        // Filter out sender+timeframe combinations, but keep plain sender and duration commands
+                        if (/^רשום\s+מיילים\s+מ\[שולח\]\s+מ/.test(s)) return false; // Remove any sender+timeframe combo
+                        return true;
+                    });
+                    
+                    const idxFromDur = items.findIndex(function(it){ 
+                        const s = (it && it.cmd) ? it.cmd : String(it||''); 
+                        return s === 'רשום מיילים מלפני [משך]';
+                    });
+                    if (idxFromDur > 1) {
+                        const it = items.splice(idxFromDur, 1)[0];
+                        items.splice(1, 0, it);
+                    }
+                }
+                
                 if (isHeProgCue && !isExactMaily && Array.isArray(items) && items.length) {
                     // Remove the specific unwanted item
                     items = items.filter(function(it){
@@ -9177,14 +9200,16 @@
                         const s = raw.toLowerCase().replace(/[\u200e\u200f\u202a-\u202e]/g,'').replace(/\u00a0/g,' ').replace(/\s+/g,' ').trim();
                         return s !== 'רשום מיילים מ[שולח] מהשנה';
                     });
-                    // Ensure preferred top-3 at the head
-                    const wantTop = ['רשום מיילים מ[שולח]','רשום מיילים ישנים מ[משך]','רשום מיילים מלפני [משך]'];
-                    const topIns = [];
-                    for (let w of wantTop) {
-                        const idx = items.findIndex(function(it){ const s = (it && it.cmd) ? it.cmd : String(it||''); return s === w; });
-                        topIns.push(idx > -1 ? items.splice(idx, 1)[0] : { cmd: w, score: 1200 });
+                    // Ensure preferred top-3 at the head (but skip if we're handling "רשום מיילים מ" specially)
+                    if (!isExactM) {
+                        const wantTop = ['רשום מיילים מ[שולח]','רשום מיילים ישנים מ[משך]','רשום מיילים מלפני [משך]'];
+                        const topIns = [];
+                        for (let w of wantTop) {
+                            const idx = items.findIndex(function(it){ const s = (it && it.cmd) ? it.cmd : String(it||''); return s === w; });
+                            topIns.push(idx > -1 ? items.splice(idx, 1)[0] : { cmd: w, score: 1200 });
+                        }
+                        items = topIns.concat(items);
                     }
-                    items = topIns.concat(items);
                 }
             } catch (e) {}
 
