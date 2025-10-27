@@ -2102,6 +2102,10 @@
                     'רשום מיילים אחרונים',
                     'רשום מיילים מ[שולח]',
                     'רשום מיילים מ[דומיין]',
+                    'רשום מיילים ישנים מ[משך]',
+                    'רשום מיילים מלפני [משך]',
+                    'רשום מיילים מ[שולח] ישנים מ[משך]',
+                    'רשום מיילים מ[שולח] מלפני [משך]',
                     'רשום מיילים מהיום',
                     'רשום מיילים מאתמול',
                     'רשום מיילים מהשבוע',
@@ -2113,10 +2117,6 @@
                     'רשום מיילי משלוח מלפני [משך]',
                     'רשום מיילי קודי אימות מלפני [משך]',
                     'רשום מיילי אבטחת חשבון מלפני [משך]',
-                    'רשום מיילים מלפני [משך]',
-                    'רשום מיילים מ[שולח] מלפני [משך]',
-                    'רשום מיילים ישנים מ[משך]',
-                    'רשום מיילים מ[שולח] ישנים מ[משך]',
                     'רשום מיילים מארכיון מלפני [משך]',
                     'רשום מיילים מארכיון ישנים מ[משך]',
                     'רשום מיילי משלוח ישנים מ[משך]',
@@ -2606,6 +2606,19 @@
                         if (hebrewDurationActive && isHeDurationList) score += 5;
                         if (hebrewDurationActive && isHePlainSender) score -= 5;
                     } catch (e) {}
+                    // Hebrew: boost ranking order when typing bare "רשום מיילים" (no duration cue)
+                    // Priority: 1) מ[שולח] 2) ישנים מ[משך] 3) מלפני [משך]
+                    try {
+                        const isHeBareListCue = isHebrew && /^רש(?:ו)?ם\s+מיילים$/i.test(q) && !hebrewDurationActive && !heFixedTimeCue;
+                        if (isHeBareListCue) {
+                            const isHePlainSender = /^רשום\s+מיילים\s+מ\[שולח\]$/i.test(cmd);
+                            const isHeOlderThan = /^רשום\s+מיילים\s+ישנים\s+מ\[משך\]$/i.test(cmd);
+                            const isHeFromDuration = /^רשום\s+מיילים\s+מלפני\s+\[משך\]$/i.test(cmd);
+                            if (isHePlainSender) score += 0.5; // Keep sender first
+                            if (isHeOlderThan) score += 0.3; // Second priority
+                            if (isHeFromDuration) score += 0.1; // Third priority
+                        }
+                    } catch (e) {}
                     score += 0.1; // starts-with bonus
                     includeMatches.push({ cmd, score, type: 'include', pos });
                     continue; // we already included this via direct match
@@ -2667,6 +2680,18 @@
                             if (hebrewDurationActive && isHeDurationList) score += 0.5;
                             if (hebrewDurationActive && isHePlainSender) score -= 0.5;
                         } catch (e) {}
+                        // Hebrew: boost ranking order when typing bare "רשום מיילים" (no duration cue)
+                        try {
+                            const isHeBareListCue = isHebrew && /^רש(?:ו)?ם\s+מיילים$/i.test(q) && !hebrewDurationActive && !heFixedTimeCue;
+                            if (isHeBareListCue) {
+                                const isHePlainSender = /^רשום\s+מיילים\s+מ\[שולח\]$/i.test(cmd);
+                                const isHeOlderThan = /^רשום\s+מיילים\s+ישנים\s+מ\[משך\]$/i.test(cmd);
+                                const isHeFromDuration = /^רשום\s+מיילים\s+מלפני\s+\[משך\]$/i.test(cmd);
+                                if (isHePlainSender) score += 0.35; // Keep sender first
+                                if (isHeOlderThan) score += 0.25; // Second priority
+                                if (isHeFromDuration) score += 0.15; // Third priority
+                            }
+                        } catch (e) {}
                         if (!earlyMismatch) {
                             scored.push({ cmd, score, type: 'placeholder', prefixLen: fixedPrefix.length });
                         }
@@ -2696,6 +2721,18 @@
                                 const isHePlainSender = /^רשום\s+מיילים\s+מ\[שולח\]$/i.test(cmd);
                                 if (hebrewDurationActive && isHeDurationList) score += 1.2;
                                 if (hebrewDurationActive && isHePlainSender) score -= 1.0;
+                            } catch (e) {}
+                            // Hebrew: boost ranking order when typing bare "רשום מיילים" (no duration cue)
+                            try {
+                                const isHeBareListCue = isHebrew && /^רש(?:ו)?ם\s+מיילים$/i.test(q) && !hebrewDurationActive && !heFixedTimeCue;
+                                if (isHeBareListCue) {
+                                    const isHePlainSender = /^רשום\s+מיילים\s+מ\[שולח\]$/i.test(cmd);
+                                    const isHeOlderThan = /^רשום\s+מיילים\s+ישנים\s+מ\[משך\]$/i.test(cmd);
+                                    const isHeFromDuration = /^רשום\s+מיילים\s+מלפני\s+\[משך\]$/i.test(cmd);
+                                    if (isHePlainSender) score += 0.45; // Keep sender first
+                                    if (isHeOlderThan) score += 0.35; // Second priority
+                                    if (isHeFromDuration) score += 0.25; // Third priority
+                                }
                             } catch (e) {}
                             // Early mismatch guard on the next fixed word
                             const fixedPrefix = parts[0] || '';
@@ -3685,8 +3722,9 @@
                 const heList = /^\s*רש(?:ו)?ם\s+מיילים/.test(q);
                 if (heList) {
                     // Treat a lone 'מ' (optionally with direction marks) or 'מ' followed by Hebrew letters at the end as a timeframe cue start
-                    const heSenderTimeTyping = /\sמ(?:\u200e|\u200f)?$/.test(q)
-                        || /\sמ\s*[\u0590-\u05FF]+$/.test(q)
+                    // BUT: Exclude the base 'רשום מיילים' and 'רשום מיילים מ' cases — require a real sender context before 'מ'
+                    const hasSenderContext = /^\s*רש(?:ו)?ם\s+מיילים\s+מ\s*\S/.test(q); // '... מ' token followed by any non-space
+                    const heSenderTimeTyping = ((/\sמ(?:\u200e|\u200f)?$/.test(q) || /\sמ\s*[\u0590-\u05FF]+$/.test(q)) && hasSenderContext)
                         || /\sמ\s*(ה|א)/.test(q)
                         || /\sמה$/.test(q)
                         || /\sמא$/.test(q);
@@ -4655,6 +4693,31 @@
                     unique.unshift(plainSender);
                 }
             }
+
+            // FINAL OVERRIDE (HEBREW LIST BASE): exact 'רשום מיילים' → enforce top-3 order
+            // 1) רשום מיילים מ[שולח]
+            // 2) רשום מיילים ישנים מ[משך]
+            // 3) רשום מיילים מלפני [משך]
+            try {
+                const isHeBareList = /^\s*רש(?:ו)?ם\s+מיילים\s*$/i.test(q);
+                if (isHeBareList && Array.isArray(unique) && unique.length) {
+                    const pickIdx = (re) => unique.findIndex(item => re.test(String(item && item.cmd ? item.cmd : item || '')));
+                    const take = (idx) => (idx > -1 ? unique.splice(idx, 1)[0] : null);
+                    const i1 = pickIdx(/^רשום\s+מיילים\s+מ\[שולח\]$/i);
+                    const first = take(i1);
+                    const i2 = pickIdx(/^רשום\s+מיילים\s+ישנים\s+מ\[משך\]$/i);
+                    const second = take(i2);
+                    const i3 = pickIdx(/^רשום\s+מיילים\s+מלפני\s+\[משך\]$/i);
+                    const third = take(i3);
+                    const top = [];
+                    if (first) top.push(first);
+                    if (second) top.push(second);
+                    if (third) top.push(third);
+                    if (top.length) {
+                        unique = top.concat(unique);
+                    }
+                }
+            } catch (e) {}
             
             // Final client-side hard override (Hebrew sender+timeframe): keep matching timeframe variant on top
             try {
@@ -4796,6 +4859,31 @@
                 }
             } catch (e) {}
             
+            // FINAL ENFORCEMENT (HE LIST BARE): enforce top-3 and remove sender+timeframe variants
+            try {
+                const qBare = (q || '').toLowerCase()
+                    .replace(/[\u200e\u200f\u202a-\u202e]/g,'')
+                    .replace(/\u00a0/g,' ')
+                    .replace(/\s+/g,' ')
+                    .trim();
+                const isHeBareList = /^רש(?:ו)?ם\s+מיילים$/.test(qBare);
+                if (isHeBareList && Array.isArray(unique)) {
+                    unique = unique.filter(function(it){
+                        const raw = (it && it.cmd) ? String(it.cmd) : String(it||'');
+                        const s = raw.toLowerCase().replace(/[\u200e\u200f\u202a-\u202e]/g,'').replace(/\u00a0/g,' ').replace(/\s+/g,' ').trim();
+                        if (s === 'רשום מיילים מ[שולח] מהשנה') return false;
+                        return !/^רשום\s+מיילים\s+מ\[שולח\].*\sמ(היום|מאתמול|מהשבוע(?:\s+שעבר)?|מהחודש(?:\s+שעבר)?|מהשנה(?:\s+שעברה)?)$/i.test(s);
+                    });
+                    const want = ['רשום מיילים מ[שולח]','רשום מיילים ישנים מ[משך]','רשום מיילים מלפני [משך]'];
+                    const picked = [];
+                    for (let w of want) {
+                        const idx = unique.findIndex(function(it){ const s = (it && it.cmd) ? it.cmd : String(it||''); return s === w; });
+                        picked.push(idx > -1 ? unique.splice(idx,1)[0] : { cmd: w, score: 1200 });
+                    }
+                    unique = picked.concat(unique);
+                }
+            } catch(e) {}
+
             // LAST-LINE SUPPRESSION (HEBREW ARCHIVE): if input is 'רשום מיילים מארכיון מ...' remove base archived command
             try {
                 const qlcHe = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
@@ -5520,6 +5608,24 @@
             positionSuggestions();
             const maxShow = 15;
             let items = getSuggestions(input.toLowerCase(), maxShow);
+            // ABS FINAL FILTER for bare 'רשום מיילים': drop any sender+timeframe variants even if they slipped through
+            try {
+                const qBareInit = (input || '').toLowerCase().replace(/[\u200e\u200f\u202a-\u202e]/g,'').replace(/\u00a0/g,' ').replace(/\s+/g,' ').trim();
+                const isHeBareInit = /^רש(?:ו)?ם\s+מיילים$/.test(qBareInit);
+                if (isHeBareInit && Array.isArray(items)) {
+                    items = items.filter(function(it){
+                        const raw = (it && it.cmd) ? String(it.cmd) : String(it||'');
+                        const s = raw.toLowerCase().replace(/[\u200e\u200f\u202a-\u202e]/g,'').replace(/\u00a0/g,' ').replace(/\s+/g,' ').trim();
+                        return !/^רשום\s+מיילים\s+מ\[שולח\].*\sמ(היום|מאתמול|מהשבוע(?:\s+שעבר)?|מהחודש(?:\s+שעבר)?|מהשנה(?:\s+שעברה)?)$/.test(s);
+                    });
+                    // Explicitly remove the exact 'רשום מיילים מ[שולח] מהשנה'
+                    items = items.filter(function(it){
+                        const raw = (it && it.cmd) ? String(it.cmd) : String(it||'');
+                        const s = raw.toLowerCase().replace(/[\u200e\u200f\u202a-\u202e]/g,'').replace(/\u00a0/g,' ').replace(/\s+/g,' ').trim();
+                        return s !== 'רשום מיילים מ[שולח] מהשנה';
+                    });
+                }
+            } catch(e) {}
             if (Array.isArray(heCategoryOverride)) {
                 items = heCategoryOverride;
             }
@@ -5999,7 +6105,7 @@
                         // Remove "רשום מיילים מ[שולח] מהיום" only when there is a token after 'מ'
                         const hasTokenAfterM2 = /רשום\s+מיילים\s+מ\s*[\u0590-\u05FF]+/i.test(qNorm);
                         const isBareSenderPrefix = /^\s*רש(?:ו)?ם\s+מיילים\s+מ\s*$/i.test(qNorm);
-                        const remove = (hasTokenAfterM2 || isBareSenderPrefix) && /^רשום\s+מיילים\s+מ\[שולח\].*מהיום$/.test(lc);
+                        const remove = (hasTokenAfterM2 || isBareSenderPrefix) && /^רשום\s+מיילים\s+מ\[שולח\].*\sמ(היום|מאתמול|מהשבוע(?:\s+שעבר)?|מהחודש(?:\s+שעבר)?|מהשנה(?:\s+שעברה)?)$/.test(lc);
                         const removeCatMf = /^רשום\s+מיילים\s+(?!מ\[שולח\]|מ\[דומיין\])[\u0590-\u05FF]+\s+מ(היום|מאתמול|מהשבוע(?:\s+שעבר)?|מהחודש(?:\s+שעבר)?|מהשנה(?:\s+שעברה)?)$/i.test(lc);
                         if (remove) {
                             console.log('Filtering out מהיום variant when typing sender prefix (NEW):', lc);
@@ -9053,6 +9159,57 @@
                         console.log('[HE-ARCHIVE-TF-FALLBACK]', { qLower, out: items.map(x=>x.cmd) });
                     } catch(_) {}
                 })();
+            } catch (e) {}
+
+            // ENFORCE order for progressive 'רשום מיילים' typing (but NOT for 'רשום מיילי')
+            try {
+                const qProg = (input || '').toLowerCase()
+                    .replace(/[\u200e\u200f\u202a-\u202e]/g,'')
+                    .replace(/\u00a0/g,' ')
+                    .replace(/\s+/g,' ')
+                    .trim();
+                const isHeProgCue = /^רש(?:ו)?ם\s+מ(?:י(?:י(?:ל(?:י(?:ם)?)?)?)?)?\s*$/.test(qProg);
+                const isExactMaily = /^רש(?:ו)?ם\s+מיילי\s*$/.test(qProg);
+                if (isHeProgCue && !isExactMaily && Array.isArray(items) && items.length) {
+                    // Remove the specific unwanted item
+                    items = items.filter(function(it){
+                        const raw = (it && it.cmd) ? String(it.cmd) : String(it||'');
+                        const s = raw.toLowerCase().replace(/[\u200e\u200f\u202a-\u202e]/g,'').replace(/\u00a0/g,' ').replace(/\s+/g,' ').trim();
+                        return s !== 'רשום מיילים מ[שולח] מהשנה';
+                    });
+                    // Ensure preferred top-3 at the head
+                    const wantTop = ['רשום מיילים מ[שולח]','רשום מיילים ישנים מ[משך]','רשום מיילים מלפני [משך]'];
+                    const topIns = [];
+                    for (let w of wantTop) {
+                        const idx = items.findIndex(function(it){ const s = (it && it.cmd) ? it.cmd : String(it||''); return s === w; });
+                        topIns.push(idx > -1 ? items.splice(idx, 1)[0] : { cmd: w, score: 1200 });
+                    }
+                    items = topIns.concat(items);
+                }
+            } catch (e) {}
+
+            // ENFORCE order for exact 'רשום מיילים' before logging/rendering
+            try {
+                const qBare0 = (input || '').toLowerCase()
+                    .replace(/[\u200e\u200f\u202a-\u202e]/g,'')
+                    .replace(/\u00a0/g,' ')
+                    .replace(/\s+/g,' ')
+                    .trim();
+                const isHeBare0 = /^רש(?:ו)?ם\s+מיילים$/.test(qBare0);
+                if (isHeBare0 && Array.isArray(items) && items.length) {
+                    items = items.filter(function(it){
+                        const raw = (it && it.cmd) ? String(it.cmd) : String(it||'');
+                        const s = raw.toLowerCase().replace(/[\u200e\u200f\u202a-\u202e]/g,'').replace(/\u00a0/g,' ').replace(/\s+/g,' ').trim();
+                        return !/^רשום\s+מיילים\s+מ\[שולח\].*\sמ(היום|מאתמול|מהשבוע(?:\s+שעבר)?|מהחודש(?:\s+שעבר)?|מהשנה(?:\s+שעברה)?)$/i.test(s) && s !== 'רשום מיילים מ[שולח] מהשנה';
+                    });
+                    const wantTop = ['רשום מיילים מ[שולח]','רשום מיילים ישנים מ[משך]','רשום מיילים מלפני [משך]'];
+                    const topIns = [];
+                    for (let w of wantTop) {
+                        const idx = items.findIndex(function(it){ const s = (it && it.cmd) ? it.cmd : String(it||''); return s === w; });
+                        topIns.push(idx > -1 ? items.splice(idx, 1)[0] : { cmd: w, score: 1200 });
+                    }
+                    items = topIns.concat(items);
+                }
             } catch (e) {}
 
             // DIAG: show final suggestions head before rendering
