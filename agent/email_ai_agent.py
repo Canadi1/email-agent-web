@@ -379,6 +379,28 @@ class GmailAIAgent:
                         query = f"{query} after:{start_date.strftime('%Y/%m/%d')} before:{end_date.strftime('%Y/%m/%d')}"
                 except Exception:
                     pass
+            # First, count total emails (only on first page)
+            total_count = 0
+            if page_token is None:
+                count_messages = []
+                count_token = None
+                while True:
+                    count_kwargs = {"userId": 'me', "q": query, "maxResults": 500, "fields": 'messages/id,nextPageToken'}
+                    if count_token:
+                        count_kwargs["pageToken"] = count_token
+                    try:
+                        count_results = self.api_list_messages(**count_kwargs)
+                        count_msgs = count_results.get('messages', [])
+                        if count_msgs:
+                            count_messages.extend(count_msgs)
+                        count_token = count_results.get('nextPageToken')
+                        if not count_token:
+                            break
+                    except Exception:
+                        break
+                total_count = len(count_messages)
+
+            # Now fetch the actual page
             kwargs = {"userId": 'me', "q": query, "maxResults": max_results, "fields": 'messages/id,nextPageToken'}
             if page_token:
                 kwargs["pageToken"] = page_token
@@ -423,8 +445,23 @@ class GmailAIAgent:
                 # Update progress
                 if hasattr(self, 'command_id') and self.command_id:
                     update_email_progress(self.command_id, i + 1, total_emails)
-            
-            return {"emails": email_list, "next_page_token": next_token}
+            # Build message using total_count when available
+            extra_parts = []
+            if older_than_days:
+                try:
+                    extra_parts.append(_("older than %(days)d days") % {"days": int(older_than_days)})
+                except Exception:
+                    extra_parts.append(_("older than %(text)s") % {"text": str(older_than_days)})
+            if date_range:
+                try:
+                    extra_parts.append(_("in %(range)s") % {"range": str(date_range)})
+                except Exception:
+                    pass
+            extra_text = (" " + " and ".join(extra_parts)) if extra_parts else ""
+            display_count = total_count if total_count > 0 else len(messages)
+            message_text = _("Found %(count)d emails from %(who)s%(extra)s.") % {"count": display_count, "who": domain, "extra": extra_text}
+
+            return {"message": message_text, "emails": email_list, "next_page_token": next_token}
         except Exception as e:
             print(f"❌ Error in list_emails_by_domain: {e}")
             return {"emails": [], "next_page_token": None}
@@ -447,6 +484,29 @@ class GmailAIAgent:
                         query = f"{query} after:{start_date.strftime('%Y/%m/%d')} before:{end_date.strftime('%Y/%m/%d')}"
                 except Exception:
                     pass
+            # First, count total emails (only if this is the first page)
+            total_count = 0
+            if page_token is None:
+                # Count all matching emails to get total
+                count_messages = []
+                count_token = None
+                while True:
+                    count_kwargs = {"userId": 'me', "q": query, "maxResults": 500, "fields": 'messages/id,nextPageToken'}
+                    if count_token:
+                        count_kwargs["pageToken"] = count_token
+                    try:
+                        count_results = self.api_list_messages(**count_kwargs)
+                        count_msgs = count_results.get('messages', [])
+                        if count_msgs:
+                            count_messages.extend(count_msgs)
+                        count_token = count_results.get('nextPageToken')
+                        if not count_token:
+                            break
+                    except Exception:
+                        break
+                total_count = len(count_messages)
+            
+            # Now fetch the actual page of emails to display
             kwargs = {"userId": 'me', "q": query, "maxResults": max_results, "fields": 'messages/id,nextPageToken'}
             if page_token:
                 kwargs["pageToken"] = page_token
@@ -455,7 +515,7 @@ class GmailAIAgent:
             next_token = results.get('nextPageToken')
             email_list = []
 
-            # Initialize progress with total emails
+            # Initialize progress with total emails (use page count for progress, total_count for message)
             total_emails = len(messages)
             if hasattr(self, 'command_id') and self.command_id:
                 from agent.views import update_email_progress
@@ -505,7 +565,9 @@ class GmailAIAgent:
                 except Exception:
                     pass
             extra_text = (" " + " and ".join(extra_parts)) if extra_parts else ""
-            message_text = _("Found %(count)d emails from %(who)s%(extra)s.") % {"count": len(messages), "who": sender_keyword, "extra": extra_text}
+            # Use total_count if available (first page), otherwise use current page count
+            display_count = total_count if total_count > 0 else len(messages)
+            message_text = _("Found %(count)d emails from %(who)s%(extra)s.") % {"count": display_count, "who": sender_keyword, "extra": extra_text}
 
             return {"message": message_text, "emails": email_list, "next_page_token": next_token}
         except Exception:
@@ -3371,15 +3433,18 @@ class GmailAIAgent:
                     lc = {"mode": "domain", "target": target}
                     if older_than_days is not None: lc["older_than_days"] = older_than_days
                     if date_range is not None: lc["date_range"] = date_range
-                    # Localize snackbar fully in Hebrew
-                    if hebrew_mode:
-                        age_txt = f" ישנים מ-{int(older_than_days)} ימים" if older_than_days else ""
-                        date_txt = (" " + _hebrew_date_phrase(date_range)) if date_range else ""
-                        msg = f"נמצאו {len(emails)} מיילים מ-{target}{age_txt}{date_txt}."
-                    else:
-                        age_txt = _(" older than %(days)d days") % {"days": older_than_days} if older_than_days else ""
-                        date_txt = f" from {date_range}" if date_range else ""
-                        msg = _("Found %(count)d emails from %(who)s%(age)s%(date)s.") % {"count": len(emails), "who": target, "age": age_txt, "date": date_txt}
+                    # Prefer message from res (includes total count)
+                    msg = res.get("message")
+                    if not msg:
+                        # Localize snackbar fully in Hebrew
+                        if hebrew_mode:
+                            age_txt = f" ישנים מ-{int(older_than_days)} ימים" if older_than_days else ""
+                            date_txt = (" " + _hebrew_date_phrase(date_range)) if date_range else ""
+                            msg = f"נמצאו {len(emails)} מיילים מ-{target}{age_txt}{date_txt}."
+                        else:
+                            age_txt = _(" older than %(days)d days") % {"days": older_than_days} if older_than_days else ""
+                            date_txt = f" from {date_range}" if date_range else ""
+                            msg = _("Found %(count)d emails from %(who)s%(age)s%(date)s.") % {"count": len(emails), "who": target, "age": age_txt, "date": date_txt}
                     return {"status": "success", "data": emails, "type": "email_list", "message": msg, "next_page_token": res.get("next_page_token"), "list_context": lc}
                 elif target_type == "sender":
                     date_range = parsed.get("date_range")
@@ -3395,14 +3460,17 @@ class GmailAIAgent:
                     lc = {"mode": "sender", "target": target}
                     if older_than_days is not None: lc["older_than_days"] = older_than_days
                     if date_range is not None: lc["date_range"] = date_range
-                    if hebrew_mode:
-                        age_txt = f" ישנים מ-{int(older_than_days)} ימים" if older_than_days else ""
-                        date_txt = (" " + _hebrew_date_phrase(date_range)) if date_range else ""
-                        msg = f"נמצאו {len(emails)} מיילים מ-{target}{age_txt}{date_txt}."
-                    else:
-                        age_txt = _(" older than %(days)d days") % {"days": older_than_days} if older_than_days else ""
-                        date_txt = f" from {date_range}" if date_range else ""
-                        msg = _("Found %(count)d emails from %(who)s%(age)s%(date)s.") % {"count": len(emails), "who": target, "age": age_txt, "date": date_txt}
+                    # Use message from res if available (includes total count), otherwise create one
+                    msg = res.get("message")
+                    if not msg:
+                        if hebrew_mode:
+                            age_txt = f" ישנים מ-{int(older_than_days)} ימים" if older_than_days else ""
+                            date_txt = (" " + _hebrew_date_phrase(date_range)) if date_range else ""
+                            msg = f"נמצאו {len(emails)} מיילים מ-{target}{age_txt}{date_txt}."
+                        else:
+                            age_txt = _(" older than %(days)d days") % {"days": older_than_days} if older_than_days else ""
+                            date_txt = f" from {date_range}" if date_range else ""
+                            msg = _("Found %(count)d emails from %(who)s%(age)s%(date)s.") % {"count": len(emails), "who": target, "age": age_txt, "date": date_txt}
                     return {"status": "success", "data": emails, "type": "email_list", "message": msg, "next_page_token": res.get("next_page_token"), "list_context": lc}
                 elif target_type == "date_range":
                     # Add SSL retry logic for date range commands
