@@ -461,7 +461,7 @@ class GmailAIAgent:
             display_count = total_count if total_count > 0 else len(messages)
             message_text = _("Found %(count)d emails from %(who)s%(extra)s.") % {"count": display_count, "who": domain, "extra": extra_text}
 
-            return {"message": message_text, "emails": email_list, "next_page_token": next_token}
+            return {"message": message_text, "emails": email_list, "next_page_token": next_token, "total_count": total_count}
         except Exception as e:
             print(f"❌ Error in list_emails_by_domain: {e}")
             return {"emails": [], "next_page_token": None}
@@ -569,7 +569,7 @@ class GmailAIAgent:
             display_count = total_count if total_count > 0 else len(messages)
             message_text = _("Found %(count)d emails from %(who)s%(extra)s.") % {"count": display_count, "who": sender_keyword, "extra": extra_text}
 
-            return {"message": message_text, "emails": email_list, "next_page_token": next_token}
+            return {"message": message_text, "emails": email_list, "next_page_token": next_token, "total_count": total_count}
         except Exception:
             return {"emails": [], "next_page_token": None}
 
@@ -3433,15 +3433,16 @@ class GmailAIAgent:
                     lc = {"mode": "domain", "target": target}
                     if older_than_days is not None: lc["older_than_days"] = older_than_days
                     if date_range is not None: lc["date_range"] = date_range
-                    # Prefer message from res (includes total count)
-                    msg = res.get("message")
-                    if not msg:
-                        # Localize snackbar fully in Hebrew
-                        if hebrew_mode:
-                            age_txt = f" ישנים מ-{int(older_than_days)} ימים" if older_than_days else ""
-                            date_txt = (" " + _hebrew_date_phrase(date_range)) if date_range else ""
-                            msg = f"נמצאו {len(emails)} מיילים מ-{target}{age_txt}{date_txt}."
-                        else:
+                    # Build localized message: Hebrew gets a fully localized string; otherwise prefer res message
+                    if hebrew_mode:
+                        age_txt = f" ישנים מ-{int(older_than_days)} ימים" if older_than_days else ""
+                        date_txt = (" " + _hebrew_date_phrase(date_range)) if date_range else ""
+                        total_count = res.get("total_count") if isinstance(res, dict) else None
+                        count_he = total_count if (isinstance(total_count, int) and total_count >= 0) else len(emails)
+                        msg = f"נמצאו {count_he} מיילים מ-{target}{age_txt}{date_txt}."
+                    else:
+                        msg = res.get("message")
+                        if not msg:
                             age_txt = _(" older than %(days)d days") % {"days": older_than_days} if older_than_days else ""
                             date_txt = f" from {date_range}" if date_range else ""
                             msg = _("Found %(count)d emails from %(who)s%(age)s%(date)s.") % {"count": len(emails), "who": target, "age": age_txt, "date": date_txt}
@@ -3460,14 +3461,16 @@ class GmailAIAgent:
                     lc = {"mode": "sender", "target": target}
                     if older_than_days is not None: lc["older_than_days"] = older_than_days
                     if date_range is not None: lc["date_range"] = date_range
-                    # Use message from res if available (includes total count), otherwise create one
-                    msg = res.get("message")
-                    if not msg:
-                        if hebrew_mode:
-                            age_txt = f" ישנים מ-{int(older_than_days)} ימים" if older_than_days else ""
-                            date_txt = (" " + _hebrew_date_phrase(date_range)) if date_range else ""
-                            msg = f"נמצאו {len(emails)} מיילים מ-{target}{age_txt}{date_txt}."
-                        else:
+                    # Hebrew builds localized message; otherwise prefer res message with total count
+                    if hebrew_mode:
+                        age_txt = f" ישנים מ-{int(older_than_days)} ימים" if older_than_days else ""
+                        date_txt = (" " + _hebrew_date_phrase(date_range)) if date_range else ""
+                        total_count = res.get("total_count") if isinstance(res, dict) else None
+                        count_he = total_count if (isinstance(total_count, int) and total_count >= 0) else len(emails)
+                        msg = f"נמצאו {count_he} מיילים מ-{target}{age_txt}{date_txt}."
+                    else:
+                        msg = res.get("message")
+                        if not msg:
                             age_txt = _(" older than %(days)d days") % {"days": older_than_days} if older_than_days else ""
                             date_txt = f" from {date_range}" if date_range else ""
                             msg = _("Found %(count)d emails from %(who)s%(age)s%(date)s.") % {"count": len(emails), "who": target, "age": age_txt, "date": date_txt}
