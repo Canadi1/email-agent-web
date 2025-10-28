@@ -3368,8 +3368,12 @@ class GmailAIAgent:
                         return {"status": "success", "message": msg}
                     # Hebrew uses total_count if available, English uses message from res
                     if hebrew_mode:
-                        total_count = res.get("total_count") if isinstance(res, dict) else None
-                        count_he = total_count if (isinstance(total_count, int) and total_count >= 0) else len(emails)
+                        total_count_val = res.get("total_count") if isinstance(res, dict) else None
+                        # Use total_count if it exists and is positive, otherwise use page count
+                        if total_count_val and isinstance(total_count_val, int) and total_count_val > 0:
+                            count_he = total_count_val
+                        else:
+                            count_he = len(emails)
                         msg = f"נמצאו {count_he} מיילים בארכיון."
                     else:
                         msg = res.get("message") if isinstance(res, dict) and res.get("message") else f"Found {len(emails)} archived emails."
@@ -3415,7 +3419,17 @@ class GmailAIAgent:
                         lc["older_than_days"] = older_than_days
                     if parsed.get("date_range") is not None:
                         lc["date_range"] = parsed.get("date_range")
-                    msg = _("Found %(count)d archived emails from %(who)s.") % {"count": len(emails), "who": target}
+                    # Hebrew uses total_count if available, English uses message from res
+                    if hebrew_mode:
+                        total_count_val = res.get("total_count") if isinstance(res, dict) else None
+                        # Use total_count if it exists and is positive, otherwise use page count
+                        if total_count_val and isinstance(total_count_val, int) and total_count_val > 0:
+                            count_he = total_count_val
+                        else:
+                            count_he = len(emails)
+                        msg = f"נמצאו {count_he} מיילים מארכיון מ-{target}."
+                    else:
+                        msg = res.get("message") if isinstance(res, dict) and res.get("message") else _("Found %(count)d archived emails from %(who)s.") % {"count": len(emails), "who": target}
                     return {"status": "success", "data": emails, "type": "email_list", "message": msg, "next_page_token": next_token, "list_context": lc}
                     if not labels: return {"status": "success", "message": _("You have no custom labels.")}
                     return {"status": "success", "data": labels, "type": "label_list"}
@@ -5094,6 +5108,33 @@ class GmailAIAgent:
                         q = f"{q} after:{start_dt.strftime('%Y/%m/%d')} before:{end_dt.strftime('%Y/%m/%d')}"
                 except Exception:
                     pass
+            
+            # First, count total emails (only if this is the first page)
+            total_count = 0
+            if page_token is None:
+                try:
+                    count_messages = []
+                    count_token = None
+                    while True:
+                        count_kwargs = {"userId": 'me', "q": q, "maxResults": 500, "fields": 'messages/id,nextPageToken'}
+                        if count_token:
+                            count_kwargs["pageToken"] = count_token
+                        try:
+                            count_results = self.api_list_messages(**count_kwargs)
+                            count_msgs = count_results.get('messages', [])
+                            if count_msgs:
+                                count_messages.extend(count_msgs)
+                            count_token = count_results.get('nextPageToken')
+                            if not count_token:
+                                break
+                        except Exception as count_e:
+                            print(f"Count query failed in list_archived_emails_by_sender: {count_e}")
+                            break
+                    total_count = len(count_messages)
+                except Exception as e:
+                    print(f"Total count failed in list_archived_emails_by_sender: {e}")
+                    total_count = 0
+            
             kwargs = {"userId": 'me', "q": q, "maxResults": max_results, "fields": 'messages/id,nextPageToken'}
             if page_token:
                 kwargs["pageToken"] = page_token
@@ -5126,7 +5167,11 @@ class GmailAIAgent:
                 # Progress
                 if hasattr(self, 'command_id') and self.command_id:
                     update_email_progress(self.command_id, i + 1, total_emails)
-            return {"emails": emails, "next_page_token": next_token}
+            
+            # Build message with total count if available
+            display_count = total_count if total_count > 0 else len(emails)
+            message_text = _("Found %(count)d archived emails from %(who)s.") % {"count": display_count, "who": sender_keyword}
+            return {"emails": emails, "next_page_token": next_token, "message": message_text, "total_count": total_count}
         except Exception:
             return {"emails": [], "next_page_token": None}
     def list_all_emails(self, max_results=None, page_token=None):

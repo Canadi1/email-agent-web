@@ -1259,23 +1259,27 @@
                     {% if result %}
                         {% if result.status == 'success' %}
                             {% if LANGUAGE_BIDI and result.type == 'email_list' %}
-                                {% with cnt=result.data|length %}
-                                    {% if result.list_context.mode == 'archived_sender' %}
-                                        {% if result.list_context.sender %}
-                                        <div class="success-message">מציג {{ cnt }} מיילים מארכיון מ: {{ result.list_context.sender }}</div>
-                                        {% else %}
-                                        <div class="success-message">מציג {{ cnt }} מיילים מארכיון</div>
-                                        {% endif %}
-                                    {% elif result.list_context.mode == 'archived' %}
-                                        {% if result.list_context.category %}
-                                            <div class="success-message">מציג {{ cnt }} מיילים מארכיון {{ result.list_context.category }}</div>
-                                        {% else %}
+                                {% if result.message %}
+                                    <div class="success-message">{{ result.message }}</div>
+                                {% else %}
+                                    {% with cnt=result.data|length %}
+                                        {% if result.list_context.mode == 'archived_sender' %}
+                                            {% if result.list_context.sender %}
+                                            <div class="success-message">מציג {{ cnt }} מיילים מארכיון מ: {{ result.list_context.sender }}</div>
+                                            {% else %}
                                             <div class="success-message">מציג {{ cnt }} מיילים מארכיון</div>
+                                            {% endif %}
+                                        {% elif result.list_context.mode == 'archived' %}
+                                            {% if result.list_context.category %}
+                                                <div class="success-message">מציג {{ cnt }} מיילים מארכיון {{ result.list_context.category }}</div>
+                                            {% else %}
+                                                <div class="success-message">מציג {{ cnt }} מיילים מארכיון</div>
+                                            {% endif %}
+                                        {% else %}
+                                            <div class="success-message">{{ result.message }}</div>
                                         {% endif %}
-                                    {% else %}
-                                        <div class="success-message">{{ result.message }}</div>
-                                    {% endif %}
-                                {% endwith %}
+                                    {% endwith %}
+                                {% endif %}
                             {% else %}
                                 <div class="success-message">{{ result.message }}</div>
                             {% endif %}
@@ -2052,23 +2056,26 @@
                 }
                 const displaySender = shortSenderName(lcSender);
                 if (initialType === 'email_list') {
-                    if (isHeb) {
-                        // Hebrew variants
-                        if (lcMode === 'archived_sender') {
-                            synthesizedMsg = 'מציג ' + itemCount + ' מיילים מארכיון מ: ' + (displaySender || 'שולח');
-                        } else if (lcMode === 'archived') {
-                            synthesizedMsg = 'מציג ' + itemCount + ' מיילים מארכיון';
-                        } else if (lcCategory) {
-                            synthesizedMsg = 'מציג ' + itemCount + ' מיילים ' + (isArchivedCtx ? 'מארכיון ' : 'מ') + lcCategory;
+                    // Only synthesize message if backend didn't provide one
+                    if (!initialMsg || !initialMsg.trim()) {
+                        if (isHeb) {
+                            // Hebrew variants
+                            if (lcMode === 'archived_sender') {
+                                synthesizedMsg = 'מציג ' + itemCount + ' מיילים מארכיון מ: ' + (displaySender || 'שולח');
+                            } else if (lcMode === 'archived') {
+                                synthesizedMsg = 'מציג ' + itemCount + ' מיילים מארכיון';
+                            } else if (lcCategory) {
+                                synthesizedMsg = 'מציג ' + itemCount + ' מיילים ' + (isArchivedCtx ? 'מארכיון ' : 'מ') + lcCategory;
+                            } else {
+                                synthesizedMsg = 'מציג ' + itemCount + ' מיילים';
+                            }
                         } else {
-                            synthesizedMsg = 'מציג ' + itemCount + ' מיילים';
-                        }
-                    } else if (!synthesizedMsg) {
-                        // English fallback only if backend omitted message
-                        if (lcMode === 'archived_sender') {
-                            synthesizedMsg = 'Showing ' + itemCount + ' archived emails from: ' + (displaySender || 'sender');
-                        } else if (lcMode === 'archived') {
-                            synthesizedMsg = 'Showing ' + itemCount + ' archived emails';
+                            // English fallback only if backend omitted message
+                            if (lcMode === 'archived_sender') {
+                                synthesizedMsg = 'Showing ' + itemCount + ' archived emails from: ' + (displaySender || 'sender');
+                            } else if (lcMode === 'archived') {
+                                synthesizedMsg = 'Showing ' + itemCount + ' archived emails';
+                            }
                         }
                     }
                 }
