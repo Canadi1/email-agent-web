@@ -3350,9 +3350,9 @@ class GmailAIAgent:
                             return {"status": "success", "message": "לא נמצאו מיילים אחרונים."}
                         return {"status": "success", "message": _("No recent emails found.")}
                     if hebrew_mode:
-                        msg = f"נמצאו {len(emails)} מיילים אחרונים."
+                        msg = "מציג מיילים אחרונים."
                     else:
-                        msg = f"Found {len(emails)} recent emails."
+                        msg = "Showing recent emails."
                     return {"status": "success", "data": emails, "type": "email_list", "message": msg, "next_page_token": res.get("next_page_token"), "list_context": {"mode": "recent"}}
                 elif target_type == "archived":
                     res = self.list_archived_emails()
