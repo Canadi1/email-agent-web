@@ -5305,6 +5305,34 @@ class GmailAIAgent:
             print(f"❌ Error listing labels: {error}")
             return []
 
+    def get_label_id(self, label_name):
+        """Get label ID by label name"""
+        try:
+            labels = self.list_labels()
+            for label in labels:
+                if label.get('name', '').lower() == label_name.lower():
+                    return label.get('id')
+            return None
+        except Exception as error:
+            print(f"❌ Error getting label ID: {error}")
+            return None
+
+    def create_label(self, label_name):
+        """Create a label if it doesn't exist"""
+        try:
+            # Check if label already exists
+            existing_id = self.get_label_id(label_name)
+            if existing_id:
+                return existing_id
+            
+            # Create new label
+            label = {'name': label_name}
+            created_label = self.service.users().labels().create(userId='me', body=label).execute()
+            return created_label.get('id')
+        except HttpError as error:
+            print(f"❌ Error creating label: {error}")
+            return None
+
     def get_emails_by_label(self, label_name, max_results=None, page_token=None):
         """Get emails with a specific label"""
         try:
@@ -5312,7 +5340,8 @@ class GmailAIAgent:
                 max_results = self.default_max_results
             label_id = self.get_label_id(label_name)
             if not label_id:
-                return []
+                # Label doesn't exist - return empty result in expected format
+                return {"emails": [], "next_page_token": None}
             kwargs = {"userId":"me", "labelIds":[label_id], "maxResults": max_results}
             if page_token:
                 kwargs["pageToken"] = page_token
