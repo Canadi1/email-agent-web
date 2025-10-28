@@ -7464,12 +7464,17 @@
             } catch(e) {}
 
             // FILTER: Category + timeframe typing: "list <category> emails from [timeframe]" with progressive narrowing
+            // IMPORTANT: Do NOT treat 'archived' as a category here, so sender flow isn't suppressed
             try {
                 const qlcCatTime = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
                 // Match 'list <cat> emails from ...' or 'list verification codes from ...'
                 const mCatTime = qlcCatTime.match(/^list\s+(.+?)\s+emails\s+from\s+(.*)$/i) || qlcCatTime.match(/^list\s+(verification\s+codes)\s+from\s+(.*)$/i);
                 if (mCatTime && Array.isArray(items)) {
                     const catPhrase = (mCatTime[1] || '').trim();
+                    // Skip this entire category-timeframe filter for 'archived'
+                    if (/^archived$/i.test(catPhrase)) {
+                        // Do not apply category timeframe narrowing to archived; let sender/timeframe logic handle it
+                    } else {
                     const rem = (mCatTime[2] || '').trim();
                     const esc = catPhrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
                     const hasEmailsWord = !!qlcCatTime.match(/\s+emails\s+from/i);
@@ -7595,6 +7600,7 @@
                             return false;
                         });
                         try { console.log('[EN-CAT-TIMEFRAME-FILTER] last-* for', catPhrase, { rem }); } catch(e) {}
+                    }
                     }
                 }
             } catch(e) {}
@@ -9666,6 +9672,30 @@
                         items.unshift(it);
                         try { console.log('[EN-LIST-ARCHIVED-NUDGE] promoted existing duration ago to top for:', qlc); } catch(e) {}
                     }
+                }
+            } catch (e) {}
+
+            // FINAL EN LIST-ARCHIVED-SENDER GUARD: While typing 'list archived emails from <letter(s)>', keep '[sender]' suggestion visible
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                // Match: list archived emails from t|ty|tes (no second 'from' or full timeframe yet)
+                const isListArchivedFromText = /^list\s+archived\s+emails\s+from\s+[a-z0-9._\-+@]+$/i.test(qlc)
+                                             && !/\s+from\s+(t|y|thi|las|this|last|today|yesterday|week|month|year)\b/i.test(qlc);
+                if (isListArchivedFromText && Array.isArray(items)) {
+                    const senderCmd = 'list archived emails from [sender]';
+                    let idx = -1;
+                    for (let i = 0; i < items.length; i++) {
+                        const s = (items[i] && items[i].cmd) ? String(items[i].cmd).toLowerCase() : String(items[i]).toLowerCase();
+                        if (s === senderCmd) { idx = i; break; }
+                    }
+                    if (idx === -1) {
+                        // Mark as placeholder so renderer applies sender-token bolding
+                        items.unshift({ cmd: senderCmd, score: 2000, type: 'placeholder' });
+                    } else if (idx > 0) {
+                        const it = items.splice(idx, 1)[0];
+                        items.unshift(it);
+                    }
+                    try { console.log('[EN-LIST-ARCHIVED-SENDER-GUARD] ensured sender suggestion at top for:', qlc); } catch(e) {}
                 }
             } catch (e) {}
 
@@ -12295,7 +12325,8 @@
                         // English: apply only when a sender cue is typed
                         const qlAll = (input || '').toLowerCase();
                         // Consider 'from' a cue only when followed by space or a token; do NOT trigger on 'f/fr/fro'
-                        const partialFromCue = /\blist\s+emails\s+from\s*$/i.test(qlAll);
+                        // Extend to support 'list archived emails from' as well
+                        const partialFromCue = /\blist\s+(?:emails|archived\s+emails)\s+from\s*$/i.test(qlAll);
                         let hasSenderCue = /\bfrom\s+/.test(qlAll) || partialFromCue;
                         // If a timeframe token follows a full 'from', suppress sender cue
                         try {
@@ -12304,7 +12335,8 @@
                                 const tok = mTok[1];
                                 if (!/[.]/.test(tok)) {
                                     const timePrefixes = ['today','yesterday','last','this'];
-                                    if (/^\d/.test(tok) || timePrefixes.some(w => w.startsWith(tok))) {
+                                    // Only treat as timeframe if user typed at least 2 letters (so 't'/'y' keep sender bolding)
+                                    if (/^\d/.test(tok) || (tok.length >= 2 && timePrefixes.some(w => w.startsWith(tok)))) {
                                         hasSenderCue = false;
                                     }
                                 }
@@ -12551,7 +12583,7 @@
                     } else {
                         div.textContent = cmd;
                     }
-                } else if (type === 'placeholder') {
+                } else if (type === 'placeholder' || /\[(sender|domain\.com|שולח|דומיין)\]/i.test(cmd)) {
                     // Sender-first experience: explicitly bold through the sender/domain token as user types into it
                     const ql = (input || '').toLowerCase();
                     const lcCmd = cmd.toLowerCase();
@@ -12597,7 +12629,14 @@
                 } else {
                     const ql = (input || '').toLowerCase();
                     const lcCmd2 = cmd.toLowerCase();
-                    if (lcCmd2.startsWith(ql) && ql.length > 0) {
+                    // Try placeholder-aware bolding first (handles [sender]/[domain] tokens)
+                    let phBold = computePlaceholderBoldLength(cmd, input);
+                    if (phBold > 0) {
+                        const safe = Math.max(0, Math.min(phBold, cmd.length));
+                        const bold = escapeHtml(cmd.substring(0, safe));
+                        const rest = escapeHtml(cmd.substring(safe));
+                        div.innerHTML = `<strong>${bold}</strong>${rest}`;
+                    } else if (lcCmd2.startsWith(ql) && ql.length > 0) {
                         const bold = escapeHtml(cmd.substring(0, ql.length));
                         const rest = escapeHtml(cmd.substring(ql.length));
                         div.innerHTML = `<strong>${bold}</strong>${rest}`;
