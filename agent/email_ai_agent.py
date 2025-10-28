@@ -1558,12 +1558,33 @@ class GmailAIAgent:
         retry_delay = 1  # Start with shorter delay
         results = None  # Initialize results to avoid UnboundLocalError
         
+        # Count all matching emails on first page to get total
+        total_count = 0
+        if page_token is None:
+            count_messages = []
+            count_token = None
+            while True:
+                count_kwargs = {"userId": 'me', "q": query, "maxResults": 500, "fields": 'messages/id,nextPageToken'}
+                if count_token:
+                    count_kwargs["pageToken"] = count_token
+                try:
+                    count_results = self.api_list_messages(**count_kwargs)
+                    count_msgs = count_results.get('messages', [])
+                    if count_msgs:
+                        count_messages.extend(count_msgs)
+                    count_token = count_results.get('nextPageToken')
+                    if not count_token:
+                        break
+                except Exception:
+                    break
+            total_count = len(count_messages)
+        
         for attempt in range(max_retries):
             try:
                 # Use the specified max_results or default
                 if max_results is None:
                     max_results = self.default_max_results
-                kwargs = {"userId":"me", "q": query, "maxResults": max_results}
+                kwargs = {"userId":"me", "q": query, "maxResults": max_results, "fields": 'messages/id,nextPageToken'}
                 if page_token:
                     kwargs["pageToken"] = page_token
                 
@@ -1602,11 +1623,12 @@ class GmailAIAgent:
         messages = results.get('messages', [])
         next_token = results.get('nextPageToken')
         if not messages:
-            return {"message": _("No emails found %(description)s.") % {"description": description}, "emails": [], "next_page_token": None}
+            display_count = total_count if total_count > 0 else 0
+            return {"message": _("Found %(count)d emails %(description)s.") % {"count": display_count, "description": description}, "emails": [], "next_page_token": None, "total_count": total_count}
         email_list = []
         total_emails = len(messages)
         
-        # Update progress with total emails
+        # Update progress with total emails (use page count for progress, total_count for message)
         if hasattr(self, 'command_id') and self.command_id:
             from agent.views import update_email_progress
             update_email_progress(self.command_id, 0, total_emails)
@@ -1634,7 +1656,10 @@ class GmailAIAgent:
             # Update progress
             if hasattr(self, 'command_id') and self.command_id:
                 update_email_progress(self.command_id, i + 1, total_emails)
-        return {"message": _("Found %(count)d emails %(description)s.") % {"count": len(messages), "description": description}, "emails": email_list, "next_page_token": next_token}
+        
+        # Use total_count if available, otherwise use len(messages)
+        display_count = total_count if total_count > 0 else len(messages)
+        return {"message": _("Found %(count)d emails %(description)s.") % {"count": display_count, "description": description}, "emails": email_list, "next_page_token": next_token, "total_count": total_count}
 
     def _build_preview(self, messages, limit=10):
         """Build up to 'limit' preview rows for confirmation dialogs."""
@@ -3567,6 +3592,46 @@ class GmailAIAgent:
                 elif target_type == "older_than":
                     result = self.list_emails_older_than(target)
                     if not result.get("emails"): return {"status": "success", "message": result.get("message")}
+                    # For Hebrew mode, construct message with total_count
+                    if hebrew_mode and result.get("total_count") is not None:
+                        total_count = result.get("total_count", 0)
+                        # Parse the target to get days for Hebrew phrase
+                        try:
+                            parts = target.split()
+                            if len(parts) == 2 and parts[0].isdigit():
+                                quantity = int(parts[0])
+                                unit = parts[1]
+                                delta = None
+                                from datetime import datetime, timedelta
+                                from dateutil.relativedelta import relativedelta
+                                if "day" in unit: delta = timedelta(days=quantity)
+                                elif "week" in unit: delta = timedelta(weeks=quantity)
+                                elif "month" in unit: delta = relativedelta(months=quantity)
+                                elif "year" in unit: delta = relativedelta(years=quantity)
+                                if delta:
+                                    cutoff_date = datetime.now() - delta
+                                    days_equiv = (datetime.now() - cutoff_date).days
+                                    # Build Hebrew phrase
+                                    if days_equiv < 7:
+                                        heb_phrase = f"ישנים מ-{days_equiv} ימים"
+                                    elif days_equiv < 30:
+                                        weeks = days_equiv // 7
+                                        heb_phrase = f"ישנים מ-{weeks} שבועות"
+                                    elif days_equiv < 365:
+                                        months = days_equiv // 30
+                                        heb_phrase = f"ישנים מ-{months} חודשים"
+                                    else:
+                                        years = days_equiv // 365
+                                        heb_phrase = f"ישנים מ-{years} שנים"
+                                    msg = f"נמצאו {total_count} מיילים {heb_phrase}."
+                                else:
+                                    msg = result.get("message", "")
+                            else:
+                                msg = result.get("message", "")
+                        except Exception:
+                            msg = result.get("message", "")
+                        return {"status": "success", "data": result.get("emails"), "type": "email_list", "message": msg, "next_page_token": result.get("next_page_token"), "list_context": {"mode": "older_than", "target": target}}
+                    # For English, prefer message from result (which includes total_count)
                     return {"status": "success", "data": result.get("emails"), "type": "email_list", "message": result.get("message"), "next_page_token": result.get("next_page_token"), "list_context": {"mode": "older_than", "target": target}}
                 elif target_type == "custom_category":
                     res = self.list_emails_by_custom_category(target, older_than_days=older_than_days, date_range=parsed.get("date_range"))
