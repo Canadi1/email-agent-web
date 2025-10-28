@@ -4809,6 +4809,50 @@
             } catch (e) {}
             try { console.log('[HE-DIAG][after-sender+timeframe]', Array.isArray(items)?items.length:'n/a'); } catch(e) {}
 
+            // FINAL OVERRIDE: When typing 'רשום מיילים מ [sender] מ' (just מ at end), prioritize מלפני [משך]
+            try {
+                const qNorm = (input || '').toLowerCase().replace(/[\u200e\u200f\u202a-\u202e]/g,'').replace(/\s+/g,' ').trim();
+                // Match: רשום מיילים מ [anything] מ (ending with מ, with or without trailing space)
+                const pattern1 = /^\s*רש(?:ו)?ם\s+מיילים\s+מ\s*[^\s]+\s+מ\s*$/i;
+                const isSenderWithM = isHeb && pattern1.test(qNorm);
+                try { console.log('[HE-SENDER-M-FINAL] Check:', { qNorm, isHeb, isSenderWithM, uniqueLen: Array.isArray(unique) ? unique.length : 0 }); } catch(e) {}
+                if (isSenderWithM && Array.isArray(unique) && unique.length) {
+                    const melefaniIdx = unique.findIndex(function(it) {
+                        const cmd = String(it && it.cmd ? it.cmd : it || '').toLowerCase();
+                        return /^רשום\s+מיילים\s+מ\[שולח\]\s+מלפני\s+\[משך\]/.test(cmd);
+                    });
+                    if (melefaniIdx >= 0 && melefaniIdx !== 0) {
+                        const melefaniItem = unique.splice(melefaniIdx, 1)[0];
+                        unique.unshift(melefaniItem);
+                        try { console.log('[HE-SENDER-M-FINAL] Moved מלפני [משך] to top for sender+מ'); } catch(e) {}
+                    }
+                }
+            } catch (e) {}
+            
+            // FINAL OVERRIDE 2: Also handle when scoring promotes timeframe, re-prioritize מלפני
+            try {
+                const qNorm = (input || '').toLowerCase().replace(/[\u200e\u200f\u202a-\u202e]/g,'').replace(/\s+/g,' ').trim();
+                // Match: רשום מיילים מ [sender] מ (ending with מ)
+                const isSenderWithMEnd = isHeb && /^\s*רש(?:ו)?ם\s+מיילים\s+מ\s*[^\s]+\s+מ$/i.test(qNorm);
+                if (isSenderWithMEnd && Array.isArray(unique) && unique.length) {
+                    const firstCmd = String(unique[0] && unique[0].cmd ? unique[0].cmd : unique[0] || '').toLowerCase();
+                    const isMelefani = /מלפני\s+\[משך\]/.test(firstCmd);
+                    const hasHaiom = /מהיום/.test(firstCmd);
+                    // If מהיום is first, swap with מלפני
+                    if (!isMelefani && hasHaiom) {
+                        const melefaniIdx = unique.findIndex(function(it) {
+                            const cmd = String(it && it.cmd ? it.cmd : it || '').toLowerCase();
+                            return /מלפני\s+\[משך\]/.test(cmd);
+                        });
+                        if (melefaniIdx > 0) {
+                            const melefaniItem = unique.splice(melefaniIdx, 1)[0];
+                            unique.unshift(melefaniItem);
+                            try { console.log('[HE-SENDER-M-FINAL2] Forced מלפני to top (replaced מהיום)'); } catch(e) {}
+                        }
+                    }
+                }
+            } catch (e) {}
+
             // HEBREW ARCHIVE PRIORITY: When typing 'רשום מיילים מארכיון מ', promote archived-from-[שולח] to first
             try {
                 const heArchFromSender = /^\s*רש(?:ו)?ם\s+מיילים\s+מארכיון\s+מ(?:\s|\u200e|\u200f|$)/i.test(q);
@@ -7046,13 +7090,41 @@
                             }
                         } catch(e) {}
                     } else if (senderWithPartialM) {
-                        // When just typing "מ" after sender name, show all sender + timeframe options
+                        // When just typing "מ" after sender name, show sender + duration/timeframe options
+                        // Prioritize duration (מלפני [משך]) over timeframes
                         items = items.filter(function(it) {
                             const cmd = (it && it.cmd) ? it.cmd : String(it);
                             const lcCmd = cmd.toLowerCase();
-                            return /\[שולח\]/.test(lcCmd) && /מ(היום|מאתמול|מהשבוע|מהחודש|מהשנה)/.test(lcCmd);
+                            const hasSender = /\[שולח\]/.test(lcCmd);
+                            const hasDuration = /(מלפני\s+\[משך\]|ישנים\s+מ\[משך\])/.test(lcCmd);
+                            const hasTimeframe = /מ(היום|מאתמול|מהשבוע|מהחודש|מהשנה)/.test(lcCmd);
+                            return hasSender && (hasDuration || hasTimeframe);
                         });
-                        try { console.log('[HE-SENDER-TIMEFRAME-FILTER] restricted to all sender+timeframe options for:', qlc); } catch(e) {}
+                        // Reorder: מלפני [משך] first, then מהיום, then other timeframes
+                        const melefaniIdx = items.findIndex(function(it) {
+                            const cmd = (it && it.cmd) ? it.cmd : String(it);
+                            return /מלפני\s+\[משך\]/.test(cmd);
+                        });
+                        const haiyomIdx = items.findIndex(function(it) {
+                            const cmd = (it && it.cmd) ? it.cmd : String(it);
+                            return /מהיום/.test(cmd);
+                        });
+                        if (melefaniIdx >= 0 && melefaniIdx !== 0) {
+                            const melefaniItem = items.splice(melefaniIdx, 1)[0];
+                            items.unshift(melefaniItem);
+                        }
+                        // Position מהיום as second (after מלפני)
+                        if (haiyomIdx >= 0 && items[0] && /מלפני\s+\[משך\]/.test(String(items[0].cmd || items[0] || '').toLowerCase())) {
+                            const hIdx = items.findIndex(function(it) {
+                                const cmd = (it && it.cmd) ? it.cmd : String(it);
+                                return /מהיום/.test(cmd);
+                            });
+                            if (hIdx > 1) {
+                                const haiyomItem = items.splice(hIdx, 1)[0];
+                                items.splice(1, 0, haiyomItem);
+                            }
+                        }
+                        try { console.log('[HE-SENDER-TIMEFRAME-FILTER] prioritized מלפני + מהיום for sender+מ'); } catch(e) {}
                     } else if (senderWithPartialYear) {
                         // Keep only sender + year suggestions
                         items = items.filter(function(it) {
@@ -8532,20 +8604,17 @@
                 // Treat partial timeframe prefixes (מה/מא/מהי/מהש/מהח...) as cues so we don't suppress during progressive typing
                 const hasTfOrDurPartial = /\sמ\s*(ה|א|מה|מא|מהי|מהיו|מהש|מהשב|מהחו|מהחד|מהח|מהשנ)/.test(qNow);
                 const hasTfOrDurAny = hasTfOrDurFixed || hasTfOrDurPartial;
-                // Detect case: sender already typed before the trailing 'מ' (e.g., 'רשום מיילים מ google מ')
-                const hasSenderNameBeforeBareM = /רשום\s+מיילים\s+מ\s+[^\s]+\s+מ\s*$/i.test(qNow);
+                // Detect case: sender already typed before the trailing 'מ' (e.g., 'רשום מיילים מ google מ' or 'רשום מיילים מgoogle מ')
+                const hasSenderNameBeforeBareM = /רשום\s+מיילים\s+מ\s*[^\s]+\s+מ\s*$/i.test(qNow);
+                // Also detect: sender name typed (with or without trailing מ, e.g., 'רשום מיילים מ google' or 'רשום מיילים מgoogle')
+                const hasSenderNameTyped = /^רש(?:ו)?ם\s+מיילים\s+מ\s*[^\s]+\s*$/i.test(qNow);
+                // Detect: sender + מ pattern (covers both 'מ google מ' and 'מgoogle מ')
+                const hasSenderAndM = /^רש(?:ו)?ם\s+מיילים\s+מ\s*[^\s]+\s+מ\s*$/i.test(qNow);
                 if (isSenderStart && !hasTfOrDurAny && Array.isArray(items) && items.length) {
-                    if (hasSenderNameBeforeBareM) {
-                        // Do NOT suppress; instead prefer the 'מהיום' variant so it shows early
-                        let idxToday = -1;
-                        for (let i = 0; i < items.length; i++) {
-                            const s = String((items[i] && items[i].cmd) ? items[i].cmd : items[i] || '').toLowerCase();
-                            if (/^רשום\s+מיילים\s+מ\[שולח\].*\sמהיום$/.test(s)) { idxToday = i; break; }
-                        }
-                        if (idxToday > 0) {
-                            const it = items.splice(idxToday, 1)[0];
-                            items.unshift(it);
-                        }
+                    if (hasSenderNameBeforeBareM || hasSenderNameTyped || hasSenderAndM) {
+                        // Do NOT suppress; keep the 'מהיום' variant so it shows (but don't force it to top)
+                        // It will be positioned correctly by the sender reordering logic
+                        try { console.log('[HE-SUPPRESSION-SKIP] Keeping מהיום for sender+מ pattern'); } catch(e) {}
                     } else {
                     items = items.filter(function(it){
                         const text = (it && it.cmd) ? it.cmd : String(it);
@@ -9372,6 +9441,24 @@
                         topIns.push(idx > -1 ? items.splice(idx, 1)[0] : { cmd: w, score: 1200 });
                     }
                     items = topIns.concat(items);
+                }
+            } catch (e) {}
+
+            // FINAL OVERRIDE (on items): When typing 'רשום מיילים מ [sender] מ', prioritize מלפני [משך]
+            try {
+                const qNorm = (input || '').toLowerCase().replace(/[\u200e\u200f\u202a-\u202e]/g,'').replace(/\s+/g,' ').trim();
+                // Match: רשום מיילים מ [anything] מ (ending with מ)
+                const isSenderWithMEnd = isHeb && /^\s*רש(?:ו)?ם\s+מיילים\s+מ\s*[^\s]+\s+מ\s*$/i.test(qNorm);
+                if (isSenderWithMEnd && Array.isArray(items) && items.length) {
+                    const melefaniIdx = items.findIndex(function(it) {
+                        const cmd = String(it && it.cmd ? it.cmd : it || '').toLowerCase();
+                        return /^רשום\s+מיילים\s+מ\[שולח\]\s+מלפני\s+\[משך\]/.test(cmd);
+                    });
+                    if (melefaniIdx >= 0 && melefaniIdx !== 0) {
+                        const melefaniItem = items.splice(melefaniIdx, 1)[0];
+                        items.unshift(melefaniItem);
+                        try { console.log('[HE-SENDER-M-ITEMS-FINAL] Moved מלפני [משך] to top in items'); } catch(e) {}
+                    }
                 }
             } catch (e) {}
 
