@@ -5639,6 +5639,9 @@
                                     // Only show base category if NO timeframe 'מ' is being typed
                                     if (!hasTimeframeM) {
                                         out.push({ cmd: 'רשום מיילי ' + cat, score: 995 });
+                                        // Add duration commands after base category
+                                        out.push({ cmd: 'רשום מיילי ' + cat + ' ישנים מ[משך]', score: 994.5 });
+                                        out.push({ cmd: 'רשום מיילי ' + cat + ' מלפני [משך]', score: 994.4 });
                                     }
                                     let tfs = tfAll.slice();
                                     if (afterM) {
@@ -5705,20 +5708,72 @@
             try {
                 const qDbgCat = (input || '').toLowerCase().replace(/[\u200e\u200f\u202a\u202b\u202c\u202d\u202e]/g,'').replace(/\u00a0/g,' ').replace(/\s+/g,' ').trim();
                 const isCatFlow = heCategoryMode || /^רש(?:ו)?ם\s+מיילי(?!ם)(?:\s|$)/.test(qDbgCat);
+                // Check if a category name has been typed (not just "רשום מיילי")
+                const hasCategoryTyped = /^רש(?:ו)?ם\s+מיילי\s+[\u0590-\u05FF]/.test(qDbgCat);
                 if (isCatFlow && Array.isArray(items)) {
                     try { console.log('[HE-CAT-FLOW-FILTER] before filter:', items.length, 'items:', items.map(it => it.cmd)); } catch(e) {}
                     items = items.filter(function(it){
                         const cmd = (it && it.cmd) ? it.cmd : String(it);
-                        const lc = String(cmd || '').toLowerCase();
-                        const startsWithRishum = /^רשום\s+מיילי\b/.test(lc);
+                        const lc = String(cmd || '').toLowerCase().trim();
+                        const startsWithRishum = /^רשום\s+מיילי/.test(lc);
                         const hasSender = /\bשולח\b|דומיין|\[(sender|domain|שולח|דומיין)/i.test(lc);
-                        const hasTimeframe = /^רשום\s+מיילים\s+מ(היום|מאתמול|מהשבוע|מהחודש|מהשנה)/.test(lc);
-                        const passes = startsWithRishum && !hasSender && !hasTimeframe;
+                        // Only filter out sender commands when a category has been typed
+                        // If just "רשום מיילי", keep both category and sender suggestions
+                        const passes = hasCategoryTyped 
+                            ? (startsWithRishum && !hasSender)
+                            : (startsWithRishum || /^רשום\s+מיילים\s+מ\[שולח\]/.test(lc));
                         if (!passes) {
-                            try { console.log('[HE-CAT-FLOW-FILTER] filtered out:', cmd, { startsWithRishum, hasSender, hasTimeframe }); } catch(e) {}
+                            try { console.log('[HE-CAT-FLOW-FILTER] filtered out:', cmd, { startsWithRishum, hasSender, hasCategoryTyped }); } catch(e) {}
                         }
                         return passes;
                     });
+                    
+                    // When just "רשום מיילי" (no category), prioritize sender suggestion
+                    if (!hasCategoryTyped && Array.isArray(items) && items.length) {
+                        const senderIdx = items.findIndex(function(it) {
+                            const cmd = String(it.cmd || it || '').toLowerCase();
+                            return /^רשום\s+מיילים\s+מ\[שולח\]\s*$/.test(cmd);
+                        });
+                        if (senderIdx >= 0 && senderIdx !== 0) {
+                            const senderItem = items.splice(senderIdx, 1)[0];
+                            items.unshift(senderItem);
+                            try { console.log('[HE-CAT-FLOW-FILTER] Moved sender to top for רשום מיילי'); } catch(e) {}
+                        }
+                    }
+                    
+                    // Reorder: prioritize ישנים מ[משך] and מלפני [משך] after base category
+                    const qNormCat = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                    const isExactCategory = /^רש(?:ו)?ם\s+מיילי\s+(משלוח|קודי\s+אימות|אבטחת\s+חשבון)\s*$/i.test(qNormCat);
+                    if (isExactCategory && items.length > 0) {
+                        const baseIdx = items.findIndex(function(it) {
+                            const cmd = String(it.cmd || it || '').toLowerCase();
+                            return /^רשום\s+מיילי\s+(משלוח|קודי\s+אימות|אבטחת\s+חשבון)\s*$/.test(cmd);
+                        });
+                        const ishanimIdx = items.findIndex(function(it) {
+                            const cmd = String(it.cmd || it || '').toLowerCase();
+                            return /^רשום\s+מיילי\s+(משלוח|קודי\s+אימות|אבטחת\s+חשבון)\s+ישנים\s+מ\[משך\]/.test(cmd);
+                        });
+                        const melefaniIdx = items.findIndex(function(it) {
+                            const cmd = String(it.cmd || it || '').toLowerCase();
+                            return /^רשום\s+מיילי\s+(משלוח|קודי\s+אימות|אבטחת\s+חשבון)\s+מלפני\s+\[משך\]/.test(cmd);
+                        });
+                        
+                        const ordered = [];
+                        if (baseIdx >= 0) ordered.push(items[baseIdx]);
+                        if (ishanimIdx >= 0 && ishanimIdx !== baseIdx) ordered.push(items[ishanimIdx]);
+                        if (melefaniIdx >= 0 && melefaniIdx !== baseIdx && melefaniIdx !== ishanimIdx) ordered.push(items[melefaniIdx]);
+                        for (let i = 0; i < items.length; i++) {
+                            if (i !== baseIdx && i !== ishanimIdx && i !== melefaniIdx) {
+                                ordered.push(items[i]);
+                            }
+                        }
+                        if (ordered.length > 0) {
+                            items.length = 0;
+                            items.push(...ordered);
+                            try { console.log('[HE-CAT-REORDER] Reordered category suggestions'); } catch(e) {}
+                        }
+                    }
+                    
                     try { console.log('[HE-CAT-FLOW-FILTER] after filter:', items.length, 'items'); } catch(e) {}
                     // Ensure duration placeholder persists for category + bare 'מ' (progressive)
                     try {
@@ -5730,8 +5785,16 @@
                             for (const c of cats) { if (c.startsWith(typedCat) || typedCat.startsWith(c)) { cat = c; break; } }
                             if (cat) {
                                 const durCmd = 'רשום מיילי ' + cat + ' מלפני [משך]';
-                                const exists = items.some(function(it){ const s = (it && it.cmd) ? it.cmd : String(it||''); return s === durCmd; });
-                                if (!exists) items.push({ cmd: durCmd, score: 993.2, type: 'he_cat_render_duration_seed' });
+                                const durIdx = items.findIndex(function(it){ const s = (it && it.cmd) ? it.cmd : String(it||''); return s === durCmd; });
+                                if (durIdx === -1) {
+                                    // Inject if doesn't exist
+                                    items.unshift({ cmd: durCmd, score: 993.2, type: 'he_cat_render_duration_seed' });
+                                } else if (durIdx > 0) {
+                                    // Move to top if exists but not first
+                                    const durItem = items.splice(durIdx, 1)[0];
+                                    items.unshift(durItem);
+                                }
+                                try { console.log('[HE-CAT-M-REORDER] Moved מלפני [משך] to top for category+מ'); } catch(e) {}
                             }
                         }
                     } catch(e) {}
@@ -9458,6 +9521,24 @@
                         const melefaniItem = items.splice(melefaniIdx, 1)[0];
                         items.unshift(melefaniItem);
                         try { console.log('[HE-SENDER-M-ITEMS-FINAL] Moved מלפני [משך] to top in items'); } catch(e) {}
+                    }
+                }
+            } catch (e) {}
+            
+            // FINAL OVERRIDE (category+מ): When typing 'רשום מיילי [קטגוריה] מ', prioritize מלפני [משך]
+            try {
+                const qNorm = (input || '').toLowerCase().replace(/[\u200e\u200f\u202a-\u202e]/g,'').replace(/\s+/g,' ').trim();
+                // Match: רשום מיילי [קטגוריה] מ (ending with מ)
+                const isCategoryWithM = isHeb && /^\s*רש(?:ו)?ם\s+מיילי\s+(משלוח|קודי\s+אימות|אבטחת\s+חשבון)\s+מ\s*$/i.test(qNorm);
+                if (isCategoryWithM && Array.isArray(items) && items.length) {
+                    const melefaniIdx = items.findIndex(function(it) {
+                        const cmd = String(it && it.cmd ? it.cmd : it || '').toLowerCase();
+                        return /מלפני\s+\[משך\]/.test(cmd);
+                    });
+                    if (melefaniIdx >= 0 && melefaniIdx !== 0) {
+                        const melefaniItem = items.splice(melefaniIdx, 1)[0];
+                        items.unshift(melefaniItem);
+                        try { console.log('[HE-CAT-M-ITEMS-FINAL] Moved מלפני [משך] to top for category+מ'); } catch(e) {}
                     }
                 }
             } catch (e) {}
