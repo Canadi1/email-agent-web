@@ -3358,12 +3358,21 @@ class GmailAIAgent:
                     res = self.list_archived_emails()
                     emails = res.get("emails", []) if isinstance(res, dict) else res
                     next_token = res.get("next_page_token") if isinstance(res, dict) else None
+                    # Check for connection errors (SSL issues, etc.)
+                    if isinstance(res, dict) and res.get("error") == "connection_error":
+                        # Return error message from res, don't show "No archived emails found"
+                        return {"status": "error", "message": res.get("message", _("Unable to retrieve archived emails due to connection error. Please try again."))}
                     if not emails: 
-                        return {"status": "success", "message": _("No archived emails found.")}
+                        # Use message from res if available, otherwise default
+                        msg = res.get("message") if isinstance(res, dict) and res.get("message") else _("No archived emails found.")
+                        return {"status": "success", "message": msg}
+                    # Hebrew uses total_count if available, English uses message from res
                     if hebrew_mode:
-                        msg = f"נמצאו {len(emails)} מיילים בארכיון."
+                        total_count = res.get("total_count") if isinstance(res, dict) else None
+                        count_he = total_count if (isinstance(total_count, int) and total_count >= 0) else len(emails)
+                        msg = f"נמצאו {count_he} מיילים בארכיון."
                     else:
-                        msg = f"Found {len(emails)} archived emails."
+                        msg = res.get("message") if isinstance(res, dict) and res.get("message") else f"Found {len(emails)} archived emails."
                     return {"status": "success", "data": emails, "type": "email_list", "message": msg, "next_page_token": next_token, "list_context": {"mode": "archived"}}
                 elif target_type == "archived_duration_ago":
                     res = self.list_archived_emails_from_duration_ago(parsed.get("duration_ago"))
@@ -4740,6 +4749,36 @@ class GmailAIAgent:
             self._progress_initialized = False
             self._last_command_id = getattr(self, 'command_id', None)
         
+        # First, count total emails (only if this is the first page)
+        # Wrap in try/except so count failures don't block the main query
+        total_count = 0
+        if page_token is None:
+            try:
+                q = '-in:inbox -in:spam -in:trash -in:chats -in:sent -in:drafts'
+                count_messages = []
+                count_token = None
+                while True:
+                    count_kwargs = {"userId": 'me', "q": q, "maxResults": 500, "fields": 'messages/id,nextPageToken'}
+                    if count_token:
+                        count_kwargs["pageToken"] = count_token
+                    try:
+                        count_results = self.api_list_messages(**count_kwargs)
+                        count_msgs = count_results.get('messages', [])
+                        if count_msgs:
+                            count_messages.extend(count_msgs)
+                        count_token = count_results.get('nextPageToken')
+                        if not count_token:
+                            break
+                    except Exception as count_e:
+                        # If count fails, continue without it (don't block main query)
+                        print(f"Count query failed in list_archived_emails: {count_e}")
+                        break
+                total_count = len(count_messages)
+            except Exception as e:
+                # If total count fails, proceed with 0 (will use page count instead)
+                print(f"Total count failed in list_archived_emails: {e}")
+                total_count = 0
+        
         for attempt in range(max_retries):
             try:
                 if max_results is None:
@@ -4849,7 +4888,14 @@ class GmailAIAgent:
                 print(f"Pagination error in list_archived_emails: {e}")
                 break
         if not messages:
-            return {"emails": [], "next_page_token": None}
+            # Return empty result with appropriate message
+            # If total_count > 0 but messages is empty, there was likely an SSL/connection error fetching emails
+            if total_count > 0:
+                # There are emails but we couldn't fetch them (SSL error, etc.)
+                return {"emails": [], "next_page_token": None, "message": _("Unable to retrieve archived emails due to connection error. Please try again."), "total_count": total_count, "error": "connection_error"}
+            else:
+                # Genuinely no emails
+                return {"emails": [], "next_page_token": None, "message": _("No archived emails found."), "total_count": 0}
         archived_emails = []
         
         # Use batch processing for much faster execution
@@ -4964,13 +5010,17 @@ class GmailAIAgent:
             if archived_emails:
                 batch_processing_successful = True
         
+        # Build message with total count if available
+        display_count = total_count if total_count > 0 else len(archived_emails) if archived_emails else 0
+        message_text = _("Found %(count)d archived emails.") % {"count": display_count}
+        
         # If batch processing failed but we have some emails, return them
         if batch_processing_attempted and not batch_processing_successful and archived_emails:
-            return {"emails": archived_emails, "next_page_token": next_token}
+            return {"emails": archived_emails, "next_page_token": next_token, "message": message_text, "total_count": total_count}
         
         # Always return emails if we have any, regardless of processing method
         if archived_emails:
-            return {"emails": archived_emails, "next_page_token": next_token}
+            return {"emails": archived_emails, "next_page_token": next_token, "message": message_text, "total_count": total_count}
         
         if not batch_processing_attempted or not batch_processing_successful:
             # For small numbers, use individual requests
@@ -5016,7 +5066,10 @@ class GmailAIAgent:
         
         # Always return emails if we have any, regardless of processing method
         if archived_emails:
-            return {"emails": archived_emails, "next_page_token": next_token}
+            # Use total_count if available, otherwise use count of current page
+            display_count = total_count if total_count > 0 else len(archived_emails)
+            message_text = _("Found %(count)d archived emails.") % {"count": display_count}
+            return {"emails": archived_emails, "next_page_token": next_token, "message": message_text, "total_count": total_count}
         
         return {"emails": [], "next_page_token": next_token}
 
