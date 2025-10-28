@@ -1380,7 +1380,7 @@ def _translate_hebrew_command_to_english(command: str) -> str:
         (r"\bשנים\b", "years"),
 
         # Keywords and targets
-        (r"אימיילים|מיילים|דואר|דוא""ל", "emails"),
+        (r"הדואר|אימיילים|מיילים|דואר|דוא""ל", "emails"),
         (r"\bאת\s*כל\b|\bכל\b", "all "),
         (r"עם\s+נושא", "with subject"),
         (r"קודים\s+לאימות|קוד(?:י)?\s+אימות", "verification codes"),

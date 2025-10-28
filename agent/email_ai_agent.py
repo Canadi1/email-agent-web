@@ -3385,10 +3385,13 @@ class GmailAIAgent:
                     emails = res.get("emails", [])
                     if not emails: 
                         return {"status": "success", "message": _("No emails found in All Mail.")}
+                    # Hebrew uses total_count if available, English uses message from res
                     if hebrew_mode:
-                        msg = f"נמצאו {len(emails)} מיילים בתיבת כל הדואר."
+                        total_count = res.get("total_count") if isinstance(res, dict) else None
+                        count_he = total_count if (isinstance(total_count, int) and total_count >= 0) else len(emails)
+                        msg = f"נמצאו {count_he} מיילים בתיבת כל הדואר."
                     else:
-                        msg = f"Found {len(emails)} emails in All Mail."
+                        msg = res.get("message") if isinstance(res, dict) and res.get("message") else f"Found {len(emails)} emails in All Mail."
                     return {"status": "success", "data": emails, "type": "email_list", "message": msg, "next_page_token": res.get("next_page_token"), "list_context": {"mode": "all_mail"}}
                 elif target_type == "labels" or parsed.get("target") == "labels":
                     labels = self.list_labels()
@@ -5086,6 +5089,28 @@ class GmailAIAgent:
             self._progress_initialized = False
             self._last_command_id = getattr(self, 'command_id', None)
         
+        # First, count total emails (only if this is the first page)
+        total_count = 0
+        if page_token is None:
+            q = '-in:spam -in:trash -in:chats'
+            count_messages = []
+            count_token = None
+            while True:
+                count_kwargs = {"userId": 'me', "q": q, "maxResults": 500, "fields": 'messages/id,nextPageToken'}
+                if count_token:
+                    count_kwargs["pageToken"] = count_token
+                try:
+                    count_results = self.api_list_messages(**count_kwargs)
+                    count_msgs = count_results.get('messages', [])
+                    if count_msgs:
+                        count_messages.extend(count_msgs)
+                    count_token = count_results.get('nextPageToken')
+                    if not count_token:
+                        break
+                except Exception:
+                    break
+            total_count = len(count_messages)
+        
         for attempt in range(max_retries):
             try:
                 if max_results is None:
@@ -5267,13 +5292,17 @@ class GmailAIAgent:
             if emails:
                 batch_processing_successful = True
         
+        # Build message with total count if available
+        display_count = total_count if total_count > 0 else len(emails) if emails else 0
+        message_text = _("Found %(count)d emails in All Mail.") % {"count": display_count}
+        
         # If batch processing failed but we have some emails, return them
         if batch_processing_attempted and not batch_processing_successful and emails:
-            return {"emails": emails, "next_page_token": next_token}
+            return {"emails": emails, "next_page_token": next_token, "message": message_text, "total_count": total_count}
         
         # Always return emails if we have any, regardless of processing method
         if emails:
-            return {"emails": emails, "next_page_token": next_token}
+            return {"emails": emails, "next_page_token": next_token, "message": message_text, "total_count": total_count}
         
         if not batch_processing_attempted or not batch_processing_successful:
             # For small numbers, use individual requests
@@ -5317,7 +5346,10 @@ class GmailAIAgent:
                 except Exception as e:
                     print(f"Error processing message {message['id']}: {e}")
                     continue
-            return {"emails": emails, "next_page_token": next_token}
+            # Build message with total count if available
+            display_count = total_count if total_count > 0 else len(emails)
+            message_text = _("Found %(count)d emails in All Mail.") % {"count": display_count}
+            return {"emails": emails, "next_page_token": next_token, "message": message_text, "total_count": total_count}
     def label_emails_by_keywords(self, keywords, label_name, confirm=False):
         """Label emails containing specific keywords in subject"""
         try:
