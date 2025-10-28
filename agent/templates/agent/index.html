@@ -6253,6 +6253,26 @@
                     console.log('After filter - items count:', items.length);
                 }
 
+                // Progressive filter for "רשום מיילים אחרונים" (recent emails)
+                const isHeTypingAchronim = !isCatFlowNow && isHeb && /^רש(?:ו)?ם\s+מיילים\s+א/.test(qNorm);
+                if (isHeTypingAchronim && Array.isArray(items)) {
+                    // Match progressive typing: א, אחר, אחרו, אחרונ, אחרונים
+                    const achronimMatch = qNorm.match(/^רש(?:ו)?ם\s+מיילים\s+(א[\u0590-\u05FF]*)$/);
+                    if (achronimMatch && achronimMatch[1]) {
+                        const typedAchronim = achronimMatch[1];
+                        // Check if it matches "אחרונים" prefix
+                        if ('אחרונים'.startsWith(typedAchronim)) {
+                            items = items.filter(function(it) {
+                                const cmd = (it && it.cmd) ? it.cmd : String(it);
+                                const lcCmd = cmd.toLowerCase();
+                                // Keep only "רשום מיילים אחרונים" when typing progressive "א..."
+                                return /^רשום\s+מיילים\s+אחרונים$/.test(lcCmd);
+                            });
+                            try { console.log('[HE-ACHRONIM-FILTER] Filtered to אחרונים for:', typedAchronim); } catch(e) {}
+                        }
+                    }
+                }
+
                 // Duration intent filter: when typing "ישנים" (or partial like "י", "יש", "ישנ") or duration keywords, remove sender-ONLY suggestions
                 // BUT keep commands that have BOTH sender AND duration (e.g., "מ[שולח] ישנים מ[משך]")
                 // Also detect partial "מלפני" typing (מל/מלפ/מלפנ/מלפני)
