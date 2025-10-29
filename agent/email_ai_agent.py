@@ -6077,14 +6077,39 @@ class GmailAIAgent:
                 return {"status": "success", "message": msg, "undone_count": len(msg_ids)}
             elif action_type == 'trash':
                 # Untrash and add INBOX
-                restored = 0
-                for msg_id in msg_ids:
-                    try:
-                        self.api_untrash(msg_id)
-                        self.api_modify(msg_id, add_label_ids=['INBOX'])
-                        restored += 1
-                    except HttpError:
-                        continue
+                # Process untrash in smaller batches to avoid timeout (Gmail API requires individual calls)
+                untrash_batch_size = 20  # Smaller batches for untrash to avoid overwhelming API
+                successfully_untrashed = []
+                
+                # Step 1: Untrash emails in batches with delays
+                for i in range(0, len(msg_ids), untrash_batch_size):
+                    batch = msg_ids[i:i + untrash_batch_size]
+                    for msg_id in batch:
+                        try:
+                            self.api_untrash(msg_id)
+                            successfully_untrashed.append(msg_id)
+                        except HttpError:
+                            continue
+                    # Small delay between batches to avoid rate limiting
+                    if i + untrash_batch_size < len(msg_ids):
+                        time.sleep(0.2)
+                
+                # Step 2: Batch add INBOX label to all successfully untrashed messages
+                restored = len(successfully_untrashed)
+                if successfully_untrashed:
+                    # Add INBOX label in batches of 100 (much more efficient than individual calls)
+                    for j in range(0, len(successfully_untrashed), 100):
+                        batch_ids = successfully_untrashed[j:j + 100]
+                        try:
+                            self.api_batch_modify(batch_ids, add_label_ids=['INBOX'])
+                        except HttpError:
+                            # Fallback: try individual modify for this batch
+                            for msg_id in batch_ids:
+                                try:
+                                    self.api_modify(msg_id, add_label_ids=['INBOX'])
+                                except HttpError:
+                                    continue
+                
                 del self._undo_store[action_id]
                 msg = (f"הביטול הושלם. הוחזרו מהאשפה {restored} מיילים." if is_he
                        else _("Undo complete. Untrashed %(count)d emails.") % {"count": restored})
