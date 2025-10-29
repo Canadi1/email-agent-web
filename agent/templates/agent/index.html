@@ -1578,7 +1578,10 @@
                                     <input type="hidden" name="undo_action_id" value="{{ act.id }}">
                                     <button type="submit" class="cancel-btn undo-btn">{% trans 'Undo' %}</button>
                                 </form>
-                                <span>{{ act.type }} ({{ act.count }})</span>
+                                <span>
+                                    {% if act.display %}{{ act.display }}{% else %}{{ act.type }}{% endif %}
+                                    {% if act.count and act.type != 'label_delete' %} ({{ act.count }}){% endif %}
+                                </span>
                             </li>
                             {% endfor %}
                         </ul>

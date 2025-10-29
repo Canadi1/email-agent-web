@@ -5700,22 +5700,66 @@ class GmailAIAgent:
     def delete_label(self, label_name):
         """Delete a Gmail label by name. Emails are not deleted, only the label is removed."""
         try:
+            # Detect current UI language for localized messages
+            try:
+                from django.utils import translation as _translation
+                lang_code = _translation.get_language() or ''
+            except Exception:
+                lang_code = ''
+            is_he = str(lang_code).startswith('he')
+
             label_id = self.get_label_id(label_name)
             if not label_id:
-                return {"status": "success", "message": _("Label '%(label)s' does not exist.") % {"label": label_name}}
+                msg = (f"התווית '{label_name}' לא קיימת." if is_he else _("Label '%(label)s' does not exist.") % {"label": label_name})
+                return {"status": "success", "message": msg}
             
+            # Build undo payload by capturing all message IDs currently having this label
+            affected_message_ids = []
+            try:
+                page_token = None
+                while True:
+                    kwargs = {"userId": 'me', "labelIds": [label_id], "maxResults": 500, "fields": 'messages/id,nextPageToken'}
+                    if page_token:
+                        kwargs["pageToken"] = page_token
+                    resp = self.service.users().messages().list(**kwargs).execute()
+                    msgs = resp.get('messages', []) or []
+                    affected_message_ids.extend([m['id'] for m in msgs if 'id' in m])
+                    page_token = resp.get('nextPageToken')
+                    if not page_token:
+                        break
+            except Exception:
+                # If this fails, proceed with deletion; undo will recreate label without reapplying to emails
+                affected_message_ids = []
+
             # Delete the label using Gmail API
             try:
                 self.service.users().labels().delete(userId='me', id=label_id).execute()
-                return {"status": "success", "message": _("Deleted label '%(label)s'.") % {"label": label_name}}
+                # Record undo entry (type: label_delete). We'll recreate label and reapply to stored messages on undo
+                try:
+                    if not hasattr(self, '_undo_store'):
+                        self._undo_store = {}
+                        self._undo_counter = 0
+                    undo_id = self._record_undo('label_delete', affected_message_ids, extra={"label_name": label_name})
+                except Exception:
+                    undo_id = None
+                msg = (f"התווית '{label_name}' נמחקה." if is_he else _("Deleted label '%(label)s'.") % {"label": label_name})
+                return {"status": "success", "message": msg}
             except HttpError as error:
                 error_str = str(error)
                 # Check if it's a system label (can't be deleted)
                 if 'system label' in error_str.lower() or 'SYSTEM' in error_str:
-                    return {"status": "error", "message": _("Cannot delete system label '%(label)s'.") % {"label": label_name}}
-                return {"status": "error", "message": _("Error deleting label '%(label)s': %(error)s") % {"label": label_name, "error": error_str}}
+                    msg = (f"לא ניתן למחוק תווית מערכת '{label_name}'." if is_he else _("Cannot delete system label '%(label)s'.") % {"label": label_name})
+                    return {"status": "error", "message": msg}
+                msg = (f"שגיאה במחיקת התווית '{label_name}': {error_str}" if is_he else _("Error deleting label '%(label)s': %(error)s") % {"label": label_name, "error": error_str})
+                return {"status": "error", "message": msg}
         except Exception as error:
-            return {"status": "error", "message": _("Error deleting label '%(label)s': %(error)s") % {"label": label_name, "error": str(error)}}
+            try:
+                from django.utils import translation as _translation
+                is_he = str((_translation.get_language() or '')).startswith('he')
+            except Exception:
+                is_he = False
+            msg = (f"שגיאה במחיקת התווית '{label_name}': {str(error)}" if is_he else _("Error deleting label '%(label)s': %(error)s") % {"label": label_name, "error": str(error)})
+            return {"status": "error", "message": msg}
 
     def create_label(self, label_name):
         """Create a label if it doesn't exist"""
@@ -5852,13 +5896,23 @@ class GmailAIAgent:
         msg_ids = entry.get('message_ids', [])
         action_type = entry.get('type')
         try:
+            # Detect current UI language for localized messages
+            try:
+                from django.utils import translation as _translation
+                lang_code = _translation.get_language() or ''
+            except Exception:
+                lang_code = ''
+            is_he = str(lang_code).startswith('he')
+
             if action_type == 'archive':
                 # Restore to INBOX
                 for i in range(0, len(msg_ids), 100):
                     batch_ids = msg_ids[i:i+100]
                     self.api_batch_modify(batch_ids, add_label_ids=['INBOX'])
                 del self._undo_store[action_id]
-                return {"status": "success", "message": _("Undo complete. Restored %(count)d emails to Inbox.") % {"count": len(msg_ids)}, "undone_count": len(msg_ids)}
+                msg = (f"הביטול הושלם. הוחזרו לתיבת הדואר הנכנס {len(msg_ids)} מיילים." if is_he
+                       else _("Undo complete. Restored %(count)d emails to Inbox.") % {"count": len(msg_ids)})
+                return {"status": "success", "message": msg, "undone_count": len(msg_ids)}
             elif action_type == 'trash':
                 # Untrash and add INBOX
                 restored = 0
@@ -5870,17 +5924,42 @@ class GmailAIAgent:
                     except HttpError:
                         continue
                 del self._undo_store[action_id]
-                return {"status": "success", "message": _("Undo complete. Untrashed %(count)d emails.") % {"count": restored}, "undone_count": restored}
+                msg = (f"הביטול הושלם. הוחזרו מהאשפה {restored} מיילים." if is_he
+                       else _("Undo complete. Untrashed %(count)d emails.") % {"count": restored})
+                return {"status": "success", "message": msg, "undone_count": restored}
             elif action_type == 'label_add':
                 # Remove label that was added
                 label_id = entry['extra'].get('label_id')
                 if not label_id:
-                    return {"status": "error", "message": _("Cannot undo labels (missing label id).")}
+                    return {"status": "error", "message": ("לא ניתן לבטל תוויות (חסר מזהה תווית)." if is_he else _("Cannot undo labels (missing label id)."))}
                 for i in range(0, len(msg_ids), 100):
                     batch_ids = msg_ids[i:i+100]
                     self.api_batch_modify(batch_ids, remove_label_ids=[label_id])
                 del self._undo_store[action_id]
-                return {"status": "success", "message": _("Removed label from %(count)d emails.") % {"count": len(msg_ids)}, "undone_count": len(msg_ids)}
+                msg = (f"הוסרתה תווית מ-{len(msg_ids)} מיילים." if is_he
+                       else _("Removed label from %(count)d emails.") % {"count": len(msg_ids)})
+                return {"status": "success", "message": msg, "undone_count": len(msg_ids)}
+            elif action_type == 'label_delete':
+                # Recreate the label and re-apply it to the previously labeled messages
+                label_name = entry['extra'].get('label_name')
+                if not label_name:
+                    return {"status": "error", "message": ("לא ניתן לבטל: חסר שם תווית." if is_he else _("Cannot undo: missing label name."))}
+                # Recreate label (no-op if already exists)
+                new_label_id = self.create_label(label_name)
+                if not new_label_id:
+                    return {"status": "error", "message": (f"נכשל בשחזור התווית '{label_name}'." if is_he else _("Failed to recreate label '%(label)s'.") % {"label": label_name})}
+                # Re-apply label to stored message ids, in batches
+                if msg_ids:
+                    for i in range(0, len(msg_ids), 100):
+                        batch_ids = msg_ids[i:i+100]
+                        try:
+                            self.api_batch_modify(batch_ids, add_label_ids=[new_label_id])
+                        except HttpError:
+                            continue
+                del self._undo_store[action_id]
+                msg = (f"שוחזרה התווית '{label_name}' והוחלה מחדש על {len(msg_ids)} מיילים." if is_he
+                       else _("Restored label '%(label)s' and re-applied to %(count)d emails.") % {"label": label_name, "count": len(msg_ids)})
+                return {"status": "success", "message": msg, "undone_count": len(msg_ids)}
             else:
                 return {"status": "error", "message": _("Undo not supported for this action.")}
         except HttpError as e:
@@ -5889,11 +5968,40 @@ class GmailAIAgent:
     def get_recent_actions(self, limit=10):
         items = []
         for action_id, entry in list(self._undo_store.items())[-limit:]:
+            action_type = entry.get('type')
+            count = len(entry.get('message_ids', []))
+            extra = entry.get('extra', {}) or {}
+            label_name = extra.get('label_name')
+            # Detect current UI language
+            try:
+                from django.utils import translation as _translation
+                lang_code = _translation.get_language() or ''
+            except Exception:
+                lang_code = ''
+            is_he = str(lang_code).startswith('he')
+
+            # Build a user-friendly, localized label for the action
+            if action_type == 'archive':
+                display = (f"הועברו לארכיון {count} מיילים" if is_he else _("Archived %(count)d emails") % {"count": count})
+            elif action_type == 'trash':
+                display = (f"נמחקו {count} מיילים" if is_he else _("Deleted %(count)d emails") % {"count": count})
+            elif action_type == 'label_add':
+                display = (f"התווספה תווית ל-{count} מיילים" if is_he else _("Added label to %(count)d emails") % {"count": count})
+            elif action_type == 'label_delete':
+                if label_name:
+                    display = (f"נמחקה התווית '{label_name}'" if is_he else _("Deleted label '%(label)s'") % {"label": label_name})
+                else:
+                    display = ("תווית נמחקה" if is_he else _("Deleted a label"))
+            else:
+                display = action_type or ""
+
             items.append({
                 'id': action_id,
-                'type': entry.get('type'),
-                'count': len(entry.get('message_ids', [])),
-                'label_id': entry.get('extra', {}).get('label_id')
+                'type': action_type,
+                'display': display,
+                'count': count,
+                'label_id': extra.get('label_id'),
+                'label_name': label_name
             })
         return items
 
