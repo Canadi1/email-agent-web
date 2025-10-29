@@ -2864,8 +2864,9 @@ class GmailAIAgent:
                         older_than_days = qty
                     return {"action": "delete", "target_type": "sender", "target": sender_keyword, "confirmation_required": True, "older_than_days": older_than_days}
 
-        # Bulk cleanup by age only (skip if a category/custom-category is mentioned and if 'from' is present)
-        if (best_match_action in ["delete", "archive"]) and ("all" in command_lower or "emails" in command_lower or " email" in command_lower) and "older" in command_lower and (" from " not in command_lower):
+        # Bulk cleanup by age only - delete/archive emails older than [duration] (no "all" required)
+        # Skip if a category/custom-category is mentioned and if 'from' is present
+        if (best_match_action in ["delete", "archive"]) and ("emails" in command_lower or " email" in command_lower) and "older" in command_lower and (" from " not in command_lower):
             category_tokens_present = any(tok in command_lower for tok in [
                 "promotion","promotions","social","updates","forums","personal",
                 "verification","code","shipping","delivery","shipped","משלוח",
@@ -2875,10 +2876,12 @@ class GmailAIAgent:
                 # Skip bulk cleanup - let custom category parsing handle this
                 pass
             else:
-                age_match = re.search(r'older\s+(?:than|then)\s+(\d+)\s*(day|days|d|week|weeks|w|month|months|m|year|years|y)', command_lower)
+                # Support both "a year" and "1 year" patterns
+                age_match = re.search(r'older\s+(?:than|then)\s+(a|\d+)\s*(day|days|d|week|weeks|w|month|months|m|year|years|y)', command_lower)
                 if age_match:
                     try:
-                        qty = int(age_match.group(1))
+                        qty_raw = age_match.group(1)
+                        qty = 1 if qty_raw == 'a' else int(qty_raw)
                         unit = age_match.group(2).lower()
                         if unit in ['week', 'weeks', 'w']:
                             older_than_days = qty * 7
