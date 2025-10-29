@@ -7424,8 +7424,14 @@
                         unitPrefix = (mArt[2] || '').trim();
                     }
                     const esc = catPhrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                    const reOlder = new RegExp('^list\\s+' + esc + '\\s+emails\\s+older\\s+than\\s+((?:\\d+)|a|an)\\s+(day|days|week|weeks|month|months|year|years)$','i');
-                    const rePlaceholder = new RegExp('^list\\s+' + esc + '\\s+emails\\s+older\\s+than\\s+\\[duration\\]$','i');
+                    // Handle both "emails" and "codes" patterns (verification codes doesn't have "emails")
+                    const hasEmailsWord = /emails/i.test(qlcCatOlder);
+                    const reOlder = hasEmailsWord
+                        ? new RegExp('^list\\s+' + esc + '\\s+emails\\s+older\\s+than\\s+((?:\\d+)|a|an)\\s+(day|days|week|weeks|month|months|year|years)$','i')
+                        : new RegExp('^list\\s+' + esc + '\\s+older\\s+than\\s+((?:\\d+)|a|an)\\s+(day|days|week|weeks|month|months|year|years)$','i');
+                    const rePlaceholder = hasEmailsWord
+                        ? new RegExp('^list\\s+' + esc + '\\s+emails\\s+older\\s+than\\s+\\[duration\\]$','i')
+                        : new RegExp('^list\\s+' + esc + '\\s+older\\s+than\\s+\\[duration\\]$','i');
                     if (qtyTok !== null) {
                         let allowedUnits = ['day','days','week','weeks','month','months','year','years'];
                         if (unitPrefix) {
@@ -7456,7 +7462,10 @@
                             return rePlaceholder.test(s);
                         });
                         if (!hasPh) {
-                            items.push({ cmd: 'list ' + catPhrase + ' emails older than [duration]', score: 1002, type: 'en_cat_older_placeholder_a' });
+                            const cmdPhrase = hasEmailsWord
+                                ? ('list ' + catPhrase + ' emails older than [duration]')
+                                : ('list ' + catPhrase + ' older than [duration]');
+                            items.push({ cmd: cmdPhrase, score: 1002, type: 'en_cat_older_placeholder_a' });
                         }
                         try { console.log('[EN-CAT-OLDER-FILTER] enforcing placeholder for a/an in category', catPhrase); } catch(e) {}
                     }
