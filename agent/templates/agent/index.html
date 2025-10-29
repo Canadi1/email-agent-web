@@ -4989,6 +4989,27 @@
         function computePlaceholderBoldLength(cmd, input) {
             try {
                 const q = (input || '').toLowerCase();
+                // Special-case: label placeholders often appear quoted in templates
+                // e.g., 'delete label "[label]"' or 'מחק תווית "[תווית]"', while users type without quotes
+                // If we detect a quoted [label]/[תווית] and the user has begun typing the label token,
+                // bold through the entire placeholder (including quotes) as soon as any characters follow the fixed prefix.
+                try {
+                    const labelTokenMatch = cmd.match(/"?\[(label|תווית)\]"?/i);
+                    if (labelTokenMatch) {
+                        // Fixed prefix before the (possibly quoted) placeholder
+                        const beforeLabel = cmd.split(/"?\[[^\]]+\]"?/)[0] || '';
+                        const beforeLabelLc = beforeLabel.toLowerCase();
+                        if (q.startsWith(beforeLabelLc)) {
+                            const typedAfterPrefix = q.length > beforeLabelLc.length ? q.slice(beforeLabelLc.length) : '';
+                            if (typedAfterPrefix.length > 0) {
+                                const tokenWithQuotes = (cmd.match(/"?\[[^\]]+\]"?/) || [''])[0];
+                                if (tokenWithQuotes) {
+                                    return Math.min(beforeLabel.length + tokenWithQuotes.length, cmd.length);
+                                }
+                            }
+                        }
+                    }
+                } catch (_) {}
                 const fixedSegments = cmd.split(/\[[^\]]+\]/); // fixed pieces
                 const placeholderTokens = cmd.match(/\[[^\]]+\]/g) || []; // tokens like [sender]
                 let pos = 0;     // pointer in user input
@@ -5064,7 +5085,8 @@
         // bold the entire [sender]-like token as soon as they type any character into it.
         function computeSenderBoldLength(cmd, input) {
             try {
-                const tokenMatch = cmd.match(/\[(sender|domain\.com|שולח|דומיין)\]/i);
+                // Support sender/domain and label placeholders (EN/HE)
+                const tokenMatch = cmd.match(/\[(sender|domain\.com|label|שולח|דומיין|תווית)\]/i);
                 if (!tokenMatch) return -1;
                 const tokenStart = tokenMatch.index || 0;
                 const token = tokenMatch[0];

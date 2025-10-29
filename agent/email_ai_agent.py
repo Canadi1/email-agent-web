@@ -2646,7 +2646,7 @@ class GmailAIAgent:
             else:
                 return {"action": "archive", "target_type": "custom_category", "target": "shipping_delivery", "confirmation_required": True, "older_than_days": older, "date_range": date_range}
 
-        if 'delete' in command_lower and (('verification' in command_lower and 'code' in command_lower) or 'משלוח' in command_lower or 'shipping' in command_lower or 'delivery' in command_lower or 'shipped' in command_lower or ('account' in command_lower and 'security' in command_lower)):
+        if 'delete' in command_lower and 'label' not in command_lower and (('verification' in command_lower and 'code' in command_lower) or 'משלוח' in command_lower or 'shipping' in command_lower or 'delivery' in command_lower or 'shipped' in command_lower or ('account' in command_lower and 'security' in command_lower)):
             older = _parse_age_days(command_lower)
             if ('verification' in command_lower and 'code' in command_lower):
                 return {"action": "delete", "target_type": "custom_category", "target": "verification_codes", "confirmation_required": True, "older_than_days": older}
@@ -2690,7 +2690,20 @@ class GmailAIAgent:
         
         # Handle delete label command (English)
         if "delete label" in command_lower or "remove label" in command_lower:
-            label_match = re.search(r'(?:delete|remove) label\s+["\']?([^"\']+)["\']?', command_lower)
+            label_match = re.search(r'(?:delete|remove)\s+label\s+["\']?([^"\']+)["\']?', command_lower)
+            if label_match:
+                label_name = label_match.group(1).strip()
+                return {
+                    "action": "delete_label",
+                    "target_type": "label",
+                    "target": label_name,
+                    "confirmation_required": True
+                }
+
+        # Handle delete label command when Hebrew word 'תווית' survives translation
+        # e.g., translator yields: 'delete תווית gaming'
+        if re.search(r'\b(?:delete|remove)\s+תווית\b', command_lower):
+            label_match = re.search(r'(?:delete|remove)\s+תווית\s+["\']?([^"\']+)["\']?', command_lower)
             if label_match:
                 label_name = label_match.group(1).strip()
                 return {
