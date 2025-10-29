@@ -636,6 +636,151 @@ class GmailAIAgent:
         except HttpError as error:
             return {"status": "error", "message": f"Error deleting emails by age: {error}"}
     
+    def delete_emails_from_duration_ago(self, duration_ago, confirm=False):
+        """Delete emails from a specific duration ago (e.g., '2 weeks ago', 'a month ago').
+        This deletes any messages within the duration window, regardless of sender.
+        """
+        try:
+            if not duration_ago:
+                return {"status": "error", "message": "Missing required parameter: duration_ago"}
+
+            # Translate duration to Hebrew if needed
+            def _hebrew_duration_phrase(eng_phrase: str) -> str:
+                """Convert English duration phrase to Hebrew."""
+                eng_lower = eng_phrase.lower().strip()
+                import re
+                # Common patterns
+                if 'month' in eng_lower and 'ago' in eng_lower:
+                    match = re.search(r'(\d+|\w+)\s+months?', eng_lower)
+                    if match:
+                        num = match.group(1)
+                        if num.isdigit():
+                            return f"לפני {num} חודשים"
+                        elif num.lower() in ['a', 'one']:
+                            return "לפני חודש"
+                elif 'week' in eng_lower and 'ago' in eng_lower:
+                    match = re.search(r'(\d+|\w+)\s+weeks?', eng_lower)
+                    if match:
+                        num = match.group(1)
+                        if num.isdigit():
+                            return f"לפני {num} שבועות"
+                        elif num.lower() in ['a', 'one']:
+                            return "לפני שבוע"
+                elif 'year' in eng_lower and 'ago' in eng_lower:
+                    match = re.search(r'(\d+|\w+)\s+years?', eng_lower)
+                    if match:
+                        num = match.group(1)
+                        if num.isdigit():
+                            return f"לפני {num} שנים"
+                        elif num.lower() in ['a', 'one']:
+                            return "לפני שנה"
+                elif 'day' in eng_lower and 'ago' in eng_lower:
+                    match = re.search(r'(\d+|\w+)\s+days?', eng_lower)
+                    if match:
+                        num = match.group(1)
+                        if num.isdigit():
+                            return f"לפני {num} ימים"
+                        elif num.lower() in ['a', 'one']:
+                            return "לפני יום"
+                return eng_phrase
+            
+            # Get Hebrew mode
+            try:
+                from django.utils import translation as _translation
+                lang_code = _translation.get_language() or 'en'
+            except Exception:
+                lang_code = 'en'
+            hebrew_mode = str(lang_code).startswith('he')
+            display_duration = _hebrew_duration_phrase(duration_ago) if hebrew_mode else duration_ago
+
+            print(f"DEBUG: delete_emails_from_duration_ago called with duration_ago='{duration_ago}'")
+            start_dt, end_dt = self._compute_precise_date_range_window(str(duration_ago).strip().lower())
+            if not start_dt or not end_dt:
+                return {"status": "error", "message": f"Invalid or unsupported duration: {duration_ago}"}
+
+            # Build Gmail query for the window (exclusive end bound)
+            start_date = start_dt.strftime('%Y/%m/%d')
+            end_date = end_dt.strftime('%Y/%m/%d')
+            query = f"after:{start_date} before:{end_date}"
+
+            max_retries = 5
+            retry_delay = 1
+            all_messages = []
+            next_page_token = None
+            for attempt in range(max_retries):
+                try:
+                    while True:
+                        kwargs = {"userId": 'me', "q": query, "maxResults": 500}
+                        if next_page_token:
+                            kwargs["pageToken"] = next_page_token
+                        results = self.service.users().messages().list(**kwargs).execute()
+                        msgs = results.get('messages', []) or []
+                        all_messages.extend(msgs)
+                        next_page_token = results.get('nextPageToken')
+                        if not next_page_token:
+                            break
+                    break
+                except Exception as e:
+                    err_text = str(e)
+                    if (("SSL" in err_text or "WRONG_VERSION_NUMBER" in err_text or "DECRYPTION_FAILED_OR_BAD_RECORD_MAC" in err_text or
+                         "timeout" in err_text.lower() or "connection" in err_text.lower() or
+                         "WinError 10060" in err_text or "failed to respond" in err_text.lower()) and attempt < max_retries - 1):
+                        print(f"Connection error in delete_emails_from_duration_ago (attempt {attempt + 1}): {err_text}")
+                        time.sleep(retry_delay)
+                        retry_delay *= 2
+                        continue
+                    else:
+                        raise
+
+            if not all_messages:
+                if hebrew_mode:
+                    return {"status": "success", "message": f"לא נמצאו מיילים {display_duration} למחיקה.", "deleted_count": 0}
+                return {"status": "success", "message": _("No emails found from %(duration)s to delete.") % {"duration": display_duration}, "deleted_count": 0}
+
+            if not confirm:
+                if hebrew_mode:
+                    confirm_msg = f"נמצאו {len(all_messages)} מיילים {display_duration}. האם אתה רוצה להעביר אותם לאשפה?"
+                else:
+                    confirm_msg = _("Found %(count)d emails from %(duration)s. Do you want to move them to Trash?") % {"count": len(all_messages), "duration": display_duration}
+                return {
+                    "status": "confirmation_required",
+                    "message": confirm_msg,
+                    "count": len(all_messages),
+                    "total_estimated": len(all_messages),
+                    "preview": self._build_preview(all_messages),
+                    "action_details": {"action": "delete_by_duration_ago", "duration_ago": duration_ago}
+                }
+
+            # Process in batches for deletion
+            batch_size = 100
+            total_processed = 0
+            message_ids = [m['id'] for m in all_messages]
+            
+            for i in range(0, len(all_messages), batch_size):
+                batch = all_messages[i:i + batch_size]
+                message_ids_batch = [m['id'] for m in batch]
+                try:
+                    self.api_batch_modify(message_ids_batch, add_label_ids=['TRASH'], remove_label_ids=['INBOX'])
+                    total_processed += len(batch)
+                except HttpError as e:
+                    for m in batch:
+                        try:
+                            self.api_trash(m['id'])
+                            total_processed += 1
+                        except HttpError:
+                            continue
+
+            action_id = self._record_undo('trash', message_ids)
+            if hebrew_mode:
+                return {"status": "success", "message": f"הועברו לאשפה {total_processed} מיילים {display_duration}.", "deleted_count": total_processed, "undo_action_id": action_id}
+            return {"status": "success", "message": _("Trashed %(count)d emails from %(duration)s") % {"count": total_processed, "duration": display_duration}, "deleted_count": total_processed, "undo_action_id": action_id}
+
+        except Exception as error:
+            err_msg = str(error)
+            if hebrew_mode:
+                return {"status": "error", "message": f"שגיאה במחיקת מיילים {display_duration}: {err_msg}"}
+            return {"status": "error", "message": _("Error deleting emails from %(duration)s: %(error)s") % {"duration": display_duration, "error": err_msg}}
+    
     def archive_emails_by_age_only(self, older_than_days, confirm=False):
         """Archive all emails older than specified days (bulk cleanup)."""
         max_retries = 5
@@ -3157,6 +3302,14 @@ class GmailAIAgent:
                     elif unit in ["year", "years", "y"]: older_than_days = qty * 365
                 except Exception:
                     older_than_days = None
+            
+            # "delete emails from [duration] ago" pattern (e.g., "delete emails from 2 weeks ago")
+            duration_ago_match = re.search(r'(^|\b)delete(?:\s+emails?)?\s+from\s+(\d+\s+(?:day|days|week|weeks|month|months|year|years)\s+ago|a\s+(?:day|week|month|year)\s+ago)(\b|$)', command_lower)
+            if duration_ago_match:
+                duration_ago = duration_ago_match.group(2)
+                print(f"DEBUG: duration_ago_match for delete found duration_ago='{duration_ago}'")
+                return {"action": "delete", "target_type": "duration_ago", "duration_ago": duration_ago, "confirmation_required": True}
+            
             domain_match = re.search(r'from\s+([a-zA-Z0-9.-]+\.(?:com|org|net|edu|gov|co\.[a-z.]+|[a-z]{2}))', command_lower)
             if domain_match:
                 return {"action": "delete", "target_type": "domain", "target": domain_match.group(1), "confirmation_required": True, "older_than_days": older_than_days}
@@ -3355,6 +3508,10 @@ class GmailAIAgent:
                 return self.delete_emails_by_custom_category(
                     confirmation_data["category_key"], confirm=True, older_than_days=confirmation_data.get("older_than_days")
                 )
+            elif action == "delete_by_duration_ago":
+                return self.delete_emails_from_duration_ago(
+                    confirmation_data["duration_ago"], confirm=True
+                )
             elif action == "delete_label":
                 label_name = confirmation_data.get("label") or confirmation_data.get("target")
                 if not label_name:
@@ -3439,6 +3596,8 @@ class GmailAIAgent:
                     return self.delete_emails_by_sender(target, confirm=not confirm_required, older_than_days=older_than_days)
                 elif target_type == "bulk_age":
                     return self.delete_emails_by_age_only(older_than_days, confirm=not confirm_required)
+                elif target_type == "duration_ago":
+                    return self.delete_emails_from_duration_ago(parsed.get("duration_ago"), confirm=not confirm_required)
                 elif target_type == "custom_category":
                     return self.delete_emails_by_custom_category(target, confirm=not confirm_required, older_than_days=older_than_days)
             

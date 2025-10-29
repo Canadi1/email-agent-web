@@ -1009,6 +1009,7 @@ def index(request):
         _("list emails from [duration] ago"),
         _("list emails older than [duration]"),
         _("delete emails older than [duration]"),
+        _("delete emails from [duration] ago"),
         _("list archived emails"),
         _("list archived emails from [sender]"),
         _("list all mail"),
@@ -1134,6 +1135,7 @@ def index(request):
                 "רשום מיילי אבטחת חשבון מלפני [משך]",
                 "רשום מיילי אבטחת חשבון ישנים מ[משך]",
                 "מחק מיילים ישנים מ[משך]",
+                "מחק מיילים מלפני [משך]",
                 "מחק מיילים מ[שולח]",
                 "מחק מיילים מ[שולח] ישנים מ[משך]",
                 "מחק מיילי משלוח",
@@ -1311,6 +1313,17 @@ def _translate_hebrew_command_to_english(command: str) -> str:
         (r"^[\s]*ארכב\s+מיילים\s+מ-?\s*([A-Za-z0-9_.+\-@\u0590-\u05FF]+)\s+מלפני\s*(חודשיים|שבועיים|שנתיים|יומיים)", lambda m: f"archive emails from {m.group(1).strip()} from 2 {_he_to_en_unit(m.group(2), 2)} ago"),
         # Archive forms: "ארכב מיילים מ[שולח] מלפני יחידה" (without number, assume 1) -> "archive emails from [sender] from 1 <unit> ago"
         (r"^[\s]*ארכב\s+מיילים\s+מ-?\s*([A-Za-z0-9_.+\-@\u0590-\u05FF]+)\s+מלפני\s*(יום|שבוע|חודש|שנה)", lambda m: f"archive emails from {m.group(1).strip()} from 1 {_he_to_en_unit(m.group(2), 1)} ago"),
+        # Delete commands with "מלפני" (from duration ago) - similar to archive
+        # Delete forms: "מחק מיילים מלפני N יחידה" -> "delete emails from N <unit> ago"
+        (r"^[\s]*מחק\s+מיילים\s+מלפני\s*(\d+)\s*(יום(?:ים)?|שבוע(?:ות)?|חודש(?:ים)?|שנה(?:ים)?)", lambda m: f"delete emails from {m.group(1)} {_he_to_en_unit(m.group(2), int(m.group(1)))} ago"),
+        # Delete forms: "מחק מיילים מלפני חודשיים/שבועיים/שנתיים/יומיים" (Hebrew plural forms) -> "delete emails from 2 <unit> ago"
+        (r"^[\s]*מחק\s+מיילים\s+מלפני\s*(חודשיים|שבועיים|שנתיים|יומיים)", lambda m: f"delete emails from 2 {_he_to_en_unit(m.group(1), 2)} ago"),
+        # Delete forms: "מחק מיילים מלפני יחידה" (without number, assume 1) -> "delete emails from 1 <unit> ago"
+        (r"^[\s]*מחק\s+מיילים\s+מלפני\s*(יום|שבוע|חודש|שנה)", lambda m: f"delete emails from 1 {_he_to_en_unit(m.group(1), 1)} ago"),
+        # Delete forms: "מחק מיילים מ[משך] לפני" -> "delete emails from [duration] ago" (alternative pattern)
+        (r"^[\s]*מחק\s+מיילים\s+מ-?\s*(\d+)\s*(יום(?:ים)?|שבוע(?:ות)?|חודש(?:ים)?|שנה(?:ים)?)\s+לפני", lambda m: f"delete emails from {m.group(1)} {_he_to_en_unit(m.group(2), int(m.group(1)))} ago"),
+        (r"^[\s]*מחק\s+מיילים\s+מ-?\s*(חודשיים|שבועיים|שנתיים|יומיים)\s+לפני", lambda m: f"delete emails from 2 {_he_to_en_unit(m.group(1), 2)} ago"),
+        (r"^[\s]*מחק\s+מיילים\s+מ-?\s*(יום|שבוע|חודש|שנה)\s+לפני", lambda m: f"delete emails from 1 {_he_to_en_unit(m.group(1), 1)} ago"),
         # Actions (line-start variants)
         (r"^[\s]*העבר\s+לארכיון", "archive "),
         # Archived listing phrases (must come before generic 'list' mapping)
