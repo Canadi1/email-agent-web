@@ -3809,8 +3809,19 @@ class GmailAIAgent:
                 res = self.get_emails_by_label(target)
                 emails = res.get("emails", []) if isinstance(res, dict) else res
                 next_token = res.get("next_page_token") if isinstance(res, dict) else None
-                if not emails: return {"status": "success", "message": f"No emails found with label: '{target}'."}
-                return {"status": "success", "data": emails, "type": "email_list", "next_page_token": next_token, "list_context": {"mode": "label", "label": target}}
+                if not emails:
+                    # Use message from result if available (already includes total_count)
+                    msg = res.get("message") if isinstance(res, dict) and res.get("message") else f"No emails found with label: '{target}'."
+                    return {"status": "success", "message": msg}
+                # Build message with total_count for both Hebrew and English
+                total_count_val = res.get("total_count") if isinstance(res, dict) else None
+                if hebrew_mode:
+                    count_he = total_count_val if (isinstance(total_count_val, int) and total_count_val >= 0) else len(emails)
+                    msg = f"נמצאו {count_he} מיילים עם התווית '{target}'."
+                else:
+                    # Use message from result (already includes total_count)
+                    msg = res.get("message") if isinstance(res, dict) and res.get("message") else f"Found {len(emails)} emails with label: '{target}'."
+                return {"status": "success", "data": emails, "type": "email_list", "message": msg, "next_page_token": next_token, "list_context": {"mode": "label", "label": target}}
 
             elif action == "label":
                 if "label" not in parsed:
@@ -5646,7 +5657,30 @@ class GmailAIAgent:
             label_id = self.get_label_id(label_name)
             if not label_id:
                 # Label doesn't exist - return empty result in expected format
-                return {"emails": [], "next_page_token": None}
+                return {"emails": [], "next_page_token": None, "total_count": 0, "message": _("No emails found with label: '%(label)s'.") % {"label": label_name}}
+            
+            # First, count total emails (only if this is the first page)
+            total_count = 0
+            if page_token is None:
+                # Count all matching emails to get total
+                count_messages = []
+                count_token = None
+                while True:
+                    count_kwargs = {"userId": 'me', "labelIds": [label_id], "maxResults": 500, "fields": 'messages/id,nextPageToken'}
+                    if count_token:
+                        count_kwargs["pageToken"] = count_token
+                    try:
+                        count_results = self.service.users().messages().list(**count_kwargs).execute()
+                        count_msgs = count_results.get('messages', [])
+                        if count_msgs:
+                            count_messages.extend(count_msgs)
+                        count_token = count_results.get('nextPageToken')
+                        if not count_token:
+                            break
+                    except Exception:
+                        break
+                total_count = len(count_messages)
+            
             kwargs = {"userId":"me", "labelIds":[label_id], "maxResults": max_results}
             if page_token:
                 kwargs["pageToken"] = page_token
@@ -5654,7 +5688,8 @@ class GmailAIAgent:
             messages = results.get('messages', [])
             next_token = results.get('nextPageToken')
             if not messages:
-                return {"emails": [], "next_page_token": None}
+                display_count = total_count if total_count > 0 else 0
+                return {"emails": [], "next_page_token": None, "total_count": total_count, "message": _("Found %(count)d emails with label: '%(label)s'.") % {"count": display_count, "label": label_name}}
             email_list = []
             for message in messages:
                 # Fetch minimal metadata including internalDate for date rendering
@@ -5681,9 +5716,15 @@ class GmailAIAgent:
                     'date': date_str,
                     'snippet': msg.get('snippet', '')
                 })
-            return {"emails": email_list, "next_page_token": next_token}
+            
+            # Build message with total_count
+            # Use total_count if available (first page), otherwise use current page count
+            display_count = total_count if total_count > 0 else len(messages)
+            message_text = _("Found %(count)d emails with label: '%(label)s'.") % {"count": display_count, "label": label_name}
+            
+            return {"emails": email_list, "next_page_token": next_token, "total_count": total_count, "message": message_text}
         except HttpError as error:
-            return {"emails": [], "next_page_token": None}
+            return {"emails": [], "next_page_token": None, "total_count": 0, "message": _("No emails found with label: '%(label)s'.") % {"label": label_name}}
 
     def send_email(self, to, subject, message_text):
         """
