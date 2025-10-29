@@ -3564,10 +3564,13 @@ class GmailAIAgent:
                             # Localize message fully for Hebrew
                             if hebrew_mode:
                                 emails_list = result.get("emails") or []
+                                total_count = result.get("total_count")
+                                # Use total_count if available, otherwise use len(emails_list)
+                                display_count = total_count if total_count is not None and total_count > 0 else len(emails_list)
                                 heb_phrase = _hebrew_date_phrase(target)
-                                msg_out = f"נמצאו {len(emails_list)} מיילים {heb_phrase}."
+                                msg_out = f"נמצאו {display_count} מיילים {heb_phrase}."
                                 return {"status": "success", "data": emails_list, "type": "email_list", "message": msg_out, "next_page_token": result.get("next_page_token"), "list_context": {"mode": "date_range", "target": target}}
-                            # Non-Hebrew: keep original message (with limited replacements)
+                            # Non-Hebrew: keep original message (with total_count from _execute_list_query)
                             msg_out = result.get("message")
                             return {"status": "success", "data": result.get("emails"), "type": "email_list", "message": msg_out, "next_page_token": result.get("next_page_token"), "list_context": {"mode": "date_range", "target": target}}
                         except Exception as e:
