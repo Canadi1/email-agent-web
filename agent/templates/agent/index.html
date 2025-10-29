@@ -1262,23 +1262,23 @@
                                 {% if result.message %}
                                     <div class="success-message">{{ result.message }}</div>
                                 {% else %}
-                                    {% with cnt=result.data|length %}
-                                        {% if result.list_context.mode == 'archived_sender' %}
-                                            {% if result.list_context.sender %}
-                                            <div class="success-message">מציג {{ cnt }} מיילים מארכיון מ: {{ result.list_context.sender }}</div>
-                                            {% else %}
-                                            <div class="success-message">מציג {{ cnt }} מיילים מארכיון</div>
-                                            {% endif %}
-                                        {% elif result.list_context.mode == 'archived' %}
-                                            {% if result.list_context.category %}
-                                                <div class="success-message">מציג {{ cnt }} מיילים מארכיון {{ result.list_context.category }}</div>
-                                            {% else %}
-                                                <div class="success-message">מציג {{ cnt }} מיילים מארכיון</div>
-                                            {% endif %}
+                                {% with cnt=result.data|length %}
+                                    {% if result.list_context.mode == 'archived_sender' %}
+                                        {% if result.list_context.sender %}
+                                        <div class="success-message">מציג {{ cnt }} מיילים מארכיון מ: {{ result.list_context.sender }}</div>
                                         {% else %}
-                                            <div class="success-message">{{ result.message }}</div>
+                                        <div class="success-message">מציג {{ cnt }} מיילים מארכיון</div>
                                         {% endif %}
-                                    {% endwith %}
+                                    {% elif result.list_context.mode == 'archived' %}
+                                        {% if result.list_context.category %}
+                                            <div class="success-message">מציג {{ cnt }} מיילים מארכיון {{ result.list_context.category }}</div>
+                                        {% else %}
+                                            <div class="success-message">מציג {{ cnt }} מיילים מארכיון</div>
+                                        {% endif %}
+                                    {% else %}
+                                        <div class="success-message">{{ result.message }}</div>
+                                    {% endif %}
+                                {% endwith %}
                                 {% endif %}
                             {% else %}
                                 <div class="success-message">{{ result.message }}</div>
@@ -2061,23 +2061,23 @@
                 if (initialType === 'email_list') {
                     // Only synthesize message if backend didn't provide one
                     if (!initialMsg || !initialMsg.trim()) {
-                        if (isHeb) {
-                            // Hebrew variants
-                            if (lcMode === 'archived_sender') {
-                                synthesizedMsg = 'מציג ' + itemCount + ' מיילים מארכיון מ: ' + (displaySender || 'שולח');
-                            } else if (lcMode === 'archived') {
-                                synthesizedMsg = 'מציג ' + itemCount + ' מיילים מארכיון';
-                            } else if (lcCategory) {
-                                synthesizedMsg = 'מציג ' + itemCount + ' מיילים ' + (isArchivedCtx ? 'מארכיון ' : 'מ') + lcCategory;
-                            } else {
-                                synthesizedMsg = 'מציג ' + itemCount + ' מיילים';
-                            }
+                    if (isHeb) {
+                        // Hebrew variants
+                        if (lcMode === 'archived_sender') {
+                            synthesizedMsg = 'מציג ' + itemCount + ' מיילים מארכיון מ: ' + (displaySender || 'שולח');
+                        } else if (lcMode === 'archived') {
+                            synthesizedMsg = 'מציג ' + itemCount + ' מיילים מארכיון';
+                        } else if (lcCategory) {
+                            synthesizedMsg = 'מציג ' + itemCount + ' מיילים ' + (isArchivedCtx ? 'מארכיון ' : 'מ') + lcCategory;
                         } else {
-                            // English fallback only if backend omitted message
-                            if (lcMode === 'archived_sender') {
-                                synthesizedMsg = 'Showing ' + itemCount + ' archived emails from: ' + (displaySender || 'sender');
-                            } else if (lcMode === 'archived') {
-                                synthesizedMsg = 'Showing ' + itemCount + ' archived emails';
+                            synthesizedMsg = 'מציג ' + itemCount + ' מיילים';
+                        }
+                        } else {
+                        // English fallback only if backend omitted message
+                        if (lcMode === 'archived_sender') {
+                            synthesizedMsg = 'Showing ' + itemCount + ' archived emails from: ' + (displaySender || 'sender');
+                        } else if (lcMode === 'archived') {
+                            synthesizedMsg = 'Showing ' + itemCount + ' archived emails';
                             }
                         }
                     }
@@ -2537,6 +2537,18 @@
             // Detect the leading action to keep suggestions within the same intent
             const actionKey = (() => {
                 try {
+                    // Hebrew-first action detection on normalized input
+                    try {
+                        const qh0 = (q || '').replace(/[\u200e\u200f\u202a-\u202e]/g,'').trim();
+                        if (/^\s*מחק(?:\s|$)/.test(qh0)) { console.log('[ACTION-DETECTION][HE] delete via he-first'); return 'delete'; }
+                        if (/^\s*ארכב(?:\s|$)/.test(qh0)) { console.log('[ACTION-DETECTION][HE] archive via he-first'); return 'archive'; }
+                        if (/^\s*רש(?:ו)?ם(?:\s|$)/.test(qh0)) { console.log('[ACTION-DETECTION][HE] list via he-first'); return 'list'; }
+                        if (/^\s*שחזר(?:\s|$)/.test(qh0)) { console.log('[ACTION-DETECTION][HE] restore via he-first'); return 'restore'; }
+                        if (/^\s*(תייג|הוסף\s+תווית)(?:\s|$)/.test(qh0)) { console.log('[ACTION-DETECTION][HE] label via he-first'); return 'label'; }
+                        if (/^\s*חפש(?:\s|$)/.test(qh0)) { console.log('[ACTION-DETECTION][HE] search via he-first'); return 'search'; }
+                        if (/^\s*(שלח|כתוב|חבר)(?:\s|$)/.test(qh0)) { console.log('[ACTION-DETECTION][HE] send via he-first'); return 'send'; }
+                        if (/^\s*(הצ[א]?ג|הראה)(?:\s|$)/.test(qh0)) { console.log('[ACTION-DETECTION][HE] show via he-first'); return 'show'; }
+                    } catch(e) {}
                     const m = q.match(/^\s*(list|archive|delete|restore|label|search|send|show)\b/i);
                     const detected = m ? m[1].toLowerCase() : '';
                     // Also check for partial matches of "archive" (a, ar, arc, arch, archi, archiv)
@@ -2560,6 +2572,20 @@
                             console.log('[ACTION-DETECTION] q:', q, 'detected actionKey: archive (archive emails f/fr/fro partial)');
                             return 'archive';
                         }
+                        // Hebrew action detection
+                        try {
+                            if (isHebrew) {
+                                const qh = q.replace(/[\u200e\u200f\u202a-\u202e]/g,'').trim();
+                                if (/^מחק(?:\s|$)/.test(qh)) return 'delete';
+                                if (/^ארכב\b/.test(qh)) return 'archive';
+                                if (/^רש(?:ו)?ם\b/.test(qh)) return 'list';
+                                if (/^שחזר\b/.test(qh)) return 'restore';
+                                if (/^(תייג|הוסף\s+תווית)\b/.test(qh)) return 'label';
+                                if (/^חפש\b/.test(qh)) return 'search';
+                                if (/^(שלח|כתוב|חבר)\b/.test(qh)) return 'send';
+                                if (/^(הצ[א]?ג|הראה)\b/.test(qh)) return 'show';
+                            }
+                        } catch(e) {}
                     }
                     console.log('[ACTION-DETECTION] q:', q, 'detected actionKey:', detected);
                     return detected;
@@ -4057,14 +4083,43 @@
                         const cmd = raw.toLowerCase();
                         // Strip direction/invisible marks that can break ^action detection
                         const cmdClean = cmd.replace(/[\u200e\u200f\u202a-\u202e]/g, '').trim();
+                        let cmdActionKey = '';
                         const cmdAction = cmdClean.match(/^\s*(list|archive|delete|restore|label|search|send|show)\b/i);
-                        const cmdActionKey = cmdAction ? cmdAction[1].toLowerCase() : '';
+                        if (cmdAction) {
+                            cmdActionKey = cmdAction[1].toLowerCase();
+                        } else if (isHebrew) {
+                            // Hebrew action detection for suggestion items
+                            const he = cmdClean;
+                            if (/^מחק(?:\s|$)/.test(he)) cmdActionKey = 'delete';
+                            else if (/^ארכב(?:\s|$)/.test(he)) cmdActionKey = 'archive';
+                            else if (/^רש(?:ו)?ם(?:\s|$)/.test(he)) cmdActionKey = 'list';
+                            else if (/^שחזר(?:\s|$)/.test(he)) cmdActionKey = 'restore';
+                            else if (/^(תייג|הוסף\s+תווית)(?:\s|$)/.test(he)) cmdActionKey = 'label';
+                            else if (/^חפש(?:\s|$)/.test(he)) cmdActionKey = 'search';
+                            else if (/^(שלח|כתוב|חבר)(?:\s|$)/.test(he)) cmdActionKey = 'send';
+                            else if (/^(הצ[א]?ג|הראה)(?:\s|$)/.test(he)) cmdActionKey = 'show';
+                        }
                         const matches = cmdActionKey === actionKey;
                         if (cmd.includes('archive emails from [sender]') || cmd.includes('archive emails older than [duration]')) {
                             console.log('[ACTION-FILTER-DEBUG] Command:', cmdClean, 'cmdActionKey:', cmdActionKey, 'actionKey:', actionKey, 'matches:', matches);
                         }
                         return matches;
                     });
+                    // Hebrew hard guard: if action is delete and input contains fixed timeframe tokens in Hebrew,
+                    // suppress any list ('רשום') suggestions that may have slipped through
+                    try {
+                        if (isHebrew && actionKey === 'delete') {
+                            const hasHeFixedTf = /(מהיום|מאתמול|מהשבוע(?:\s+שעבר)?|מהחודש(?:\s+שעבר)?|מהשנה(?:\s+שעברה)?)/.test(q);
+                            if (hasHeFixedTf) {
+                                const before = filteredByAction.length;
+                                filteredByAction = filteredByAction.filter(it => {
+                                    const s = (it && it.cmd ? String(it.cmd) : String(it)).trim();
+                                    return !/^רש(?:ו)?ם\b/.test(s);
+                                });
+                                console.log(`[HE-DELETE-TF-GUARD] Removed list suggestions. Before: ${before}, After: ${filteredByAction.length}`);
+                            }
+                        }
+                    } catch(e) {}
                     // Ensure the BEST MATCHING archive sender+timeframe goes to top
                     console.log("Archive reordering check - filteredByAction.length:", filteredByAction.length, "actionKey:", actionKey);
                     console.log("FilteredByAction suggestions:");
@@ -4970,7 +5025,7 @@
                     unique = picked.concat(unique);
                 }
             } catch(e) {}
-
+            
             // LAST-LINE SUPPRESSION (HEBREW ARCHIVE): if input is 'רשום מיילים מארכיון מ...' remove base archived command
             try {
                 const qlcHe = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
@@ -4984,6 +5039,22 @@
                         return sClean !== 'רשום מיילים מארכיון';
                     });
                     try { console.log('[HE-ARCHIVED-SUPPRESS][final] before=', before, 'after=', unique.length); } catch(e) {}
+                }
+            } catch(e) {}
+
+            // HEBREW FINAL GUARD: if typing a Hebrew delete with a fixed timeframe, suppress any 'רשום' (list) suggestions
+            try {
+                const qlcHe = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isHe = (document.documentElement.getAttribute('lang') || '').toLowerCase().startsWith('he');
+                const hasHeDeleteFixed = /^מחק(?:\s|$)/.test(qlcHe) && /(מהיום|מאתמול|מהשבוע(?:\s+שעבר)?|מהחודש(?:\s+שעבר)?|מהשנה(?:\s+שעברה)?)/.test(qlcHe);
+                if (isHe && hasHeDeleteFixed && Array.isArray(unique) && unique.length) {
+                    const before = unique.length;
+                    unique = unique.filter(function(it){
+                        const raw = (it && it.cmd ? String(it.cmd) : String(it));
+                        const sClean = raw.toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                        return !/^רש(?:ו)?ם\b/.test(sClean);
+                    });
+                    try { console.log('[HE-DELETE-FIXED-GUARD][final] before=', before, 'after=', unique.length); } catch(e) {}
                 }
             } catch(e) {}
 
@@ -6107,7 +6178,7 @@
                         if (/^ארכב\s+מיילים\s+מל/i.test(q) || /^ארכב\s+מיילים\s+מלפני/i.test(q)) {
                             const durationCmd = 'ארכב מיילים מלפני [משך]';
                             // Force only the duration command to show
-                            items = [{ cmd: durationCmd }];
+                                items = [{ cmd: durationCmd }];
                             try { console.log('[HE-ARCHIVE-TIMEFRAME-FILTER] Forced duration placeholder command for progressive typing'); } catch(e) {}
                         } else if (items.length === 0) {
                             items = [{ cmd: q.trim() }];
@@ -7899,7 +7970,9 @@
             // FINAL: timeframe handling — only collapse on full timeframe, keep others during partial typing
             const isHeFixedAfterMem = isHeb && hasFixedTokenNorm;
             const isHeCategoryTyping = isHeb && /^\s*רש(?:ו)?ם\s+מיילי(?:ם)?\s+/.test(q);
-            if (isHeFixedAfterMem && !isHeCategoryTyping && Array.isArray(items)) {
+            const isHeDeleteFlow = isHeb && /^\s*מחק(?:\s|$)/.test(qNorm || q);
+            try { console.log('[HE-FIXED-FILTER-GATE]', { isHeFixedAfterMem, isHeCategoryTyping, isHeDeleteFlow, q, qNorm }); } catch(e) {}
+            if (isHeFixedAfterMem && !isHeCategoryTyping && Array.isArray(items) && !isHeDeleteFlow) {
                 const before = items.length;
                 // Check if user typed a base timeframe (without שעבר) OR is typing partial שעבר
                 const hasSheaverBase = / (מהשבוע|מהחודש|מהשנה)(?:\s+(?:ש(?:ע(?:ב(?:ר(?:ה)?)?)?)?)?)?$/.test(qNorm);
@@ -8017,7 +8090,7 @@
                     }
                 } catch(e) {}
             }
-            else if (isHeb && !isHeCategoryTyping && hasPartialTimeCue && !hasSenderBeforeTimeframe && Array.isArray(items)) {
+            else if (isHeb && !isHeCategoryTyping && hasPartialTimeCue && !hasSenderBeforeTimeframe && Array.isArray(items) && !isHeDeleteFlow) {
                 // Partial timeframe typed after 'מ' (BUT NOT after a sender): only remove sender-token items, keep rest intact
                 const before = items.length;
                 const senderTokenRe = /\[(sender(?:\/domain)?|domain(?:\.com)?|שולח(?:\/דומיין)?|דומיין)\]/i;
@@ -9380,20 +9453,20 @@
                         console.log('[HE-ARCHIVE-TIMEFRAME-GUARD] Forced duration command for progressive typing');
                     } else {
                         // Restore the Hebrew archive timeframe filter results - show only archive commands (no placeholders)
-                        items = items.filter(it => {
-                            const text = typeof it === 'string' ? it : (it && it.cmd ? it.cmd : '');
-                            const lc = String(text || '').toLowerCase().trim();
+                    items = items.filter(it => {
+                        const text = typeof it === 'string' ? it : (it && it.cmd ? it.cmd : '');
+                        const lc = String(text || '').toLowerCase().trim();
                             if (!/^ארכב\s+מיילים\b/.test(lc)) return false;
                             // Exclude placeholder variants like מ[שולח], [דומיין], etc.
                             if (/\[/.test(String(text || ''))) return false;
                             return true;
-                        });
-                        
-                        // If no items remain, inject the exact command being typed
-                        if (items.length === 0) {
-                            const currentCommand = q.trim();
-                            items = [{ cmd: currentCommand }];
-                            console.log('[HE-ARCHIVE-TIMEFRAME-GUARD] Injected exact command:', currentCommand);
+                    });
+                    
+                    // If no items remain, inject the exact command being typed
+                    if (items.length === 0) {
+                        const currentCommand = q.trim();
+                        items = [{ cmd: currentCommand }];
+                        console.log('[HE-ARCHIVE-TIMEFRAME-GUARD] Injected exact command:', currentCommand);
                         }
                     }
                     
@@ -9445,7 +9518,7 @@
                             next = ['ארכב מיילים מאתמול'];
                         } else {
                             next = allCmds.map(function(tf){ return `ארכב מיילים ${tf}`; })
-                                           .filter(function(s){ return s.toLowerCase().startsWith(qLower); });
+                                        .filter(function(s){ return s.toLowerCase().startsWith(qLower); });
                         }
                         if (next.length === 0) {
                             // early stages like 'ארכב מיילים מ' or 'ארכב מיילים מלפני'
