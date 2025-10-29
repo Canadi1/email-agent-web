@@ -2183,6 +2183,7 @@
                     'תייג מיילים מ[שולח] כ"[תווית]"',
                     'רשום תוויות',
                     'רשום מיילים עם תווית "[תווית]"',
+                    'מחק תווית "[תווית]"',
                     'שחזר מיילים מ[שולח]',
                     'שלח מייל'
                 ];
@@ -2251,6 +2252,7 @@
                     '• label emails from [sender] as "[label]"',
                     'list labels',
                     'show label "[label]"',
+                    'delete label "[label]"',
                     'restore emails from [sender]',
                     'send email'
                 ];
@@ -7625,13 +7627,16 @@
                 const isShowLabelsHe = /^הצג\s+תוויות\b/.test(qlc);
                 // Activate early at 'הצג ת'
                 const isPartialShowLabelHe = /^הצג\s+ת/i.test(qlc);
-                if (isHeb && (isListLabelsHe || isPartialListLabelsHe || isShowLabelHe || isPartialShowLabelHe || isShowLabelsHe) && Array.isArray(items)) {
-                    // Keep only 'רשום תוויות' and 'הצג תווית "[תווית]"'
+                const isDeleteLabelHe = /^מחק\s+תווית\b/.test(qlc);
+                const isPartialDeleteLabelHe = /^מחק\s+ת/i.test(qlc);
+                if (isHeb && (isListLabelsHe || isPartialListLabelsHe || isShowLabelHe || isPartialShowLabelHe || isShowLabelsHe || isDeleteLabelHe || isPartialDeleteLabelHe) && Array.isArray(items)) {
+                    // Keep only 'רשום תוויות', 'הצג תווית "[תווית]"', and 'מחק תווית "[תווית]"'
                     items = items.filter(function(it){
                         const cmd = (it && it.cmd) ? it.cmd : String(it);
                         const lc = String(cmd || '').toLowerCase();
                         if (/^רש(?:ו)?ם\s+תוויות$/.test(lc)) return true;
                         if (/^הצג\s+תווית\b/.test(lc)) return true;
+                        if (/^מחק\s+תווית\b/.test(lc)) return true;
                         return false;
                     });
                     // Inject missing suggestions when partially typed
@@ -7641,6 +7646,9 @@
                     }
                     if ((isShowLabelHe || isPartialShowLabelHe || isShowLabelsHe) && !Array.from(have).some(function(s){ return /^הצג\s+תווית\b/.test(s); })) {
                         items.push({ cmd: 'הצג תווית "[תווית]"', score: 1001, type: 'he_labels_inject_show' });
+                    }
+                    if ((isDeleteLabelHe || isPartialDeleteLabelHe) && !Array.from(have).some(function(s){ return /^מחק\s+תווית\b/.test(s); })) {
+                        items.push({ cmd: 'מחק תווית "[תווית]"', score: 1001, type: 'he_labels_inject_delete' });
                     }
                     // If user typed 'הצג תוויות', also inject the correct 'רשום תוויות' to guide them
                     if (isShowLabelsHe && !have.has('רשום תוויות')) {
@@ -10832,13 +10840,16 @@
                 // Activate early at 'show l' (not only 'show lab')
                 const isPartialShowLabel = /^show\s+l/i.test(qlc);
                 const isShowLabels = /^show\s+labels\b/.test(qlc);
-                if ((isListLabels || isPartialListLabels || isShowLabel || isPartialShowLabel || isShowLabels) && Array.isArray(items)) {
-                    // Keep only 'list labels' and 'show label "[label]"' suggestions
+                const isDeleteLabel = /^delete\s+label\b/.test(qlc);
+                const isPartialDeleteLabel = /^delete\s+l/i.test(qlc);
+                if ((isListLabels || isPartialListLabels || isShowLabel || isPartialShowLabel || isShowLabels || isDeleteLabel || isPartialDeleteLabel) && Array.isArray(items)) {
+                    // Keep only 'list labels', 'show label "[label]"', and 'delete label "[label]"' suggestions
                     items = items.filter(function(it){
                         const cmd = (it && it.cmd) ? it.cmd : String(it);
                         const lc = String(cmd || '').toLowerCase();
                         if (/^list\s+labels$/.test(lc)) return true;
                         if (/^show\s+label\b/.test(lc)) return true;
+                        if (/^delete\s+label\b/.test(lc)) return true;
                         return false;
                     });
                     // Inject missing canonical suggestions during partial typing
@@ -10848,6 +10859,9 @@
                     }
                     if ((isShowLabel || isPartialShowLabel || isShowLabels) && !Array.from(have).some(function(s){ return /^show\s+label\b/.test(s); })) {
                         items.push({ cmd: 'show label "[label]"', score: 1001, type: 'en_labels_inject_show' });
+                    }
+                    if ((isDeleteLabel || isPartialDeleteLabel) && !Array.from(have).some(function(s){ return /^delete\s+label\b/.test(s); })) {
+                        items.push({ cmd: 'delete label "[label]"', score: 1001, type: 'en_labels_inject_delete' });
                     }
                     try { console.log('[EN-LABELS-FILTER] restricted to label-related suggestions for:', qlc); } catch(e) {}
                 }

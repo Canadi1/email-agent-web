@@ -2669,7 +2669,7 @@ class GmailAIAgent:
             "info_only": ["empty trash"]
         }
 
-        # Handle multi-word label listing/showing first
+        # Handle multi-word label listing/showing/deleting first
         if "list label" in command_lower or "show label" in command_lower:
             label_match = re.search(r'(?:list|show) label\s+["\']?([^"\']+)["\']?', command_lower)
             if label_match:
@@ -2686,6 +2686,31 @@ class GmailAIAgent:
                     "target_type": "labels",
                     "target": "labels",
                     "confirmation_required": False
+                }
+        
+        # Handle delete label command (English)
+        if "delete label" in command_lower or "remove label" in command_lower:
+            label_match = re.search(r'(?:delete|remove) label\s+["\']?([^"\']+)["\']?', command_lower)
+            if label_match:
+                label_name = label_match.group(1).strip()
+                return {
+                    "action": "delete_label",
+                    "target_type": "label",
+                    "target": label_name,
+                    "confirmation_required": True
+                }
+        
+        # Handle delete label command (Hebrew: מחק תווית)
+        if "מחק תווית" in command_lower or "מחוק תווית" in command_lower:
+            # Extract label name - support both quoted and unquoted
+            label_match = re.search(r'מחק\s+תווית\s+["\']?([^"\']+)["\']?', command_lower) or re.search(r'מחוק\s+תווית\s+["\']?([^"\']+)["\']?', command_lower)
+            if label_match:
+                label_name = label_match.group(1).strip()
+                return {
+                    "action": "delete_label",
+                    "target_type": "label",
+                    "target": label_name,
+                    "confirmation_required": True
                 }
 
         # Early handling for general label commands to avoid misclassification as 'send'
@@ -2756,7 +2781,7 @@ class GmailAIAgent:
             highest_score = best_score
         
         # If score is too low, command is not understood
-        if highest_score < 75 and best_match_action not in ["list_labels", "info_only", "show_label", "label"]:
+        if highest_score < 75 and best_match_action not in ["list_labels", "info_only", "show_label", "label", "delete_label"]:
             if "stats" in command_lower:
                 best_match_action = "stats"
                 highest_score = 100
@@ -3229,6 +3254,7 @@ class GmailAIAgent:
         # If confirmation data is provided, execute the confirmed action
         if confirmation_data:
             action = confirmation_data.get("action")
+            print(f"DEBUG: Processing confirmation_data with action='{action}', confirmation_data={confirmation_data}")
             if action == "delete_by_age":
                 return self.delete_emails_by_age_only(
                     confirmation_data["older_than_days"], 
@@ -3313,6 +3339,14 @@ class GmailAIAgent:
                 return self.delete_emails_by_custom_category(
                     confirmation_data["category_key"], confirm=True, older_than_days=confirmation_data.get("older_than_days")
                 )
+            elif action == "delete_label":
+                label_name = confirmation_data.get("label") or confirmation_data.get("target")
+                if not label_name:
+                    return {"status": "error", "message": _("Label name not found in confirmation data.")}
+                return self.delete_label(label_name)
+            
+            # If we have confirmation_data but action wasn't handled above, return error
+            return {"status": "error", "message": _("Unknown confirmation action: %(action)s") % {"action": action if action else "None"}}
 
         # Handle empty or None commands (only if no confirmation data)
         if not command:
@@ -3822,6 +3856,23 @@ class GmailAIAgent:
                     # Use message from result (already includes total_count)
                     msg = res.get("message") if isinstance(res, dict) and res.get("message") else f"Found {len(emails)} emails with label: '{target}'."
                 return {"status": "success", "data": emails, "type": "email_list", "message": msg, "next_page_token": next_token, "list_context": {"mode": "label", "label": target}}
+
+            elif action == "delete_label":
+                # First time - return confirmation request (confirmation_data handling is done above in the confirmation_data section)
+                if hebrew_mode:
+                    confirm_msg = f"האם אתה בטוח שאתה רוצה למחוק את התווית '{target}'? המיילים יישארו, רק התווית תימחק."
+                else:
+                    confirm_msg = f"Are you sure you want to delete label '{target}'? Emails will remain, only the label will be removed."
+                return {
+                    "status": "confirmation_required",
+                    "message": confirm_msg,
+                    # action_details is what the view serializes into the hidden field
+                    "action_details": {
+                        "action": "delete_label",
+                        "target_type": "label",
+                        "label": target
+                    }
+                }
 
             elif action == "label":
                 if "label" not in parsed:
@@ -5632,6 +5683,26 @@ class GmailAIAgent:
         except Exception as error:
             print(f"❌ Error getting label ID: {error}")
             return None
+
+    def delete_label(self, label_name):
+        """Delete a Gmail label by name. Emails are not deleted, only the label is removed."""
+        try:
+            label_id = self.get_label_id(label_name)
+            if not label_id:
+                return {"status": "success", "message": _("Label '%(label)s' does not exist.") % {"label": label_name}}
+            
+            # Delete the label using Gmail API
+            try:
+                self.service.users().labels().delete(userId='me', id=label_id).execute()
+                return {"status": "success", "message": _("Deleted label '%(label)s'.") % {"label": label_name}}
+            except HttpError as error:
+                error_str = str(error)
+                # Check if it's a system label (can't be deleted)
+                if 'system label' in error_str.lower() or 'SYSTEM' in error_str:
+                    return {"status": "error", "message": _("Cannot delete system label '%(label)s'.") % {"label": label_name}}
+                return {"status": "error", "message": _("Error deleting label '%(label)s': %(error)s") % {"label": label_name, "error": error_str}}
+        except Exception as error:
+            return {"status": "error", "message": _("Error deleting label '%(label)s': %(error)s") % {"label": label_name, "error": str(error)}}
 
     def create_label(self, label_name):
         """Create a label if it doesn't exist"""
