@@ -1894,6 +1894,29 @@ class GmailAIAgent:
                         pass
                 if not q:
                     return {"emails": [], "next_page_token": None}
+                
+                # First, count total emails (only if this is the first page)
+                total_count = 0
+                if page_token is None:
+                    # Count all matching emails to get total
+                    count_messages = []
+                    count_token = None
+                    while True:
+                        count_kwargs = {"userId": 'me', "q": q, "maxResults": 500, "fields": 'messages/id,nextPageToken'}
+                        if count_token:
+                            count_kwargs["pageToken"] = count_token
+                        try:
+                            count_results = self.api_list_messages(**count_kwargs)
+                            count_msgs = count_results.get('messages', [])
+                            if count_msgs:
+                                count_messages.extend(count_msgs)
+                            count_token = count_results.get('nextPageToken')
+                            if not count_token:
+                                break
+                        except Exception:
+                            break
+                    total_count = len(count_messages)
+                
                 kwargs = {"userId": 'me', "q": q, "maxResults": max_results, "fields": 'messages/id,nextPageToken'}
                 if page_token:
                     kwargs["pageToken"] = page_token
@@ -1962,7 +1985,15 @@ class GmailAIAgent:
             # Update progress
             if hasattr(self, 'command_id') and self.command_id:
                 update_email_progress(self.command_id, i + 1, total_emails)
-        return {"emails": email_list, "next_page_token": next_token}
+        
+        # Build message with total_count (will be used by process_natural_language_command for English)
+        # Note: Hebrew message is constructed in process_natural_language_command to use total_count
+        # Use total_count if available (first page), otherwise use current page count
+        display_count = total_count if total_count > 0 else len(messages)
+        # Build basic message (detailed message with filters will be built in process_natural_language_command)
+        message_text = _("Found %(count)d emails.") % {"count": display_count}
+        
+        return {"emails": email_list, "next_page_token": next_token, "total_count": total_count, "message": message_text}
 
     def delete_emails_by_custom_category(self, category_key, confirm=False, older_than_days=None):
         """Delete (trash) messages matching a custom category definition."""
@@ -3674,6 +3705,11 @@ class GmailAIAgent:
                     if date_range:
                         lc["date_range"] = date_range
                     # Build localized snackbar message including timeframe when provided
+                    # Use total_count if available, otherwise use len(emails)
+                    total_count_val = res.get("total_count") if isinstance(res, dict) else None
+                    count_he = total_count_val if (isinstance(total_count_val, int) and total_count_val >= 0) else len(emails)
+                    count_en = total_count_val if (isinstance(total_count_val, int) and total_count_val >= 0) else len(emails)
+                    
                     if hebrew_mode:
                         age_he = f" ישנים מ-{int(older_than_days)} ימים" if older_than_days else ""
                         if date_range:
@@ -3683,7 +3719,7 @@ class GmailAIAgent:
                             date_he = " " + _hebrew_date_phrase(dr)
                         else:
                             date_he = ""
-                        msg = f"נמצאו {len(emails)} מיילים ב-{pretty}{age_he}{date_he}."
+                        msg = f"נמצאו {count_he} מיילים ב-{pretty}{age_he}{date_he}."
                     else:
                         age_txt = _(" older than %(days)d days") % {"days": older_than_days} if older_than_days else ""
                         if date_range:
@@ -3702,9 +3738,9 @@ class GmailAIAgent:
                             except Exception:
                                 pass
                             # Build the full sentence without stray period
-                            msg = f"Found {len(emails)} emails{age_txt} in {pretty} from {dr}."
+                            msg = f"Found {count_en} emails{age_txt} in {pretty} from {dr}."
                         else:
-                            msg = _("Found %(count)d emails%(age)s in %(what)s.") % {"count": len(emails), "age": age_txt, "what": pretty} if older_than_days else _("Found %(count)d emails in %(what)s.") % {"count": len(emails), "what": pretty}
+                            msg = _("Found %(count)d emails%(age)s in %(what)s.") % {"count": count_en, "age": age_txt, "what": pretty} if older_than_days else _("Found %(count)d emails in %(what)s.") % {"count": count_en, "what": pretty}
                     payload = {"status": "success", "data": emails, "type": "email_list", "next_page_token": next_token, "list_context": lc, "message": msg}
                     return payload
             
