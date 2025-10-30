@@ -2290,35 +2290,150 @@ class GmailAIAgent:
         
         return {"emails": email_list, "next_page_token": next_token, "total_count": total_count, "message": message_text}
 
-    def delete_emails_by_custom_category(self, category_key, confirm=False, older_than_days=None):
-        """Delete (trash) messages matching a custom category definition."""
+    def delete_emails_by_custom_category(self, category_key, confirm=False, older_than_days=None, date_range=None):
+        """Delete (trash) messages matching a custom category definition.
+        Optionally restrict to a specific time window via date_range (e.g., 'today', 'this week', '2 weeks ago').
+        """
+        max_retries = 5
+        retry_delay = 1
+        
+        for attempt in range(max_retries):
+            try:
+                q = self._build_custom_category_q(category_key, older_than_days=older_than_days)
+                # Optionally apply explicit date window similar to list_emails_by_custom_category
+                if date_range:
+                    try:
+                        dr = str(date_range).strip().lower()
+                        if not any(tok in dr for tok in ["ago", "today", "yesterday", "this", "last"]):
+                            dr = f"{dr} ago"
+                        start_dt, end_dt = self._compute_precise_date_range_window(dr)
+                        if start_dt and end_dt:
+                            q = f"({q}) after:{start_dt.strftime('%Y/%m/%d')} before:{end_dt.strftime('%Y/%m/%d')}"
+                    except Exception:
+                        pass
+                if not q:
+                    return {"status": "error", "message": "Unknown category."}
+                all_messages = []
+                page_token = None
+                while True:
+                    kwargs = {"userId": 'me', "q": q, "maxResults": 500}
+                    if page_token:
+                        kwargs["pageToken"] = page_token
+                    
+                    try:
+                        results = self.service.users().messages().list(**kwargs).execute()
+                        msgs = results.get('messages', []) or []
+                        all_messages.extend(msgs)
+                        page_token = results.get('nextPageToken')
+                        if not page_token:
+                            break
+                    except Exception as e:
+                        err_text = str(e)
+                        if (("SSL" in err_text or "WRONG_VERSION_NUMBER" in err_text or "DECRYPTION_FAILED_OR_BAD_RECORD_MAC" in err_text or
+                             "timeout" in err_text.lower() or "connection" in err_text.lower() or
+                             "WinError 10060" in err_text or "failed to respond" in err_text.lower())
+                            and attempt < max_retries - 1):
+                            print(f"Connection error in delete_emails_by_custom_category (attempt {attempt + 1}): {err_text}")
+                            time.sleep(retry_delay)
+                            retry_delay *= 2
+                            break  # Break out of while loop to retry the whole function
+                        else:
+                            raise e
+                
+                # If we get here, the operation was successful
+                break
+                
+            except Exception as e:
+                error_msg = str(e)
+                print(f"Error in delete_emails_by_custom_category (attempt {attempt + 1}): {error_msg}")
+                
+                # Check if it's an SSL error or connection issue
+                if ("timeout" in error_msg.lower() or "connection" in error_msg.lower() or
+                    "WinError 10060" in error_msg or "failed to respond" in error_msg.lower() or
+                    "SSL" in error_msg or "WRONG_VERSION_NUMBER" in error_msg or "DECRYPTION_FAILED_OR_BAD_RECORD_MAC" in error_msg):
+                    if attempt < max_retries - 1:
+                        print(f"Retrying in {retry_delay} seconds...")
+                        time.sleep(retry_delay)
+                        retry_delay *= 2  # Exponential backoff
+                        continue
+                
+                # If it's not a retryable error or we've exhausted retries
+                return {"status": "error", "message": f"Error deleting by category: {error_msg}"}
+        
+        # Translate date_range to Hebrew if needed
+        def _hebrew_date_phrase(eng_phrase: str) -> str:
+            mapping = {
+                "this week": "מהשבוע",
+                "this month": "מהחודש",
+                "this year": "מהשנה",
+                "today": "מהיום",
+                "yesterday": "מאתמול",
+                "last week": "מהשבוע שעבר",
+                "last month": "מהחודש שעבר",
+                "last year": "מהשנה שעברה",
+            }
+            if eng_phrase in mapping:
+                return mapping[eng_phrase]
+            # Also support duration-ago phrases
+            def _hebrew_duration_phrase(eng_phrase: str) -> str:
+                eng_lower = (eng_phrase or "").lower().strip()
+                import re
+                if 'ago' not in eng_lower:
+                    return eng_phrase
+                m = re.search(r"(a|one|\d+)\s+(day|days|week|weeks|month|months|year|years)\s+ago", eng_lower)
+                if not m:
+                    return eng_phrase
+                qty_raw, unit = m.group(1), m.group(2)
+                qty = 1 if qty_raw in ['a', 'one'] else int(qty_raw)
+                if unit.startswith('day'):
+                    return f"לפני {qty} יום" if qty == 1 else f"לפני {qty} ימים"
+                if unit.startswith('week'):
+                    return f"לפני {qty} שבוע" if qty == 1 else f"לפני {qty} שבועות"
+                if unit.startswith('month'):
+                    return f"לפני {qty} חודש" if qty == 1 else f"לפני {qty} חודשים"
+                if unit.startswith('year'):
+                    return f"לפני {qty} שנה" if qty == 1 else f"לפני {qty} שנים"
+                return eng_phrase
+            # Check if it's a duration-ago phrase
+            eng_lower = (eng_phrase or "").lower().strip()
+            import re
+            if re.search(r"\b(a|one|\d+)\s+(day|days|week|weeks|month|months|year|years)\s+ago\b", eng_lower):
+                return _hebrew_duration_phrase(eng_phrase)
+            return eng_phrase
+        
+        # Get Hebrew mode from Django's current language
+        lang_code = (_dj_translation.get_language() if _dj_translation else None) or 'en'
+        hebrew_mode = str(lang_code).startswith('he')
+        display_date_range = _hebrew_date_phrase(date_range) if (hebrew_mode and date_range) else date_range
+        
         try:
-            q = self._build_custom_category_q(category_key, older_than_days=older_than_days)
-            if not q:
-                return {"status": "error", "message": "Unknown category."}
-            all_messages = []
-            page_token = None
-            while True:
-                kwargs = {"userId": 'me', "q": q, "maxResults": 500}
-                if page_token:
-                    kwargs["pageToken"] = page_token
-                results = self.service.users().messages().list(**kwargs).execute()
-                msgs = results.get('messages', []) or []
-                all_messages.extend(msgs)
-                page_token = results.get('nextPageToken')
-                if not page_token:
-                    break
             if not all_messages:
-                return {"status": "success", "message": _("No emails found for %(what)s.") % {"what": self._pretty_category_name(category_key)}, "deleted_count": 0}
+                time_txt = _(" from %(range)s") % {"range": display_date_range} if date_range else ""
+                age_txt = _(" older than %(days)d days") % {"days": older_than_days} if older_than_days else ""
+                return {
+                    "status": "success",
+                    "message": _("No emails found for %(what)s%(time)s%(age)s.") % {
+                        "what": self._pretty_category_name(category_key),
+                        "time": time_txt,
+                        "age": age_txt
+                    },
+                    "deleted_count": 0
+                }
             if not confirm:
+                time_txt = _(" from %(range)s") % {"range": display_date_range} if date_range else ""
                 age_txt = _(" older than %(days)d days") % {"days": older_than_days} if older_than_days else ""
                 return {
                     "status": "confirmation_required",
-                    "message": _("Found %(count)d emails in %(what)s%(age)s. Do you want to move them to Trash?") % {"count": len(all_messages), "what": self._pretty_category_name(category_key), "age": age_txt},
+                    "message": _("Found %(count)d emails in %(what)s%(time)s%(age)s. Do you want to move them to Trash?") % {
+                        "count": len(all_messages),
+                        "what": self._pretty_category_name(category_key),
+                        "time": time_txt,
+                        "age": age_txt
+                    },
                     "count": len(all_messages),
                     "total_estimated": len(all_messages),
                     "preview": self._build_preview(all_messages),
-                    "action_details": {"action": "delete_by_custom_category", "category_key": category_key, "older_than_days": older_than_days}
+                    "action_details": {"action": "delete_by_custom_category", "category_key": category_key, "older_than_days": older_than_days, "date_range": date_range}
                 }
             # Trash in batches
             total_processed = 0
@@ -2943,12 +3058,15 @@ class GmailAIAgent:
 
         if 'delete' in command_lower and 'label' not in command_lower and (('verification' in command_lower and 'code' in command_lower) or 'משלוח' in command_lower or 'shipping' in command_lower or 'delivery' in command_lower or 'shipped' in command_lower or ('account' in command_lower and 'security' in command_lower)):
             older = _parse_age_days(command_lower)
+            # Detect 'from [timeframe]' or 'from [duration] ago' for categories
+            timeframe_match = re.search(r'from\s+(today|yesterday|this\s+week|this\s+month|this\s+year|last\s+week|last\s+month|last\s+year|\d+\s+(?:day|days|week|weeks|month|months|year|years)\s+ago|a\s+(?:day|week|month|year)\s+ago)', command_lower)
+            date_range = timeframe_match.group(1) if timeframe_match else None
             if ('verification' in command_lower and 'code' in command_lower):
-                return {"action": "delete", "target_type": "custom_category", "target": "verification_codes", "confirmation_required": True, "older_than_days": older}
+                return {"action": "delete", "target_type": "custom_category", "target": "verification_codes", "confirmation_required": True, "older_than_days": older, "date_range": date_range}
             elif ('account' in command_lower and 'security' in command_lower):
-                return {"action": "delete", "target_type": "custom_category", "target": "account_security", "confirmation_required": True, "older_than_days": older}
+                return {"action": "delete", "target_type": "custom_category", "target": "account_security", "confirmation_required": True, "older_than_days": older, "date_range": date_range}
             else:
-                return {"action": "delete", "target_type": "custom_category", "target": "shipping_delivery", "confirmation_required": True, "older_than_days": older}
+                return {"action": "delete", "target_type": "custom_category", "target": "shipping_delivery", "confirmation_required": True, "older_than_days": older, "date_range": date_range}
 
         # Define known actions and their keywords/aliases
         actions = {
@@ -3676,7 +3794,7 @@ class GmailAIAgent:
                 )
             elif action == "delete_by_custom_category":
                 return self.delete_emails_by_custom_category(
-                    confirmation_data["category_key"], confirm=True, older_than_days=confirmation_data.get("older_than_days")
+                    confirmation_data["category_key"], confirm=True, older_than_days=confirmation_data.get("older_than_days"), date_range=confirmation_data.get("date_range")
                 )
             elif action == "delete_by_duration_ago":
                 return self.delete_emails_from_duration_ago(
@@ -3787,7 +3905,7 @@ class GmailAIAgent:
                 elif target_type == "sender_duration_ago":
                     return self.delete_emails_from_sender_duration_ago(parsed.get("sender"), parsed.get("duration_ago"), confirm=not confirm_required)
                 elif target_type == "custom_category":
-                    return self.delete_emails_by_custom_category(target, confirm=not confirm_required, older_than_days=older_than_days)
+                    return self.delete_emails_by_custom_category(target, confirm=not confirm_required, older_than_days=older_than_days, date_range=parsed.get("date_range"))
             
             elif action == "info_only":
                 return {"status": "info", "message": "To empty trash: Go to Gmail → Trash folder → 'Empty Trash now' button"}
