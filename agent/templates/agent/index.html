@@ -2604,6 +2604,58 @@
             }
         }
     } catch (e) {}
+    
+    // HEBREW DELETE CATEGORY SHORT-CIRCUIT: if input starts with 'מחק מיילי', return ONLY delete category suggestions
+    try {
+        if (/^מחק\s+מיילי(?!ם)(?:\s|$)/.test(qNormHe)) {
+            try { console.log('[HE-DELETE-CAT-SS] short-circuit active q=', qNormHe); } catch(e) {}
+            const categories = ['קודי אימות','אבטחת חשבון','משלוח'];
+            const tfAll = ['מהיום','מאתמול','מהשבוע','מהשבוע שעבר','מהחודש','מהחודש שעבר','מהשנה','מהשנה שעברה'];
+            // Exact base cue: keep sender first, categories 2-4
+            if (/^מחק\s+מיילי\s*$/.test(qNormHe)) {
+                const out = [];
+                out.push({ cmd: 'מחק מיילים מ[שולח]', score: 1000, type: 'he_delete_cat_short_sender_first' });
+                out.push({ cmd: 'מחק מיילי קודי אימות', score: 999, type: 'he_delete_cat_short' });
+                out.push({ cmd: 'מחק מיילי אבטחת חשבון', score: 998, type: 'he_delete_cat_short' });
+                out.push({ cmd: 'מחק מיילי משלוח', score: 997, type: 'he_delete_cat_short' });
+                return out;
+            }
+            // Match: מחק מיילי <קטגוריה> [מ<partial>] | or 'מלפני <...>' for category
+            const m = qNormHe.match(/^מחק\s+מיילי(?:ם)?\s+([\u0590-\u05FF\s]+?)(?:\s+מ([\u0590-\u05FF]*))?(?:\s+מלפני\b([\u0590-\u05FF\s\d]*)?)?$/);
+            if (m) {
+                const typedCat = (m[1] || '').trim();
+                const afterM = m[2] ? ('מ' + m[2]) : '';
+                const afterDur = (m[3] || '').trim();
+                // Resolve category by prefix in either direction
+                let cat = '';
+                for (const c of categories) { if (c.startsWith(typedCat) || typedCat.startsWith(c)) { cat = c; break; } }
+                if (cat) {
+                    let tfs = tfAll.slice();
+                    if (afterM) {
+                        tfs = tfAll.filter(tf => tf.startsWith(afterM));
+                        if (!tfs.length) {
+                            if (afterM === 'מא') tfs = ['מאתמול'];
+                            else if (afterM === 'מה') tfs = ['מהיום','מהשבוע','מהחודש','מהשנה'];
+                        }
+                    }
+                    // Build output suggestions
+                    let out = [];
+                    // Base + timeframes + duration hint
+                    out.push({ cmd: 'מחק מיילי ' + cat, score: 995, type: 'he_delete_cat_short_base' });
+                    for (const tf of tfs) { out.push({ cmd: 'מחק מיילי ' + cat + ' ' + tf, score: 994, type: 'he_delete_cat_short_tf' }); }
+                    const durCmd = 'מחק מיילי ' + cat + ' מלפני [משך]';
+                    out.push({ cmd: durCmd, score: 993.4, type: 'he_delete_cat_short_duration_seed' });
+                    return out;
+                } else {
+                    // Only surface curated categories that prefix-match
+                    const out = [];
+                    for (const c of categories) { if (c.startsWith(typedCat)) out.push({ cmd: 'מחק מיילי ' + c, score: 993 }); }
+                    return out;
+                }
+            }
+        }
+    } catch (e) {}
+    
             const scored = [];
             const includeMatches = [];
             // Hebrew cues used throughout ranking adjustments
@@ -2756,10 +2808,10 @@
                             if (isHeFromDuration) score += 0.1; // Third priority
                         }
                     } catch (e) {}
-                    // Hebrew: boost ranking order when typing bare "מחק" (no duration cue) - PROGRESSIVE
+                    // Hebrew: boost ranking order when typing bare "מחק" or "מחק מ" (no duration cue) - PROGRESSIVE
                     // Priority: 1) מ[שולח] 2) ישנים מ[משך] 3) מלפני [משך]
                     try {
-                        const isHeBareDeleteCuePrefix = isHebrew && 'מחק'.startsWith(q) && !hebrewDurationActive && !heFixedTimeCue;
+                        const isHeBareDeleteCuePrefix = isHebrew && ('מחק'.startsWith(q) || q.startsWith('מחק מ')) && !hebrewDurationActive && !heFixedTimeCue;
                         if (isHeBareDeleteCuePrefix) {
                             const isHePlainSender = /^מחק\s+מיילים\s+מ\[שולח\]$/i.test(cmd);
                             const isHeOlderThan = /^מחק\s+מיילים\s+ישנים\s+מ\[משך\]$/i.test(cmd);
@@ -2842,9 +2894,9 @@
                                 if (isHeFromDuration) score += 0.15; // Third priority
                             }
                         } catch (e) {}
-                        // Hebrew: boost ranking order when typing bare "מחק" (no duration cue) - PROGRESSIVE
+                        // Hebrew: boost ranking order when typing bare "מחק" or "מחק מ" (no duration cue) - PROGRESSIVE
                         try {
-                            const isHeBareDeleteCue = isHebrew && 'מחק'.startsWith(q) && !hebrewDurationActive && !heFixedTimeCue;
+                            const isHeBareDeleteCue = isHebrew && ('מחק'.startsWith(q) || q.startsWith('מחק מ')) && !hebrewDurationActive && !heFixedTimeCue;
                             if (isHeBareDeleteCue) {
                                 const isHePlainSender = /^מחק\s+מיילים\s+מ\[שולח\]$/i.test(cmd);
                                 const isHeOlderThan = /^מחק\s+מיילים\s+ישנים\s+מ\[משך\]$/i.test(cmd);
@@ -4199,7 +4251,7 @@
                     console.log('[ACTION-FILTER-DEBUG] Before filtering, unique.length:', unique.length);
                     console.log('[ACTION-FILTER-DEBUG] First 5 unique items:', unique.slice(0, 5).map(item => item.cmd));
                     // Debug: Check if "מחק מיילים ישנים מ[משך]" is in unique before filtering
-                    if (isHebrew && q === 'מחק') {
+                    if (isHebrew && (q === 'מחק' || q.startsWith('מחק מ'))) {
                         const hasOlderThan = unique.some(item => {
                             const s = String(item.cmd || item || '');
                             return s.includes('ישנים');
