@@ -4615,6 +4615,148 @@
                         }
                     }
                     
+                    // Reorder DELETE sender+timeframe suggestions for partial matches (e.g., "delete emails from google from")
+                    const deleteSenderTimeframeMatch = q.match(/\bdelete\s+emails\s+from\s+([^\s].*?)\s+from\s+(.+)$/i);
+                    if (deleteSenderTimeframeMatch) {
+                        const typedTimeframe = deleteSenderTimeframeMatch[2].toLowerCase().trim();
+                        console.log(`DELETE REORDERING - Typed timeframe: "${typedTimeframe}"`);
+                        
+                        // Find the best matching suggestion and move it to top
+                        let bestMatch = null;
+                        let bestScore = -1;
+                        
+                        for (let i = 0; i < filteredByAction.length; i++) {
+                            const item = filteredByAction[i];
+                            const cmd = (item && item.cmd ? String(item.cmd).toLowerCase() : '');
+                            
+                            // Check if this is a delete sender+timeframe suggestion
+                            if (cmd.includes('delete emails from [sender] from ')) {
+                                // Check for fixed timeframes (today, yesterday, this/last week/month/year)
+                                const fixedTimeframeMatch = cmd.match(/from\s+(today|yesterday|this week|this month|this year|last week|last month|last year)$/);
+                                if (fixedTimeframeMatch) {
+                                    const suggestionTimeframe = fixedTimeframeMatch[1];
+                                    let score = 0;
+                                    
+                                    // Exact match gets highest score
+                                    if (suggestionTimeframe === typedTimeframe) {
+                                        score = 100;
+                                    }
+                                    // Partial matches get lower scores
+                                    else if (suggestionTimeframe.startsWith(typedTimeframe)) {
+                                        score = 80;
+                                    }
+                                    // "this" matches get priority over "today" when typing "this"
+                                    else if (typedTimeframe.startsWith('this') && suggestionTimeframe.startsWith('this')) {
+                                        score = 70;
+                                    }
+                                    // "last" matches get priority when typing "last"
+                                    else if (typedTimeframe.startsWith('last') && suggestionTimeframe.startsWith('last')) {
+                                        score = 70;
+                                    }
+                                    
+                                    if (score > bestScore) {
+                                        bestScore = score;
+                                        bestMatch = i;
+                                    }
+                                }
+                                // Check for duration-based timeframes (X days/weeks/months/years ago)
+                                else if (cmd.includes(' from ') && cmd.includes(' ago')) {
+                                    // Duration-based suggestions get priority when typing duration phrases
+                                    if (typedTimeframe.includes(' ago') || 
+                                        typedTimeframe.includes(' day') || typedTimeframe.includes(' week') || 
+                                        typedTimeframe.includes(' month') || typedTimeframe.includes(' year') ||
+                                        /^\d+$/.test(typedTimeframe) || /^\d+\s*$/.test(typedTimeframe) ||
+                                        /^\d+\s*[a-z]/.test(typedTimeframe) || /^\d+\s*[a-z]+$/.test(typedTimeframe) ||
+                                        typedTimeframe === 'a' || typedTimeframe.startsWith('a ') ||
+                                        /^a\s+(day|week|month|year)/.test(typedTimeframe) ||
+                                        /^a\s+(d|w|m|y)/.test(typedTimeframe)) {
+                                        let score = 90; // High score for duration-based matches
+                                        
+                                        // Boost score if the typed timeframe matches the suggestion pattern
+                                        if (cmd.includes(typedTimeframe) || 
+                                            (typedTimeframe.includes(' ago') && cmd.includes(' ago'))) {
+                                            score = 100;
+                                        }
+                                        // Extra boost for pure numbers (like "5" when typing "5 months ago")
+                                        else if (/^\d+$/.test(typedTimeframe)) {
+                                            score = 95;
+                                        }
+                                        // Extra boost for number + partial unit (like "2 m" when typing "2 months ago")
+                                        else if (/^\d+\s*[a-z]/.test(typedTimeframe)) {
+                                            score = 92;
+                                        }
+                                        
+                                        if (score > bestScore) {
+                                            bestScore = score;
+                                            bestMatch = i;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // Move the best match to the top
+                        if (bestMatch !== null && bestMatch > 0) {
+                            const bestItem = filteredByAction[bestMatch];
+                            filteredByAction.splice(bestMatch, 1);
+                            filteredByAction.unshift(bestItem);
+                            console.log(`DELETE REORDERING - Moved suggestion to top: "${bestItem.cmd}"`);
+                        }
+                    }
+                    
+                    // DELETE SENDER FILTER: When typing "delete emails from [sender]" (e.g., "delete emails from google"), hide non-sender commands
+                    try {
+                        const deleteSenderMatch = q.match(/^delete\s+emails\s+from\s+([^\s]+)/i);
+                        if (deleteSenderMatch && actionKey === 'delete') {
+                            // Check if user has typed a real sender (not a placeholder or 'from' keyword)
+                            const typedSender = deleteSenderMatch[1].toLowerCase().trim();
+                            const isPlaceholderOrKeyword = /^(sender|domain|\[|today|yesterday|this|last)$/i.test(typedSender);
+                            
+                            if (!isPlaceholderOrKeyword) {
+                                const beforeFilter = filteredByAction.length;
+                                filteredByAction = filteredByAction.filter(item => {
+                                    const s = (item && item.cmd ? String(item.cmd).toLowerCase() : '');
+                                    // Keep only sender-based delete emails commands
+                                    return s.includes('delete emails from [sender]') || s.includes('delete emails from [domain]');
+                                });
+                                console.log(`[DELETE-SENDER-FILTER] Removed non-sender commands. Before: ${beforeFilter}, After: ${filteredByAction.length}`);
+                                
+                                // Reorder the sender commands based on priority:
+                                // 1. delete emails from [sender]
+                                // 2. delete emails from [sender] older than [duration]
+                                // 3. delete emails from [sender] from [duration] ago
+                                // 4. delete emails from [sender] from [timeframe]
+                                const senderPriorities = [
+                                    'delete emails from [sender]',
+                                    'delete emails from [sender] older than [duration]',
+                                    'delete emails from [sender] from [duration] ago',
+                                    'delete emails from [sender] from today',
+                                    'delete emails from [sender] from yesterday',
+                                    'delete emails from [sender] from this week',
+                                    'delete emails from [sender] from this month',
+                                    'delete emails from [sender] from this year',
+                                    'delete emails from [sender] from last week',
+                                    'delete emails from [sender] from last month',
+                                    'delete emails from [sender] from last year'
+                                ];
+                                
+                                const orderedSender = [];
+                                senderPriorities.forEach(cmd => {
+                                    const found = filteredByAction.find(item => item.cmd.toLowerCase() === cmd);
+                                    if (found) orderedSender.push(found);
+                                });
+                                
+                                // Add any remaining sender commands not in the priority list
+                                filteredByAction.forEach(item => {
+                                    if (!orderedSender.includes(item)) orderedSender.push(item);
+                                });
+                                
+                                filteredByAction = orderedSender;
+                                console.log('[DELETE-SENDER-FILTER] Applied sender command ordering');
+                            }
+                        }
+                    } catch(e) {}
+                    
                     if (filteredByAction.length) return filteredByAction;
                 }
             } catch (e) {}
