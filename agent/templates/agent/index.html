@@ -8854,7 +8854,53 @@
                     try { console.log('[ARCHIVE-SENDER-T-FILTER] filtered and prioritized today/this commands for:', qlc); } catch(e) {}
                 }
             } catch (e) {}
+            
+            // DELETE-T-FILTER: If typing 'delete emails from t', filter to show 'today' first, then 'this' commands
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isDeleteEmailsFromT = /^delete\s+emails\s+from\s+t$/.test(qlc);
+                if (isDeleteEmailsFromT && Array.isArray(items)) {
+                    // Filter to only show 'today' and 'this' commands
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        return /^delete\s+emails\s+from\s+(today|this\s+(week|month|year))$/.test(lcCmd);
+                    });
+                    
+                    // Sort to put today first, then this commands
+                    items.sort(function(a, b) {
+                        const cmdA = (a && a.cmd) ? a.cmd : String(a);
+                        const cmdB = (b && b.cmd) ? b.cmd : String(b);
+                        const lcCmdA = cmdA.toLowerCase();
+                        const lcCmdB = cmdB.toLowerCase();
 
+                        // Today gets priority (0), this commands get 1-3
+                        const orderA = lcCmdA.includes('today') ? 0 : (lcCmdA.includes('this week') ? 1 : lcCmdA.includes('this month') ? 2 : 3);
+                        const orderB = lcCmdB.includes('today') ? 0 : (lcCmdB.includes('this week') ? 1 : lcCmdB.includes('this month') ? 2 : 3);
+
+                        return orderA - orderB;
+                    });
+                    
+                    try { console.log('[DELETE-T-FILTER] filtered and prioritized today/this commands for:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+            
+            // DELETE-TODAY FILTER: If typing 'delete emails from to*', filter to only today command
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isDeleteEmailsFromToday = /^delete\s+emails\s+from\s+to/.test(qlc);
+                if (isDeleteEmailsFromToday && Array.isArray(items)) {
+                    // Filter to only show the today command
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        // Keep only the today command
+                        return /^delete\s+emails\s+from\s+today$/.test(lcCmd);
+                    });
+                    try { console.log('[DELETE-TODAY-FILTER] filtered to today command for:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+            
             // ARCHIVE-SENDER-TODAY FILTER: If typing 'archive emails from [sender] from to*', filter to only this command
             try {
                 const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
@@ -12368,6 +12414,16 @@
                     });
                     if (!items.length) items.push({ cmd: 'list emails from today', score: 1002, type: 'en_tf_today_inject' });
                     try { console.log('[EN-TF-TODAY-GATE] kept today for input:', qlp); } catch(e) {}
+                }
+                // EARLY GATE: delete today progressive (to/tod/toda/today)
+                if (/^delete\s+emails\s+from\s+to(day)?$|^delete\s+emails\s+from\s+tod(a(y)?)?$/i.test(qlp) && Array.isArray(items)) {
+                    const reTodayOnly = /^delete\s+emails\s+from\s+today$/i;
+                    items = items.filter(function(it){
+                        const s = (it && it.cmd ? String(it.cmd).toLowerCase() : '');
+                        return reTodayOnly.test(s);
+                    });
+                    if (!items.length) items.push({ cmd: 'delete emails from today', score: 1002, type: 'en_delete_tf_today_inject' });
+                    try { console.log('[EN-DELETE-TF-TODAY-GATE] kept today for input:', qlp); } catch(e) {}
                 }
                 // EARLY GATE: yesterday progressive (y/ye/yes/.../yesterday)
                 if (/^list\s+emails\s+from\s+y(e(s(t(e(r(d(a(y)?)?)?)?)?)?)?)?$/i.test(qlp) && Array.isArray(items)) {
