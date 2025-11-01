@@ -12489,6 +12489,16 @@
                     if (!items.length) items.push({ cmd: 'list emails from yesterday', score: 1002, type: 'en_tf_yesterday_inject' });
                     try { console.log('[EN-TF-YESTERDAY-GATE] kept yesterday for input:', qlp); } catch(e) {}
                 }
+                // EARLY GATE: delete yesterday progressive (y/ye/yes/.../yesterday)
+                if (/^delete\s+emails\s+from\s+y(e(s(t(e(r(d(a(y)?)?)?)?)?)?)?)?$/i.test(qlp) && Array.isArray(items)) {
+                    const reYesterdayOnly = /^delete\s+emails\s+from\s+yesterday$/i;
+                    items = items.filter(function(it){
+                        const s = (it && it.cmd ? String(it.cmd).toLowerCase() : '');
+                        return reYesterdayOnly.test(s);
+                    });
+                    if (!items.length) items.push({ cmd: 'delete emails from yesterday', score: 1002, type: 'en_delete_tf_yesterday_inject' });
+                    try { console.log('[EN-DELETE-TF-YESTERDAY-GATE] kept yesterday for input:', qlp); } catch(e) {}
+                }
                 // EARLY GATE: this- progressive (th/this [w|m|y]) - for both list and archive
                 if (/^(list|archive)\s+emails\s+from\s+th(i(s)?)?(?:\s+.*)?$/i.test(qlp) && Array.isArray(items)) {
                     const isAny = /^(list|archive)\s+emails\s+from\s+th(i(s)?)?$/i.test(qlp) || /^(list|archive)\s+emails\s+from\s+this\s+$/i.test(qlp);
