@@ -8959,6 +8959,221 @@
                 }
             } catch (e) {}
             
+            // DELETE-SENDER-T-FILTER: If typing 'delete emails from [sender] from t', prioritize today and this commands
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isDeleteSenderFromT = /^delete\s+emails\s+from\s+[a-zA-Z0-9._\-+@\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff\s]+\s+from\s+t$/.test(qlc);
+                if (isDeleteSenderFromT && Array.isArray(items)) {
+                    // Filter to only show today and this commands
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        // Keep only today and this commands
+                        return /^delete\s+emails\s+from\s+\[sender\]\s+from\s+(today|this\s+(week|month|year))$/.test(lcCmd);
+                    });
+                    
+                    // Sort to put today first, then this commands
+                    items.sort(function(a, b) {
+                        const cmdA = (a && a.cmd) ? String(a.cmd).toLowerCase() : '';
+                        const cmdB = (b && b.cmd) ? String(b.cmd).toLowerCase() : '';
+                        
+                        // Today gets priority (0), this commands get 1-3
+                        const orderA = cmdA.includes('today') ? 0 : (cmdA.includes('this week') ? 1 : cmdA.includes('this month') ? 2 : 3);
+                        const orderB = cmdB.includes('today') ? 0 : (cmdB.includes('this week') ? 1 : cmdB.includes('this month') ? 2 : 3);
+                        
+                        return orderA - orderB;
+                    });
+                    
+                    try { console.log('[DELETE-SENDER-T-FILTER] filtered and prioritized today/this commands for:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+            
+            // DELETE-SENDER-TODAY FILTER: If typing 'delete emails from [sender] from to*', filter to only this command
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isDeleteSenderFromToday = /^delete\s+emails\s+from\s+[a-zA-Z0-9._\-+@\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff\s]+\s+from\s+to/.test(qlc);
+                if (isDeleteSenderFromToday && Array.isArray(items)) {
+                    // Filter to only show the sender from today command
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        // Keep only the sender from today command
+                        return /^delete\s+emails\s+from\s+\[sender\]\s+from\s+today$/.test(lcCmd);
+                    });
+                    try { console.log('[DELETE-SENDER-TODAY-FILTER] filtered to sender from today command for:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+            
+            // DELETE-SENDER-THIS FILTER: If typing 'delete emails from [sender] from th*', filter and prioritize this commands
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isDeleteSenderFromThis = /^delete\s+emails\s+from\s+[a-zA-Z0-9._\-+@\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff\s]+\s+from\s+th/.test(qlc);
+                if (isDeleteSenderFromThis && Array.isArray(items)) {
+                    // Filter to only show this commands
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        // Keep only this commands
+                        return /^delete\s+emails\s+from\s+\[sender\]\s+from\s+this\s+(week|month|year)$/.test(lcCmd);
+                    });
+                    
+                    // Sort in the desired order: week, month, year
+                    items.sort(function(a, b) {
+                        const cmdA = (a && a.cmd) ? String(a.cmd).toLowerCase() : '';
+                        const cmdB = (b && b.cmd) ? String(b.cmd).toLowerCase() : '';
+                        
+                        const order = { 'week': 1, 'month': 2, 'year': 3 };
+                        const orderA = order[cmdA.match(/this\s+(week|month|year)/)?.[1]] || 999;
+                        const orderB = order[cmdB.match(/this\s+(week|month|year)/)?.[1]] || 999;
+                        
+                        return orderA - orderB;
+                    });
+                    
+                    try { console.log('[DELETE-SENDER-THIS-FILTER] filtered and sorted this commands for:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+            
+            // DELETE-SENDER-THIS-WEEK FILTER: If typing 'delete emails from [sender] from this w*', filter to only this command
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isDeleteSenderFromThisWeek = /^delete\s+emails\s+from\s+[a-zA-Z0-9._\-+@\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff\s]+\s+from\s+this\s+w/.test(qlc);
+                if (isDeleteSenderFromThisWeek && Array.isArray(items)) {
+                    // Filter to only show the sender from this week command
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        // Keep only the sender from this week command
+                        return /^delete\s+emails\s+from\s+\[sender\]\s+from\s+this\s+week$/.test(lcCmd);
+                    });
+                    try { console.log('[DELETE-SENDER-THIS-WEEK-FILTER] filtered to sender from this week command for:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+            
+            // DELETE-SENDER-THIS-MONTH FILTER: If typing 'delete emails from [sender] from this m*', filter to only this command
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isDeleteSenderFromThisMonth = /^delete\s+emails\s+from\s+[a-zA-Z0-9._\-+@\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff\s]+\s+from\s+this\s+m/.test(qlc);
+                if (isDeleteSenderFromThisMonth && Array.isArray(items)) {
+                    // Filter to only show the sender from this month command
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        // Keep only the sender from this month command
+                        return /^delete\s+emails\s+from\s+\[sender\]\s+from\s+this\s+month$/.test(lcCmd);
+                    });
+                    try { console.log('[DELETE-SENDER-THIS-MONTH-FILTER] filtered to sender from this month command for:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+            
+            // DELETE-SENDER-THIS-YEAR FILTER: If typing 'delete emails from [sender] from this y*', filter to only this command
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isDeleteSenderFromThisYear = /^delete\s+emails\s+from\s+[a-zA-Z0-9._\-+@\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff\s]+\s+from\s+this\s+y/.test(qlc);
+                if (isDeleteSenderFromThisYear && Array.isArray(items)) {
+                    // Filter to only show the sender from this year command
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        // Keep only the sender from this year command
+                        return /^delete\s+emails\s+from\s+\[sender\]\s+from\s+this\s+year$/.test(lcCmd);
+                    });
+                    try { console.log('[DELETE-SENDER-THIS-YEAR-FILTER] filtered to sender from this year command for:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+            
+            // DELETE-SENDER-L-FILTER: If typing 'delete emails from [sender] from l*', prioritize last commands
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isDeleteSenderFromL = /^delete\s+emails\s+from\s+[a-zA-Z0-9._\-+@\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff\s]+\s+from\s+l/.test(qlc);
+                if (isDeleteSenderFromL && Array.isArray(items)) {
+                    // Filter to only show last commands
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        // Keep only last commands
+                        return /^delete\s+emails\s+from\s+\[sender\]\s+from\s+last\s+(week|month|year)$/.test(lcCmd);
+                    });
+                    
+                    // Sort in the desired order: week, month, year
+                    items.sort(function(a, b) {
+                        const cmdA = (a && a.cmd) ? String(a.cmd).toLowerCase() : '';
+                        const cmdB = (b && b.cmd) ? String(b.cmd).toLowerCase() : '';
+                        
+                        const order = { 'week': 1, 'month': 2, 'year': 3 };
+                        const orderA = order[cmdA.match(/last\s+(week|month|year)/)?.[1]] || 999;
+                        const orderB = order[cmdB.match(/last\s+(week|month|year)/)?.[1]] || 999;
+                        
+                        return orderA - orderB;
+                    });
+                    
+                    try { console.log('[DELETE-SENDER-L-FILTER] filtered and sorted last commands for:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+            
+            // DELETE-SENDER-LAST-WEEK FILTER: If typing 'delete emails from [sender] from last w*', filter to only this command
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isDeleteSenderFromLastWeek = /^delete\s+emails\s+from\s+[a-zA-Z0-9._\-+@\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff\s]+\s+from\s+last\s+w/.test(qlc);
+                if (isDeleteSenderFromLastWeek && Array.isArray(items)) {
+                    // Filter to only show the sender from last week command
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        // Keep only the sender from last week command
+                        return /^delete\s+emails\s+from\s+\[sender\]\s+from\s+last\s+week$/.test(lcCmd);
+                    });
+                    try { console.log('[DELETE-SENDER-LAST-WEEK-FILTER] filtered to sender from last week command for:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+            
+            // DELETE-SENDER-LAST-MONTH FILTER: If typing 'delete emails from [sender] from last m*', filter to only this command
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isDeleteSenderFromLastMonth = /^delete\s+emails\s+from\s+[a-zA-Z0-9._\-+@\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff\s]+\s+from\s+last\s+m/.test(qlc);
+                if (isDeleteSenderFromLastMonth && Array.isArray(items)) {
+                    // Filter to only show the sender from last month command
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        // Keep only the sender from last month command
+                        return /^delete\s+emails\s+from\s+\[sender\]\s+from\s+last\s+month$/.test(lcCmd);
+                    });
+                    try { console.log('[DELETE-SENDER-LAST-MONTH-FILTER] filtered to sender from last month command for:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+            
+            // DELETE-SENDER-LAST-YEAR FILTER: If typing 'delete emails from [sender] from last y*', filter to only this command
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isDeleteSenderFromLastYear = /^delete\s+emails\s+from\s+[a-zA-Z0-9._\-+@\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff\s]+\s+from\s+last\s+y/.test(qlc);
+                if (isDeleteSenderFromLastYear && Array.isArray(items)) {
+                    // Filter to only show the sender from last year command
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        // Keep only the sender from last year command
+                        return /^delete\s+emails\s+from\s+\[sender\]\s+from\s+last\s+year$/.test(lcCmd);
+                    });
+                    try { console.log('[DELETE-SENDER-LAST-YEAR-FILTER] filtered to sender from last year command for:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+            
+            // DELETE-SENDER-YESTERDAY FILTER: If typing 'delete emails from [sender] from y*', filter to only this command
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isDeleteSenderFromYesterday = /^delete\s+emails\s+from\s+[a-zA-Z0-9._\-+@\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff\s]+\s+from\s+y/.test(qlc);
+                if (isDeleteSenderFromYesterday && Array.isArray(items)) {
+                    // Filter to only show the sender from yesterday command
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        // Keep only the sender from yesterday command
+                        return /^delete\s+emails\s+from\s+\[sender\]\s+from\s+yesterday$/.test(lcCmd);
+                    });
+                    try { console.log('[DELETE-SENDER-YESTERDAY-FILTER] filtered to sender from yesterday command for:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+            
             // ARCHIVE-SENDER-TODAY FILTER: If typing 'archive emails from [sender] from to*', filter to only this command
             try {
                 const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
@@ -12558,6 +12773,83 @@
                         return cmd.toLowerCase() === exactTargetDelete;
                     });
                     console.log('[EN-DELETE-TF-PROGRESSIVE-FINAL] enforced single timeframe for:', exactTargetDelete);
+                }
+                // EARLY GATE: delete sender from t - allow today or this-* (for delete emails from sender)
+                if (/^delete\s+emails\s+from\s+[a-zA-Z0-9._\-+@\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff\s]+\s+from\s+t$/i.test(qlp) && Array.isArray(items)) {
+                    const reToday = /^delete\s+emails\s+from\s+\[sender\]\s+from\s+today$/i;
+                    const reThisAny = /^delete\s+emails\s+from\s+\[sender\]\s+from\s+this\s+(week|month|year)$/i;
+                    items = items.filter(function(it){
+                        const s = (it && it.cmd ? String(it.cmd).toLowerCase() : '');
+                        return reToday.test(s) || reThisAny.test(s);
+                    });
+                    if (!items.length) {
+                        items.push({ cmd: 'delete emails from [sender] from today', score: 1002, type: 'en_delete_sender_tf_t_inject' });
+                        items.push({ cmd: 'delete emails from [sender] from this week', score: 1002, type: 'en_delete_sender_tf_this_inject' });
+                        items.push({ cmd: 'delete emails from [sender] from this month', score: 1001, type: 'en_delete_sender_tf_this_inject' });
+                        items.push({ cmd: 'delete emails from [sender] from this year', score: 1000, type: 'en_delete_sender_tf_this_inject' });
+                    }
+                    try { console.log('[EN-DELETE-SENDER-TF-T-GATE] kept today/this-* for input:', qlp); } catch(e) {}
+                }
+                // EARLY GATE: delete sender today progressive (to/tod/toda/today)
+                if (/^delete\s+emails\s+from\s+[a-zA-Z0-9._\-+@\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff\s]+\s+from\s+to(day)?$|^delete\s+emails\s+from\s+[a-zA-Z0-9._\-+@\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff\s]+\s+from\s+tod(a(y)?)?$/i.test(qlp) && Array.isArray(items)) {
+                    const reTodayOnly = /^delete\s+emails\s+from\s+\[sender\]\s+from\s+today$/i;
+                    items = items.filter(function(it){
+                        const s = (it && it.cmd ? String(it.cmd).toLowerCase() : '');
+                        return reTodayOnly.test(s);
+                    });
+                    if (!items.length) items.push({ cmd: 'delete emails from [sender] from today', score: 1002, type: 'en_delete_sender_tf_today_inject' });
+                    try { console.log('[EN-DELETE-SENDER-TF-TODAY-GATE] kept today for input:', qlp); } catch(e) {}
+                }
+                // EARLY GATE: delete sender this- progressive (th/this [w|m|y])
+                if (/^delete\s+emails\s+from\s+[a-zA-Z0-9._\-+@\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff\s]+\s+from\s+th(i(s)?)?(?:\s+.*)?$/i.test(qlp) && Array.isArray(items)) {
+                    const isAny = /^delete\s+emails\s+from\s+[a-zA-Z0-9._\-+@\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff\s]+\s+from\s+th(i(s)?)?$/i.test(qlp) || /^delete\s+emails\s+from\s+[a-zA-Z0-9._\-+@\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff\s]+\s+from\s+this\s+$/i.test(qlp);
+                    const isWeek = /^delete\s+emails\s+from\s+[a-zA-Z0-9._\-+@\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff\s]+\s+from\s+this\s+w/i.test(qlp);
+                    const isMonth = /^delete\s+emails\s+from\s+[a-zA-Z0-9._\-+@\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff\s]+\s+from\s+this\s+m/i.test(qlp);
+                    const isYear = /^delete\s+emails\s+from\s+[a-zA-Z0-9._\-+@\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff\s]+\s+from\s+this\s+y/i.test(qlp);
+                    const reThisAny = /^delete\s+emails\s+from\s+\[sender\]\s+from\s+this\s+(week|month|year)$/i;
+                    const reThisWeek = /^delete\s+emails\s+from\s+\[sender\]\s+from\s+this\s+week$/i;
+                    const reThisMonth = /^delete\s+emails\s+from\s+\[sender\]\s+from\s+this\s+month$/i;
+                    const reThisYear = /^delete\s+emails\s+from\s+\[sender\]\s+from\s+this\s+year$/i;
+                    items = items.filter(function(it){
+                        const s = (it && it.cmd ? String(it.cmd).toLowerCase() : '');
+                        if (isAny) return reThisAny.test(s);
+                        if (isWeek) return reThisWeek.test(s);
+                        if (isMonth) return reThisMonth.test(s);
+                        if (isYear) return reThisYear.test(s);
+                        return reThisAny.test(s);
+                    });
+                    if (!items.length) {
+                        items.push({ cmd: 'delete emails from [sender] from this week', score: 1002, type: 'en_delete_sender_tf_this_inject' });
+                        items.push({ cmd: 'delete emails from [sender] from this month', score: 1001, type: 'en_delete_sender_tf_this_inject' });
+                        items.push({ cmd: 'delete emails from [sender] from this year', score: 1000, type: 'en_delete_sender_tf_this_inject' });
+                    }
+                    try { console.log('[EN-DELETE-SENDER-TF-THIS-GATE] kept this-* for input:', qlp); } catch(e) {}
+                }
+                // EARLY GATE: delete sender yesterday progressive (y/ye/yes/.../yesterday)
+                if (/^delete\s+emails\s+from\s+[a-zA-Z0-9._\-+@\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff\s]+\s+from\s+y(e(s(t(e(r(d(a(y)?)?)?)?)?)?)?)?$/i.test(qlp) && Array.isArray(items)) {
+                    const reYesterdayOnly = /^delete\s+emails\s+from\s+\[sender\]\s+from\s+yesterday$/i;
+                    items = items.filter(function(it){
+                        const s = (it && it.cmd ? String(it.cmd).toLowerCase() : '');
+                        return reYesterdayOnly.test(s);
+                    });
+                    if (!items.length) items.push({ cmd: 'delete emails from [sender] from yesterday', score: 1002, type: 'en_delete_sender_tf_yesterday_inject' });
+                    try { console.log('[EN-DELETE-SENDER-TF-YESTERDAY-GATE] kept yesterday for input:', qlp); } catch(e) {}
+                }
+                // EARLY GATE: delete sender last progressive (la/las/last [w|m|y])
+                if (/^delete\s+emails\s+from\s+[a-zA-Z0-9._\-+@\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff\s]+\s+from\s+la(?:s(?:t)?)?\s*$/i.test(qlp) && Array.isArray(items)) {
+                    const reWeek = /^delete\s+emails\s+from\s+\[sender\]\s+from\s+last\s+week$/i;
+                    const reMonth = /^delete\s+emails\s+from\s+\[sender\]\s+from\s+last\s+month$/i;
+                    const reYear = /^delete\s+emails\s+from\s+\[sender\]\s+from\s+last\s+year$/i;
+                    items = items.filter(function(it){
+                        const s = (it && it.cmd ? String(it.cmd).toLowerCase() : '');
+                        return reWeek.test(s) || reMonth.test(s) || reYear.test(s);
+                    });
+                    if (!items.length) {
+                        items.push({ cmd: 'delete emails from [sender] from last week', score: 1002, type: 'en_delete_sender_tf_last_inject' });
+                        items.push({ cmd: 'delete emails from [sender] from last month', score: 1001, type: 'en_delete_sender_tf_last_inject' });
+                        items.push({ cmd: 'delete emails from [sender] from last year', score: 1000, type: 'en_delete_sender_tf_last_inject' });
+                    }
+                    try { console.log('[EN-DELETE-SENDER-TF-LAST-GATE] restricted to last week/month/year for input:', qlp); } catch(e) {}
                 }
                 // EARLY GATE: this- progressive (th/this [w|m|y]) - for both list and archive
                 if (/^(list|archive)\s+emails\s+from\s+th(i(s)?)?(?:\s+.*)?$/i.test(qlp) && Array.isArray(items)) {
