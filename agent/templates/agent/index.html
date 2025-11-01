@@ -2501,6 +2501,7 @@
                 .replace(/\u00a0/g,' ')
                 .replace(/\s+/g,' ')
                 .trim();
+            const isHebrew = document.documentElement.lang === 'he';
             // EARLY CATEGORY-DURATION PLACEHOLDER: ensure suggestion appears while typing 'מל/לפ/לפנ/לפני'
             try {
                 const mEarly = qNormHe.match(/^רש(?:ו)?ם\s+מיילי(?:ם)?\s+([\u0590-\u05FF\s]+?)\s+(?:מ(?:ל|לפ|לפנ)|מלפני)$/);
@@ -2653,6 +2654,10 @@
                         if (trimmed && trimmed.startsWith('archive emails f') && 'archive emails from'.startsWith(trimmed)) {
                             console.log('[ACTION-DETECTION] q:', q, 'detected actionKey: archive (archive emails f/fr/fro partial)');
                             return 'archive';
+                        }
+                        if (trimmed && 'delete'.startsWith(trimmed)) {
+                            console.log('[ACTION-DETECTION] q:', q, 'detected actionKey: delete (partial)');
+                            return 'delete';
                         }
                         // Hebrew action detection
                         try {
@@ -4282,6 +4287,114 @@
                             console.log('[ARCHIVE-PRIORITY] Applied prioritized archive command ordering, final count:', orderedArchive.length);
                         }
                     }
+                    
+                    // DELETE PRIORITY: If typing "delete" (or any prefix) OR Hebrew "מחק", reorder suggestions to match desired priority
+                    const isDeletePrefix = (function(){ try { const trimmed = String(q || '').trim().toLowerCase(); return 'delete'.startsWith(trimmed) || trimmed.startsWith('delete e'); } catch(e) { return false; } })();
+                    const isDeletePrefixHebrew = (function(){ try { const trimmed = String(q || '').trim(); return trimmed.startsWith('מחק') || 'מחק'.startsWith(trimmed); } catch(e) { return false; } })();
+                    if (actionKey === 'delete' && (isDeletePrefix || isDeletePrefixHebrew)) {
+                        console.log('[DELETE-PRIORITY] Before reordering, filteredByAction contains:');
+                        filteredByAction.forEach((item, idx) => {
+                            console.log(`  ${idx}: "${item.cmd}"`);
+                        });
+                        
+                        // Priority order for delete commands (English and Hebrew):
+                        // 1. delete emails from [sender] / מחק מיילים מ[שולח]
+                        // 2. delete emails older than [duration] / מחק מיילים ישנים מ[משך]
+                        // 3. delete emails from [duration] ago / מחק מיילים מלפני [משך]
+                        // 4. delete shipping emails / מחק מיילי משלוח
+                        // 5. delete verification codes / מחק מיילי קודי אימות
+                        // 6. delete account security emails / מחק מיילי אבטחת חשבון
+                        // 7. delete emails from today / מחק מיילים מהיום
+                        // 8. delete emails from yesterday / מחק מיילים מאתמול
+                        // 9. delete emails from this week / מחק מיילים מהשבוע
+                        // 10. delete emails from last week / מחק מיילים מהשבוע שעבר
+                        // 11. delete emails from this month / מחק מיילים מהחודש
+                        // 12. delete emails from last month / מחק מיילים מהחודש שעבר
+                        // 13. delete emails from this year / מחק מיילים מהשנה
+                        // 14. delete emails from last year / מחק מיילים מהשנה שעברה
+                        const prioritizedDeleteCommands = isHebrew ? [
+                            'מחק מיילים מ[שולח]',
+                            'מחק מיילים ישנים מ[משך]',
+                            'מחק מיילים מלפני [משך]',
+                            'מחק מיילי משלוח',
+                            'מחק מיילי קודי אימות',
+                            'מחק מיילי אבטחת חשבון',
+                            'מחק מיילים מהיום',
+                            'מחק מיילים מאתמול',
+                            'מחק מיילים מהשבוע',
+                            'מחק מיילים מהשבוע שעבר',
+                            'מחק מיילים מהחודש',
+                            'מחק מיילים מהחודש שעבר',
+                            'מחק מיילים מהשנה',
+                            'מחק מיילים מהשנה שעברה'
+                        ] : [
+                            'delete emails from [sender]',
+                            'delete emails older than [duration]',
+                            'delete emails from [duration] ago',
+                            'delete shipping emails',
+                            'delete verification codes',
+                            'delete account security emails',
+                            'delete emails from today',
+                            'delete emails from yesterday',
+                            'delete emails from this week',
+                            'delete emails from last week',
+                            'delete emails from this month',
+                            'delete emails from last month',
+                            'delete emails from this year',
+                            'delete emails from last year'
+                        ];
+                        
+                        // Reorder filteredByAction to match the priority order
+                        const orderedDelete = [];
+                        prioritizedDeleteCommands.forEach(cmd => {
+                            const found = filteredByAction.find(item => {
+                                const s = (item && item.cmd ? String(item.cmd) : '');
+                                // For Hebrew, compare as-is. For English, use lowercase comparison
+                                const sCompare = isHebrew ? s : s.toLowerCase();
+                                const cmdCompare = isHebrew ? cmd : cmd.toLowerCase();
+                                return sCompare === cmdCompare;
+                            });
+                            if (found) {
+                                orderedDelete.push(found);
+                                console.log(`[DELETE-PRIORITY] Found: "${cmd}"`);
+                            } else {
+                                console.log(`[DELETE-PRIORITY] Missing: "${cmd}"`);
+                            }
+                        });
+                        
+                        // Add remaining items (that weren't in the priority list) after prioritized ones
+                        const addedSet = new Set(orderedDelete.map(item => {
+                            const s = (item && item.cmd ? String(item.cmd) : '');
+                            return isHebrew ? s : s.toLowerCase();
+                        }));
+                        filteredByAction.forEach(item => {
+                            const s = (item && item.cmd ? String(item.cmd) : '');
+                            const sCompare = isHebrew ? s : s.toLowerCase();
+                            if (!addedSet.has(sCompare)) {
+                                orderedDelete.push(item);
+                            }
+                        });
+                        
+                        if (orderedDelete.length > 0) {
+                            filteredByAction = orderedDelete;
+                            console.log('[DELETE-PRIORITY] Applied prioritized delete command ordering, final count:', orderedDelete.length);
+                        }
+                    }
+                    
+                    // DELETE EMAILS FILTER: When typing "delete emails" (not partial), hide category commands
+                    try {
+                        const isDeleteEmails = /^delete\s+emails\s*$/i.test(q);
+                        if (isDeleteEmails && actionKey === 'delete') {
+                            const beforeFilter = filteredByAction.length;
+                            filteredByAction = filteredByAction.filter(item => {
+                                const s = (item && item.cmd ? String(item.cmd).toLowerCase() : '');
+                                // Keep only plain delete emails commands, hide category commands
+                                const isCategory = /\b(shipping|verification codes|account security)\b/i.test(s);
+                                return !isCategory;
+                            });
+                            console.log(`[DELETE-EMAILS-FILTER] Removed category commands. Before: ${beforeFilter}, After: ${filteredByAction.length}`);
+                        }
+                    } catch(e) {}
                     
                     // Filter out "today" suggestions when "this" is typed
                     const thisMatch = q.match(/\barchive\s+emails\s+from\s+[^\s].*?\s+from\s+(this|thi|th)\b/i);
