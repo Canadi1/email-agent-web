@@ -9190,6 +9190,22 @@
                 }
             } catch (e) {}
             
+            // DELETE-OLDER-THAN FILTER: If typing 'delete emails o*', filter to only the matching older than command
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isDeleteEmailsOlderThan = /^delete\s+emails\s+o/.test(qlc);
+                if (isDeleteEmailsOlderThan && Array.isArray(items)) {
+                    // Filter to only show the specific "delete emails older than [duration]" command
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        // Keep only the exact matching command
+                        return /^delete\s+emails\s+older\s+than\s+\[duration\]$/.test(lcCmd);
+                    });
+                    try { console.log('[DELETE-OLDER-THAN-FILTER] filtered to only matching command for:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+            
             // ARCHIVE-SENDER-TODAY FILTER: If typing 'archive emails from [sender] from to*', filter to only this command
             try {
                 const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
@@ -12866,6 +12882,16 @@
                         items.push({ cmd: 'delete emails from [sender] from last year', score: 1000, type: 'en_delete_sender_tf_last_inject' });
                     }
                     try { console.log('[EN-DELETE-SENDER-TF-LAST-GATE] restricted to last week/month/year for input:', qlp); } catch(e) {}
+                }
+                // EARLY GATE: delete older than progressive (o/ol/old/older)
+                if (/^delete\s+emails\s+o/i.test(qlp) && Array.isArray(items)) {
+                    const reOlderThanOnly = /^delete\s+emails\s+older\s+than\s+\[duration\]$/i;
+                    items = items.filter(function(it){
+                        const s = (it && it.cmd ? String(it.cmd).toLowerCase() : '');
+                        return reOlderThanOnly.test(s);
+                    });
+                    if (!items.length) items.push({ cmd: 'delete emails older than [duration]', score: 1002, type: 'en_delete_older_than_inject' });
+                    try { console.log('[EN-DELETE-OLDER-THAN-GATE] kept older than for input:', qlp); } catch(e) {}
                 }
                 // EARLY GATE: this- progressive (th/this [w|m|y]) - for both list and archive
                 if (/^(list|archive)\s+emails\s+from\s+th(i(s)?)?(?:\s+.*)?$/i.test(qlp) && Array.isArray(items)) {
