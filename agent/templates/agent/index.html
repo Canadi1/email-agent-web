@@ -8901,6 +8901,35 @@
                 }
             } catch (e) {}
             
+            // DELETE-THIS FILTER: If typing 'delete emails from th*', filter and prioritize this commands
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isDeleteEmailsFromThis = /^delete\s+emails\s+from\s+th/.test(qlc);
+                if (isDeleteEmailsFromThis && Array.isArray(items)) {
+                    // Filter to only show this commands
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        // Keep only this commands
+                        return /^delete\s+emails\s+from\s+this\s+(week|month|year)$/.test(lcCmd);
+                    });
+                    
+                    // Sort in the desired order: week, month, year
+                    items.sort(function(a, b) {
+                        const cmdA = (a && a.cmd) ? String(a.cmd).toLowerCase() : '';
+                        const cmdB = (b && b.cmd) ? String(b.cmd).toLowerCase() : '';
+                        
+                        const order = { 'week': 1, 'month': 2, 'year': 3 };
+                        const orderA = order[cmdA.match(/this\s+(week|month|year)/)?.[1]] || 999;
+                        const orderB = order[cmdB.match(/this\s+(week|month|year)/)?.[1]] || 999;
+                        
+                        return orderA - orderB;
+                    });
+                    
+                    try { console.log('[DELETE-THIS-FILTER] filtered and sorted this commands for:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+            
             // ARCHIVE-SENDER-TODAY FILTER: If typing 'archive emails from [sender] from to*', filter to only this command
             try {
                 const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
@@ -12424,6 +12453,31 @@
                     });
                     if (!items.length) items.push({ cmd: 'delete emails from today', score: 1002, type: 'en_delete_tf_today_inject' });
                     try { console.log('[EN-DELETE-TF-TODAY-GATE] kept today for input:', qlp); } catch(e) {}
+                }
+                // EARLY GATE: delete this- progressive (th/this [w|m|y])
+                if (/^delete\s+emails\s+from\s+th(i(s)?)?(?:\s+.*)?$/i.test(qlp) && Array.isArray(items)) {
+                    const isAny = /^delete\s+emails\s+from\s+th(i(s)?)?$/i.test(qlp) || /^delete\s+emails\s+from\s+this\s+$/i.test(qlp);
+                    const isWeek = /^delete\s+emails\s+from\s+this\s+w/i.test(qlp);
+                    const isMonth = /^delete\s+emails\s+from\s+this\s+m/i.test(qlp);
+                    const isYear = /^delete\s+emails\s+from\s+this\s+y/i.test(qlp);
+                    const reThisAny = /^delete\s+emails\s+from\s+this\s+(week|month|year)$/i;
+                    const reThisWeek = /^delete\s+emails\s+from\s+this\s+week$/i;
+                    const reThisMonth = /^delete\s+emails\s+from\s+this\s+month$/i;
+                    const reThisYear = /^delete\s+emails\s+from\s+this\s+year$/i;
+                    items = items.filter(function(it){
+                        const s = (it && it.cmd ? String(it.cmd).toLowerCase() : '');
+                        if (isAny) return reThisAny.test(s);
+                        if (isWeek) return reThisWeek.test(s);
+                        if (isMonth) return reThisMonth.test(s);
+                        if (isYear) return reThisYear.test(s);
+                        return reThisAny.test(s);
+                    });
+                    if (!items.length) {
+                        items.push({ cmd: 'delete emails from this week', score: 1002, type: 'en_delete_tf_this_inject' });
+                        items.push({ cmd: 'delete emails from this month', score: 1001, type: 'en_delete_tf_this_inject' });
+                        items.push({ cmd: 'delete emails from this year', score: 1000, type: 'en_delete_tf_this_inject' });
+                    }
+                    try { console.log('[EN-DELETE-TF-THIS-GATE] kept this-* for input:', qlp); } catch(e) {}
                 }
                 // EARLY GATE: yesterday progressive (y/ye/yes/.../yesterday)
                 if (/^list\s+emails\s+from\s+y(e(s(t(e(r(d(a(y)?)?)?)?)?)?)?)?$/i.test(qlp) && Array.isArray(items)) {
