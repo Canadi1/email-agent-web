@@ -359,6 +359,12 @@ msgid ""
 "Found %(count)d emails in %(what)s%(age)s. Do you want to move them to Trash?"
 msgstr "נמצאו %(count)d מיילים ב-%(what)s%(age)s. להעבירם לאשפה?"
 
+#: .\agent\email_ai_agent.py:2427
+#, python-format
+msgid ""
+"Found %(count)d emails in %(what)s%(time)s%(age)s. Do you want to move them to Trash?"
+msgstr "נמצאו %(count)d מיילים ב-%(what)s%(time)s%(age)s. להעבירם לאשפה?"
+
 #: .\agent\email_ai_agent.py:992 .\agent\email_ai_agent.py:1376
 #, python-format
 msgid "Trashed %(count)d emails from %(what)s."
