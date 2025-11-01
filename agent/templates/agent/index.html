@@ -9222,6 +9222,277 @@
                 }
             } catch (e) {}
             
+            // DELETE-CATEGORY-OLDER-THAN-FILTER: If typing 'delete [category] older than', filter to only older than duration commands
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isDeleteCategoryOlderThan = /^delete\s+(verification\s+codes|shipping\s+emails|account\s+security\s+emails)\s+older\s+than$/.test(qlc);
+                if (isDeleteCategoryOlderThan && Array.isArray(items)) {
+                    // Filter to only show older than duration commands
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        return /older\s+than\s+\[duration\]$/.test(lcCmd);
+                    });
+                    try { console.log('[DELETE-CATEGORY-OLDER-THAN-FILTER] filtered to older than duration commands for:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+            
+            // DELETE-CATEGORY-OLDER-THAN-PROGRESSIVE-FILTER: If typing 'delete [category] o/ol/old/olde/older', filter to only older than duration commands
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isDeleteCategoryOlderThanProgressive = /^delete\s+(verification\s+codes|shipping\s+emails|account\s+security\s+emails)\s+(o|ol|old|olde|older)$/.test(qlc);
+                if (isDeleteCategoryOlderThanProgressive && Array.isArray(items)) {
+                    // Filter to only show older than duration commands
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        return /older\s+than\s+\[duration\]$/.test(lcCmd);
+                    });
+                    try { console.log('[DELETE-CATEGORY-OLDER-THAN-PROGRESSIVE-FILTER] filtered to older than duration commands for progressive:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+            
+            // DELETE-CATEGORY-OLDER-THAN-THAN-FILTER: If typing 'delete [category] older than t/th/tha/than', filter to only older than duration commands
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isDeleteCategoryOlderThanThan = /^delete\s+(verification\s+codes|shipping\s+emails|account\s+security\s+emails)\s+older\s+than\s+(t|th|tha|than)$/.test(qlc);
+                if (isDeleteCategoryOlderThanThan && Array.isArray(items)) {
+                    // Filter to only show older than duration commands
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        return /older\s+than\s+\[duration\]$/.test(lcCmd);
+                    });
+                    try { console.log('[DELETE-CATEGORY-OLDER-THAN-THAN-FILTER] filtered to older than duration commands for than:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+            
+            // DELETE-CATEGORY-OLDER-THAN-PROGRESSIVE-THAN-FILTER: If typing 'delete [category] older t/th/tha/than', filter to only older than duration commands
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isDeleteCategoryOlderProgressiveThan = /^delete\s+(verification\s+codes|shipping\s+emails|account\s+security\s+emails)\s+older\s+(t|th|tha|than)$/.test(qlc);
+                if (isDeleteCategoryOlderProgressiveThan && Array.isArray(items)) {
+                    // Filter to only show older than duration commands
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        return /older\s+than\s+\[duration\]$/.test(lcCmd);
+                    });
+                    try { console.log('[DELETE-CATEGORY-OLDER-THAN-PROGRESSIVE-THAN-FILTER] filtered to older than duration commands for progressive than:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+            
+            // DELETE-CATEGORY-OLDER-THAN-DURATION-FILTER: If typing 'delete [category] older than [number]', filter to only the matching category's older than duration command
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const deleteCategoryDurationMatch = qlc.match(/^delete\s+((?:verification\s+codes|shipping\s+emails|account\s+security\s+emails))\s+older\s+than\s+\d+$/);
+                if (deleteCategoryDurationMatch && Array.isArray(items)) {
+                    const category = deleteCategoryDurationMatch[1];
+                    // Build regex to match the specific category's older than command
+                    const categoryEscaped = category.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                    const categoryOlderThanRegex = new RegExp('^delete\\s+' + categoryEscaped + '\\s+older\\s+than\\s+\\[duration\\]$', 'i');
+                    // Filter to only show the matching category's older than duration command
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        return categoryOlderThanRegex.test(lcCmd);
+                    });
+                    try { console.log('[DELETE-CATEGORY-OLDER-THAN-DURATION-FILTER] filtered to specific category older than duration command:', category, 'for input:', qlc, 'items remaining:', items.length); } catch(e) {}
+                }
+            } catch (e) {}
+            
+            // DELETE-CATEGORY-OLDER-THAN-DURATION-UNIT-FILTER: If typing 'delete [category] older than [number] [unit]', filter to only the matching category's older than duration command
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const deleteCategoryUnitMatch = qlc.match(/^delete\s+((?:verification\s+codes|shipping\s+emails|account\s+security\s+emails))\s+older\s+than\s+\d+\s+(d|w|m|y|da|we|mo|ye|day|wee|mon|mont|yea|days|weeks|months|years|week|month|year)$/);
+                if (deleteCategoryUnitMatch && Array.isArray(items)) {
+                    const category = deleteCategoryUnitMatch[1];
+                    // Build regex to match the specific category's older than command
+                    const categoryEscaped = category.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                    const categoryOlderThanRegex = new RegExp('^delete\\s+' + categoryEscaped + '\\s+older\\s+than\\s+\\[duration\\]$', 'i');
+                    // Filter to only show the matching category's older than duration command
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        return categoryOlderThanRegex.test(lcCmd);
+                    });
+                    try { console.log('[DELETE-CATEGORY-OLDER-THAN-DURATION-UNIT-FILTER] filtered to specific category older than duration command:', category, 'for input:', qlc, 'items remaining:', items.length); } catch(e) {}
+                }
+            } catch (e) {}
+            
+            // DELETE-CATEGORY-OLDER-THAN-DURATION-TYPO-FILTER: If typing 'delete [category] older than [number] [typo]', filter to only the matching category's older than duration command
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                // Only apply if NOT a valid unit (to avoid conflicting with unit filter)
+                const isValidUnit = /^delete\s+(verification\s+codes|shipping\s+emails|account\s+security\s+emails)\s+older\s+than\s+\d+\s+(d|w|m|y|da|we|mo|ye|day|wee|mon|mont|yea|days|weeks|months|years|week|month|year)$/.test(qlc);
+                const deleteCategoryTypoMatch = !isValidUnit && qlc.match(/^delete\s+((?:verification\s+codes|shipping\s+emails|account\s+security\s+emails))\s+older\s+than\s+\d+\s+[a-z]+$/);
+                if (deleteCategoryTypoMatch && Array.isArray(items)) {
+                    const category = deleteCategoryTypoMatch[1];
+                    // Build regex to match the specific category's older than command
+                    const categoryEscaped = category.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                    const categoryOlderThanRegex = new RegExp('^delete\\s+' + categoryEscaped + '\\s+older\\s+than\\s+\\[duration\\]$', 'i');
+                    // Filter to only show the matching category's older than duration command
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        return categoryOlderThanRegex.test(lcCmd);
+                    });
+                    try { console.log('[DELETE-CATEGORY-OLDER-THAN-DURATION-TYPO-FILTER] filtered to specific category older than duration command:', category, 'for input:', qlc, 'items remaining:', items.length); } catch(e) {}
+                }
+            } catch (e) {}
+            
+            // DELETE-CATEGORY-OLDER-THAN-A-FILTER: If typing 'delete [category] older than a', filter to only older than duration commands
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const deleteCategoryAMatch = qlc.match(/^delete\s+((?:verification\s+codes|shipping\s+emails|account\s+security\s+emails))\s+older\s+than\s+a$/);
+                if (deleteCategoryAMatch && Array.isArray(items)) {
+                    const category = deleteCategoryAMatch[1];
+                    // Build regex to match the specific category's older than command
+                    const categoryEscaped = category.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                    const categoryOlderThanRegex = new RegExp('^delete\\s+' + categoryEscaped + '\\s+older\\s+than\\s+\\[duration\\]$', 'i');
+                    // Filter to only show the matching category's older than duration command
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        return categoryOlderThanRegex.test(lcCmd);
+                    });
+                    try { console.log('[DELETE-CATEGORY-OLDER-THAN-A-FILTER] filtered to specific category older than duration command:', category, 'for input:', qlc, 'items remaining:', items.length); } catch(e) {}
+                }
+            } catch (e) {}
+            
+            // DELETE-CATEGORY-OLDER-THAN-A-UNIT-FILTER: If typing 'delete [category] older than a [unit]', filter to only older than duration commands
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const deleteCategoryAUnitMatch = qlc.match(/^delete\s+((?:verification\s+codes|shipping\s+emails|account\s+security\s+emails))\s+older\s+than\s+a\s+(d|w|m|y|da|we|mo|ye|day|wee|mon|mont|yea|days|weeks|months|years|week|month|year)$/);
+                if (deleteCategoryAUnitMatch && Array.isArray(items)) {
+                    const category = deleteCategoryAUnitMatch[1];
+                    // Build regex to match the specific category's older than command
+                    const categoryEscaped = category.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                    const categoryOlderThanRegex = new RegExp('^delete\\s+' + categoryEscaped + '\\s+older\\s+than\\s+\\[duration\\]$', 'i');
+                    // Filter to only show the matching category's older than duration command
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        return categoryOlderThanRegex.test(lcCmd);
+                    });
+                    try { console.log('[DELETE-CATEGORY-OLDER-THAN-A-UNIT-FILTER] filtered to specific category older than duration command:', category, 'for input:', qlc, 'items remaining:', items.length); } catch(e) {}
+                }
+            } catch (e) {}
+            
+            // DELETE-CATEGORY-OLDER-THAN-A-AGO-FILTER: If typing 'delete [category] older than a [unit] ago', filter to only older than duration commands
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const deleteCategoryAAgoMatch = qlc.match(/^delete\s+((?:verification\s+codes|shipping\s+emails|account\s+security\s+emails))\s+older\s+than\s+a\s+(d|w|m|y|da|we|mo|ye|day|wee|mon|mont|yea|days|weeks|months|years|week|month|year)\s+ago$/);
+                if (deleteCategoryAAgoMatch && Array.isArray(items)) {
+                    const category = deleteCategoryAAgoMatch[1];
+                    // Build regex to match the specific category's older than command
+                    const categoryEscaped = category.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                    const categoryOlderThanRegex = new RegExp('^delete\\s+' + categoryEscaped + '\\s+older\\s+than\\s+\\[duration\\]$', 'i');
+                    // Filter to only show the matching category's older than duration command
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        return categoryOlderThanRegex.test(lcCmd);
+                    });
+                    try { console.log('[DELETE-CATEGORY-OLDER-THAN-A-AGO-FILTER] filtered to specific category older than duration command:', category, 'for input:', qlc, 'items remaining:', items.length); } catch(e) {}
+                }
+            } catch (e) {}
+            
+            // DELETE-CATEGORY-OLDER-THAN-A-AGO-PROGRESSIVE-FILTER: If typing 'delete [category] older than a [unit] a/ag/ago', filter to only older than duration commands
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const deleteCategoryAAgoProgMatch = qlc.match(/^delete\s+((?:verification\s+codes|shipping\s+emails|account\s+security\s+emails))\s+older\s+than\s+a\s+(d|w|m|y|da|we|mo|ye|day|wee|mon|mont|yea|days|weeks|months|years|week|month|year)\s+(a|ag|ago)$/);
+                if (deleteCategoryAAgoProgMatch && Array.isArray(items)) {
+                    const category = deleteCategoryAAgoProgMatch[1];
+                    // Build regex to match the specific category's older than command
+                    const categoryEscaped = category.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                    const categoryOlderThanRegex = new RegExp('^delete\\s+' + categoryEscaped + '\\s+older\\s+than\\s+\\[duration\\]$', 'i');
+                    // Filter to only show the matching category's older than duration command
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        return categoryOlderThanRegex.test(lcCmd);
+                    });
+                    try { console.log('[DELETE-CATEGORY-OLDER-THAN-A-AGO-PROGRESSIVE-FILTER] filtered to specific category older than duration command:', category, 'for input:', qlc, 'items remaining:', items.length); } catch(e) {}
+                }
+            } catch (e) {}
+            
+            // DELETE-CATEGORY-OLDER-THAN-A-TYPO-FILTER: If typing 'delete [category] older than a [typo]', filter to only older than duration commands
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const deleteCategoryATypoMatch = qlc.match(/^delete\s+((?:verification\s+codes|shipping\s+emails|account\s+security\s+emails))\s+older\s+than\s+a\s+[a-z]+$/);
+                if (deleteCategoryATypoMatch && Array.isArray(items)) {
+                    const category = deleteCategoryATypoMatch[1];
+                    // Build regex to match the specific category's older than command
+                    const categoryEscaped = category.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                    const categoryOlderThanRegex = new RegExp('^delete\\s+' + categoryEscaped + '\\s+older\\s+than\\s+\\[duration\\]$', 'i');
+                    // Filter to only show the matching category's older than duration command
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        return categoryOlderThanRegex.test(lcCmd);
+                    });
+                    try { console.log('[DELETE-CATEGORY-OLDER-THAN-A-TYPO-FILTER] filtered to specific category older than duration command:', category, 'for input:', qlc, 'items remaining:', items.length); } catch(e) {}
+                }
+            } catch (e) {}
+            
+            // DELETE-CATEGORY-OLDER-THAN-A-AGO-TYPO-FILTER: If typing 'delete [category] older than a [unit] [ago-typo]', filter to only older than duration commands
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const deleteCategoryAAgoTypoMatch = qlc.match(/^delete\s+((?:verification\s+codes|shipping\s+emails|account\s+security\s+emails))\s+older\s+than\s+a\s+(d|w|m|y|da|we|mo|ye|day|wee|mon|mont|yea|days|weeks|months|years|week|month|year)\s+[a-z]+$/);
+                if (deleteCategoryAAgoTypoMatch && Array.isArray(items)) {
+                    const category = deleteCategoryAAgoTypoMatch[1];
+                    // Build regex to match the specific category's older than command
+                    const categoryEscaped = category.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                    const categoryOlderThanRegex = new RegExp('^delete\\s+' + categoryEscaped + '\\s+older\\s+than\\s+\\[duration\\]$', 'i');
+                    // Filter to only show the matching category's older than duration command
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        return categoryOlderThanRegex.test(lcCmd);
+                    });
+                    try { console.log('[DELETE-CATEGORY-OLDER-THAN-A-AGO-TYPO-FILTER] filtered to specific category older than duration command:', category, 'for input:', qlc, 'items remaining:', items.length); } catch(e) {}
+                }
+            } catch (e) {}
+            
+            // DELETE-CATEGORY-OLDER-THAN-A-ANY-TYPO-FILTER: If typing 'delete [category] older than a [any-typo] [any-ago-typo]', filter to only older than duration commands
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const deleteCategoryAAnyTypoMatch = qlc.match(/^delete\s+((?:verification\s+codes|shipping\s+emails|account\s+security\s+emails))\s+older\s+than\s+a\s+[a-z]+\s+[a-z]+$/);
+                if (deleteCategoryAAnyTypoMatch && Array.isArray(items)) {
+                    const category = deleteCategoryAAnyTypoMatch[1];
+                    // Build regex to match the specific category's older than command
+                    const categoryEscaped = category.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                    const categoryOlderThanRegex = new RegExp('^delete\\s+' + categoryEscaped + '\\s+older\\s+than\\s+\\[duration\\]$', 'i');
+                    // Filter to only show the matching category's older than duration command
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        return categoryOlderThanRegex.test(lcCmd);
+                    });
+                    try { console.log('[DELETE-CATEGORY-OLDER-THAN-A-ANY-TYPO-FILTER] filtered to specific category older than duration command:', category, 'for input:', qlc, 'items remaining:', items.length); } catch(e) {}
+                }
+            } catch (e) {}
+            
+            // DELETE-CATEGORY-OLDER-THAN-ANY-DURATION-FILTER: If typing 'delete [category] older than [anything]', filter to only the matching category's older than duration command
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const deleteCategoryMatch = qlc.match(/^delete\s+((?:verification\s+codes|shipping\s+emails|account\s+security\s+emails))\s+older\s+than\s+\d+\s/);
+                if (deleteCategoryMatch && Array.isArray(items)) {
+                    const category = deleteCategoryMatch[1];
+                    // Build regex to match the specific category's older than command
+                    const categoryEscaped = category.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                    const categoryOlderThanRegex = new RegExp('^delete\\s+' + categoryEscaped + '\\s+older\\s+than\\s+\\[duration\\]$', 'i');
+                    // Filter to only show the matching category's older than duration command
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        return categoryOlderThanRegex.test(lcCmd);
+                    });
+                    try { console.log('[DELETE-CATEGORY-OLDER-THAN-ANY-DURATION-FILTER] filtered to specific category older than duration command:', category, 'for input:', qlc, 'items remaining:', items.length); } catch(e) {}
+                }
+            } catch (e) {}
+            
             // ARCHIVE-SENDER-TODAY FILTER: If typing 'archive emails from [sender] from to*', filter to only this command
             try {
                 const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
@@ -11349,7 +11620,9 @@
             // ARCHIVE-CATEGORY-OLDER-THAN-DURATION-TYPO-FILTER: If typing 'archive [category] older than [number] [typo]', filter to only older than duration commands
             try {
                 const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
-                const isArchiveCategoryOlderThanDurationTypo = /^archive\s+(verification\s+codes|shipping\s+emails|account\s+security\s+emails)\s+older\s+than\s+\d+\s+[a-z]+$/.test(qlc);
+                // Only apply if NOT a valid unit (to avoid conflicting with unit filter)
+                const isValidUnit = /^archive\s+(verification\s+codes|shipping\s+emails|account\s+security\s+emails)\s+older\s+than\s+\d+\s+(d|w|m|y|da|we|mo|ye|day|wee|mon|mont|yea|days|weeks|months|years|week|month|year)$/.test(qlc);
+                const isArchiveCategoryOlderThanDurationTypo = !isValidUnit && /^archive\s+(verification\s+codes|shipping\s+emails|account\s+security\s+emails)\s+older\s+than\s+\d+\s+[a-z]+$/.test(qlc);
                 if (isArchiveCategoryOlderThanDurationTypo && Array.isArray(items)) {
                     // Filter to only show older than duration commands
                     items = items.filter(function(it) {
