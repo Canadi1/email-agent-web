@@ -4865,6 +4865,10 @@
                                 });
                                 console.log(`[DELETE-SENDER-FILTER] Removed non-sender commands. Before: ${beforeFilter}, After: ${filteredByAction.length}`);
                                 
+                                // Check if user has typed "delete emails from [sender] from" - if so, exclude plain "delete emails from [sender]" from priorities
+                                // Make it progressive: f/fr/fro/from
+                                const hasTypedSecondFrom = /^delete\s+emails\s+from\s+[a-zA-Z0-9._\-+@\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff\s]+\s+(f|fr|fro|from)\s*$/i.test(q);
+                                
                                 // Reorder the sender commands based on priority:
                                 // 1. delete emails from [sender]
                                 // 2. delete emails from [sender] older than [duration]
@@ -4886,6 +4890,10 @@
                                 
                                 const orderedSender = [];
                                 senderPriorities.forEach(cmd => {
+                                    // Skip plain sender command if user has typed second "from"
+                                    if (hasTypedSecondFrom && (cmd === 'delete emails from [sender]')) {
+                                        return;
+                                    }
                                     const found = filteredByAction.find(item => item.cmd.toLowerCase() === cmd);
                                     if (found) orderedSender.push(found);
                                 });
@@ -4923,6 +4931,10 @@
                                 });
                                 console.log(`[DELETE-SENDER-FILTER-HE] Removed non-sender commands. Before: ${beforeFilter}, After: ${filteredByAction.length}`);
                                 
+                                // Check if user has typed "מחק מיילים מ [sender] מ" - if so, exclude plain "מחק מיילים מ[שולח]" from priorities
+                                // Hebrew "מ" is a single character, so it's already progressive
+                                const hasTypedSecondMem = /^מחק\s+מיילים\s+מ\s*[a-zA-Z0-9._\-+@\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff\s]+\s*מ\s*$/.test(q);
+                                
                                 // Reorder the sender commands based on priority:
                                 // 1. מחק מיילים מ[שולח]
                                 // 2. מחק מיילים מ[שולח] ישנים מ[משך]
@@ -4944,6 +4956,10 @@
                                 
                                 const orderedSender = [];
                                 senderPriorities.forEach(cmd => {
+                                    // Skip plain sender command if user has typed second "מ"
+                                    if (hasTypedSecondMem && (cmd === 'מחק מיילים מ[שולח]')) {
+                                        return;
+                                    }
                                     const found = filteredByAction.find(item => item.cmd === cmd);
                                     if (found) orderedSender.push(found);
                                 });
