@@ -2135,8 +2135,17 @@
                     'חפש מיילים עם נושא "[מילת מפתח]"',
                     'הצג סטטיסטיקות דואל',
                     'מחק מיילים מ[דומיין]',
+                    'מחק מיילים מ[שולח]',
                     'מחק מיילים ישנים מ[משך]',
                     'מחק מיילים מלפני [משך]',
+                    'מחק מיילים מהיום',
+                    'מחק מיילים מאתמול',
+                    'מחק מיילים מהשבוע',
+                    'מחק מיילים מהשבוע שעבר',
+                    'מחק מיילים מהחודש',
+                    'מחק מיילים מהחודש שעבר',
+                    'מחק מיילים מהשנה',
+                    'מחק מיילים מהשנה שעברה',
                     'מחק מיילים מ[שולח] ישנים מ[משך]',
                     'מחק מיילים מ[שולח] מהיום',
                     'מחק מיילים מ[שולח] מאתמול',
@@ -2747,6 +2756,19 @@
                             if (isHeFromDuration) score += 0.1; // Third priority
                         }
                     } catch (e) {}
+                    // Hebrew: boost ranking order when typing bare "מחק" (no duration cue) - PROGRESSIVE
+                    // Priority: 1) מ[שולח] 2) ישנים מ[משך] 3) מלפני [משך]
+                    try {
+                        const isHeBareDeleteCuePrefix = isHebrew && 'מחק'.startsWith(q) && !hebrewDurationActive && !heFixedTimeCue;
+                        if (isHeBareDeleteCuePrefix) {
+                            const isHePlainSender = /^מחק\s+מיילים\s+מ\[שולח\]$/i.test(cmd);
+                            const isHeOlderThan = /^מחק\s+מיילים\s+ישנים\s+מ\[משך\]$/i.test(cmd);
+                            const isHeFromDuration = /^מחק\s+מיילים\s+מלפני\s+\[משך\]$/i.test(cmd);
+                            if (isHePlainSender) score += 0.5; // Keep sender first
+                            if (isHeOlderThan) score += 0.3; // Second priority
+                            if (isHeFromDuration) score += 0.1; // Third priority
+                        }
+                    } catch (e) {}
                     score += 0.1; // starts-with bonus
                     includeMatches.push({ cmd, score, type: 'include', pos });
                     continue; // we already included this via direct match
@@ -2815,6 +2837,18 @@
                                 const isHePlainSender = /^רשום\s+מיילים\s+מ\[שולח\]$/i.test(cmd);
                                 const isHeOlderThan = /^רשום\s+מיילים\s+ישנים\s+מ\[משך\]$/i.test(cmd);
                                 const isHeFromDuration = /^רשום\s+מיילים\s+מלפני\s+\[משך\]$/i.test(cmd);
+                                if (isHePlainSender) score += 0.35; // Keep sender first
+                                if (isHeOlderThan) score += 0.25; // Second priority
+                                if (isHeFromDuration) score += 0.15; // Third priority
+                            }
+                        } catch (e) {}
+                        // Hebrew: boost ranking order when typing bare "מחק" (no duration cue) - PROGRESSIVE
+                        try {
+                            const isHeBareDeleteCue = isHebrew && 'מחק'.startsWith(q) && !hebrewDurationActive && !heFixedTimeCue;
+                            if (isHeBareDeleteCue) {
+                                const isHePlainSender = /^מחק\s+מיילים\s+מ\[שולח\]$/i.test(cmd);
+                                const isHeOlderThan = /^מחק\s+מיילים\s+ישנים\s+מ\[משך\]$/i.test(cmd);
+                                const isHeFromDuration = /^מחק\s+מיילים\s+מלפני\s+\[משך\]$/i.test(cmd);
                                 if (isHePlainSender) score += 0.35; // Keep sender first
                                 if (isHeOlderThan) score += 0.25; // Second priority
                                 if (isHeFromDuration) score += 0.15; // Third priority
@@ -4164,6 +4198,18 @@
                 if (actionKey) {
                     console.log('[ACTION-FILTER-DEBUG] Before filtering, unique.length:', unique.length);
                     console.log('[ACTION-FILTER-DEBUG] First 5 unique items:', unique.slice(0, 5).map(item => item.cmd));
+                    // Debug: Check if "מחק מיילים ישנים מ[משך]" is in unique before filtering
+                    if (isHebrew && q === 'מחק') {
+                        const hasOlderThan = unique.some(item => {
+                            const s = String(item.cmd || item || '');
+                            return s.includes('ישנים');
+                        });
+                        console.log(`[ACTION-FILTER-DEBUG] Hebrew delete commands in unique:`, unique.filter(item => {
+                            const s = String(item.cmd || item || '');
+                            return s.startsWith('מחק');
+                        }).map(item => String(item.cmd || item)));
+                        console.log(`[ACTION-FILTER-DEBUG] Has any "ישנים" command: ${hasOlderThan}`);
+                    }
                     let filteredByAction = unique.filter(function(item){
                         if (!item) return false;
                         const raw = (item && item.cmd) ? String(item.cmd) : String(item);
@@ -4296,6 +4342,17 @@
                         filteredByAction.forEach((item, idx) => {
                             console.log(`  ${idx}: "${item.cmd}"`);
                         });
+                        // Debug: Check if "מחק מיילים ישנים מ[משך]" is in unique before filtering
+                        if (isHebrew && q === 'מחק') {
+                            const hasOlderThan = unique.some(item => {
+                                const s = String(item.cmd || '');
+                                return s.includes('מחק מיילים ישנים מ[משך]');
+                            });
+                            console.log(`[DELETE-PRIORITY-DEBUG] "מחק מיילים ישנים מ[משך]" in unique before filtering: ${hasOlderThan}`);
+                            if (!hasOlderThan) {
+                                console.log('[DELETE-PRIORITY-DEBUG] Available commands in unique:', unique.map(item => String(item.cmd || '')).filter(c => c.startsWith('מחק')).slice(0, 10));
+                            }
+                        }
                         
                         // Priority order for delete commands (English and Hebrew):
                         // 1. delete emails from [sender] / מחק מיילים מ[שולח]
@@ -4352,7 +4409,11 @@
                                 // For Hebrew, compare as-is. For English, use lowercase comparison
                                 const sCompare = isHebrew ? s : s.toLowerCase();
                                 const cmdCompare = isHebrew ? cmd : cmd.toLowerCase();
-                                return sCompare === cmdCompare;
+                                const matches = sCompare === cmdCompare;
+                                if (isHebrew && !matches && cmd === 'מחק מיילים ישנים מ[משך]') {
+                                    console.log(`[DELETE-PRIORITY-DEBUG] Comparing "${cmd}" with "${s}", sCompare="${sCompare}", cmdCompare="${cmdCompare}"`);
+                                }
+                                return matches;
                             });
                             if (found) {
                                 orderedDelete.push(found);
@@ -4378,8 +4439,19 @@
                         if (orderedDelete.length > 0) {
                             filteredByAction = orderedDelete;
                             console.log('[DELETE-PRIORITY] Applied prioritized delete command ordering, final count:', orderedDelete.length);
+                            if (isHebrew && q === 'מחק') {
+                                console.log('[DELETE-PRIORITY] Top 5 after reordering:', filteredByAction.slice(0, 5).map(item => item.cmd));
+                            }
                         }
                     }
+                    
+                    // Track filteredByAction before DELETE EMAILS FILTER
+                    try {
+                        if (isHebrew && q === 'מחק') {
+                            console.log('[DEBUG-AFTER-DELETE-PRIORITY] filteredByAction length:', filteredByAction.length);
+                            console.log('[DEBUG-AFTER-DELETE-PRIORITY] Top 3:', filteredByAction.slice(0, 3).map(item => item.cmd));
+                        }
+                    } catch(e) {}
                     
                     // DELETE EMAILS FILTER: When typing "delete emails" (not partial), hide category commands
                     try {
@@ -4393,6 +4465,21 @@
                                 return !isCategory;
                             });
                             console.log(`[DELETE-EMAILS-FILTER] Removed category commands. Before: ${beforeFilter}, After: ${filteredByAction.length}`);
+                        }
+                    } catch(e) {}
+                    
+                    // DELETE EMAILS FILTER (HEBREW): When typing "מחק מיילים" (not partial), hide category commands
+                    try {
+                        const isDeleteEmailsHebrew = /^מחק\s+מיילים\s*$/i.test(q);
+                        if (isDeleteEmailsHebrew && actionKey === 'delete') {
+                            const beforeFilter = filteredByAction.length;
+                            filteredByAction = filteredByAction.filter(item => {
+                                const s = (item && item.cmd ? String(item.cmd) : '');
+                                // Keep only plain מחק מיילים commands, hide category commands
+                                const isCategory = /\b(משלוח|קודי אימות|אבטחת חשבון)\b/.test(s);
+                                return !isCategory;
+                            });
+                            console.log(`[DELETE-EMAILS-FILTER-HE] Removed category commands. Before: ${beforeFilter}, After: ${filteredByAction.length}`);
                         }
                     } catch(e) {}
                     
@@ -4758,6 +4845,64 @@
                                 
                                 filteredByAction = orderedSender;
                                 console.log('[DELETE-SENDER-FILTER] Applied sender command ordering');
+                            }
+                        }
+                    } catch(e) {}
+                    
+                    // DELETE SENDER FILTER (HEBREW): When typing "מחק מיילים מ [sender]" (e.g., "מחק מיילים מ גוגל"), hide non-sender commands
+                    try {
+                        const deleteSenderMatchHebrew = q.match(/^מחק\s+מיילים\s+מ\s*([^\s]+)/);
+                        if (deleteSenderMatchHebrew && actionKey === 'delete') {
+                            // Check if user has typed a real sender (not a placeholder or timeframe keyword)
+                            const typedSender = deleteSenderMatchHebrew[1];
+                            const isPlaceholderOrKeyword = /^(שולח|דומיין|\[|מהיום|מאתמול|מהשבוע|מהחודש|מהשנה|מה|מא)$/.test(typedSender);
+                            
+                            // Check if typing a Hebrew timeframe prefix (ה/י/ש/מ) to suppress sender filter
+                            const isTimeframePrefix = /^(ה|י|ש|מ)$/.test(typedSender);
+                            if (isTimeframePrefix) {
+                                // Don't apply sender filter for Hebrew timeframe prefixes
+                                filteredByAction = unique;
+                            } else if (!isPlaceholderOrKeyword) {
+                                const beforeFilter = filteredByAction.length;
+                                filteredByAction = filteredByAction.filter(item => {
+                                    const s = (item && item.cmd ? String(item.cmd) : '');
+                                    // Keep only sender-based מחק מיילים commands
+                                    return s.includes('מחק מיילים מ[שולח]') || s.includes('מחק מיילים מ[דומיין]');
+                                });
+                                console.log(`[DELETE-SENDER-FILTER-HE] Removed non-sender commands. Before: ${beforeFilter}, After: ${filteredByAction.length}`);
+                                
+                                // Reorder the sender commands based on priority:
+                                // 1. מחק מיילים מ[שולח]
+                                // 2. מחק מיילים מ[שולח] ישנים מ[משך]
+                                // 3. מחק מיילים מ[שולח] מלפני [משך]
+                                // 4. מחק מיילים מ[שולח] מ[timeframe]
+                                const senderPriorities = [
+                                    'מחק מיילים מ[שולח]',
+                                    'מחק מיילים מ[שולח] ישנים מ[משך]',
+                                    'מחק מיילים מ[שולח] מלפני [משך]',
+                                    'מחק מיילים מ[שולח] מהיום',
+                                    'מחק מיילים מ[שולח] מאתמול',
+                                    'מחק מיילים מ[שולח] מהשבוע',
+                                    'מחק מיילים מ[שולח] מהחודש',
+                                    'מחק מיילים מ[שולח] מהשנה',
+                                    'מחק מיילים מ[שולח] מהשבוע שעבר',
+                                    'מחק מיילים מ[שולח] מהחודש שעבר',
+                                    'מחק מיילים מ[שולח] מהשנה שעברה'
+                                ];
+                                
+                                const orderedSender = [];
+                                senderPriorities.forEach(cmd => {
+                                    const found = filteredByAction.find(item => item.cmd === cmd);
+                                    if (found) orderedSender.push(found);
+                                });
+                                
+                                // Add any remaining sender commands not in the priority list
+                                filteredByAction.forEach(item => {
+                                    if (!orderedSender.includes(item)) orderedSender.push(item);
+                                });
+                                
+                                filteredByAction = orderedSender;
+                                console.log('[DELETE-SENDER-FILTER-HE] Applied sender command ordering');
                             }
                         }
                     } catch(e) {}
