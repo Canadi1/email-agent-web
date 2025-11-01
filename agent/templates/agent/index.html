@@ -8930,6 +8930,35 @@
                 }
             } catch (e) {}
             
+            // DELETE-LAST-L FILTER: If typing 'delete emails from l', filter to only last commands
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isDeleteEmailsFromL = /^delete\s+emails\s+from\s+l$/.test(qlc);
+                if (isDeleteEmailsFromL && Array.isArray(items)) {
+                    // Filter to only show last commands
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        // Keep only last commands
+                        return /^delete\s+emails\s+from\s+last\s+(week|month|year)$/.test(lcCmd);
+                    });
+                    
+                    // Sort in the desired order: week, month, year
+                    items.sort(function(a, b) {
+                        const cmdA = (a && a.cmd) ? String(a.cmd).toLowerCase() : '';
+                        const cmdB = (b && b.cmd) ? String(b.cmd).toLowerCase() : '';
+                        
+                        const order = { 'week': 1, 'month': 2, 'year': 3 };
+                        const orderA = order[cmdA.match(/last\s+(week|month|year)/)?.[1]] || 999;
+                        const orderB = order[cmdB.match(/last\s+(week|month|year)/)?.[1]] || 999;
+                        
+                        return orderA - orderB;
+                    });
+                    
+                    try { console.log('[DELETE-LAST-L-FILTER] filtered and sorted last commands for:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+            
             // ARCHIVE-SENDER-TODAY FILTER: If typing 'archive emails from [sender] from to*', filter to only this command
             try {
                 const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
@@ -12498,6 +12527,37 @@
                     });
                     if (!items.length) items.push({ cmd: 'delete emails from yesterday', score: 1002, type: 'en_delete_tf_yesterday_inject' });
                     try { console.log('[EN-DELETE-TF-YESTERDAY-GATE] kept yesterday for input:', qlp); } catch(e) {}
+                }
+                // EARLY GATE: delete last progressive (la/las/last [w|m|y])
+                if (/^delete\s+emails\s+from\s+la(?:s(?:t)?)?\s*$/i.test(qlp) && Array.isArray(items)) {
+                    const reWeek = /^delete\s+emails\s+from\s+last\s+week$/i;
+                    const reMonth = /^delete\s+emails\s+from\s+last\s+month$/i;
+                    const reYear = /^delete\s+emails\s+from\s+last\s+year$/i;
+                    items = items.filter(function(it){
+                        const s = (it && it.cmd ? String(it.cmd).toLowerCase() : '');
+                        return reWeek.test(s) || reMonth.test(s) || reYear.test(s);
+                    });
+                    if (!items.length) {
+                        items.push({ cmd: 'delete emails from last week', score: 1002, type: 'en_delete_tf_last_inject' });
+                        items.push({ cmd: 'delete emails from last month', score: 1001, type: 'en_delete_tf_last_inject' });
+                        items.push({ cmd: 'delete emails from last year', score: 1000, type: 'en_delete_tf_last_inject' });
+                    }
+                    try { console.log('[EN-DELETE-TF-LAST-GATE] restricted to last week/month/year for input:', qlp); } catch(e) {}
+                }
+                let exactTargetDelete = '';
+                if (/^delete\s+emails\s+from\s+last\s+w/i.test(qlp)) {
+                    exactTargetDelete = 'delete emails from last week';
+                } else if (/^delete\s+emails\s+from\s+last\s+m(\b|$)/i.test(qlp) || /^delete\s+emails\s+from\s+last\s+mo/i.test(qlp) || /^delete\s+emails\s+from\s+last\s+mon/i.test(qlp) || /^delete\s+emails\s+from\s+last\s+mont/i.test(qlp) || /^delete\s+emails\s+from\s+last\s+month/i.test(qlp)) {
+                    exactTargetDelete = 'delete emails from last month';
+                } else if (/^delete\s+emails\s+from\s+last\s+y/i.test(qlp) || /^delete\s+emails\s+from\s+last\s+ye/i.test(qlp) || /^delete\s+emails\s+from\s+last\s+yea/i.test(qlp) || /^delete\s+emails\s+from\s+last\s+year/i.test(qlp)) {
+                    exactTargetDelete = 'delete emails from last year';
+                }
+                if (exactTargetDelete && Array.isArray(items)) {
+                    items = items.filter(function(it){
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        return cmd.toLowerCase() === exactTargetDelete;
+                    });
+                    console.log('[EN-DELETE-TF-PROGRESSIVE-FINAL] enforced single timeframe for:', exactTargetDelete);
                 }
                 // EARLY GATE: this- progressive (th/this [w|m|y]) - for both list and archive
                 if (/^(list|archive)\s+emails\s+from\s+th(i(s)?)?(?:\s+.*)?$/i.test(qlp) && Array.isArray(items)) {
