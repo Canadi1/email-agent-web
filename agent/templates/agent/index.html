@@ -4712,7 +4712,12 @@
                             const typedSender = deleteSenderMatch[1].toLowerCase().trim();
                             const isPlaceholderOrKeyword = /^(sender|domain|\[|today|yesterday|this|last)$/i.test(typedSender);
                             
-                            if (!isPlaceholderOrKeyword) {
+                            // Check if typing a timeframe prefix (t/y/th/l) to suppress sender filter
+                            const isTimeframePrefix = /^(t|y|th|l)$/i.test(typedSender);
+                            if (isTimeframePrefix) {
+                                // Don't apply sender filter for timeframe prefixes
+                                filteredByAction = unique;
+                            } else if (!isPlaceholderOrKeyword) {
                                 const beforeFilter = filteredByAction.length;
                                 filteredByAction = filteredByAction.filter(item => {
                                     const s = (item && item.cmd ? String(item.cmd).toLowerCase() : '');
