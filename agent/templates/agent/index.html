@@ -4305,6 +4305,61 @@
                             }
                         }
                     } catch(e) {}
+
+                    try {
+                        if (isHebrew && actionKey === 'delete') {
+                            const qTrimmed = (q || '').replace(/[\u200e\u200f\u202a-\u202e]/g,'').replace(/\s+/g,' ').trim();
+                            const heDeleteTimeframeMap = [
+                                { target: 'מחק מיילים מהיום', inputs: ['מחק מיילים מהי', 'מחק מיילים מהיו', 'מחק מיילים מהיום'] },
+                                { target: 'מחק מיילים מאתמול', inputs: ['מחק מיילים מא', 'מחק מיילים מאת', 'מחק מיילים מאתמ', 'מחק מיילים מאתמו', 'מחק מיילים מאתמול'] },
+                                { target: 'מחק מיילים מהשבוע', inputs: ['מחק מיילים מהש', 'מחק מיילים מהשב', 'מחק מיילים מהשבו', 'מחק מיילים מהשבוע'] },
+                                { target: 'מחק מיילים מהחודש', inputs: ['מחק מיילים מהח', 'מחק מיילים מהחו', 'מחק מיילים מהחוד', 'מחק מיילים מהחודש'] },
+                                { target: 'מחק מיילים מהשנה', inputs: ['מחק מיילים מהשנ', 'מחק מיילים מהשנה'] },
+                                { target: 'מחק מיילים מהשבוע שעבר', inputs: ['מחק מיילים מהשבוע ש', 'מחק מיילים מהשבוע שע', 'מחק מיילים מהשבוע שעב', 'מחק מיילים מהשבוע שעבר'] },
+                                { target: 'מחק מיילים מהחודש שעבר', inputs: ['מחק מיילים מהחודש ש', 'מחק מיילים מהחודש שע', 'מחק מיילים מהחודש שעב', 'מחק מיילים מהחודש שעבר'] },
+                                { target: 'מחק מיילים מהשנה שעברה', inputs: ['מחק מיילים מהשנה ש', 'מחק מיילים מהשנה שע', 'מחק מיילים מהשנה שעב', 'מחק מיילים מהשנה שעבר', 'מחק מיילים מהשנה שעברה'] }
+                            ];
+
+                            const timeframeEntry = heDeleteTimeframeMap.find(entry => entry.inputs.includes(qTrimmed));
+                            if (timeframeEntry) {
+                                const targetCmd = timeframeEntry.target;
+                                filteredByAction = filteredByAction.filter(it => {
+                                    const cmd = (it && it.cmd) ? String(it.cmd) : String(it);
+                                    return cmd === targetCmd;
+                                });
+                                if (!filteredByAction.length) {
+                                    filteredByAction = [{ cmd: targetCmd }];
+                                }
+                                console.log('[HE-DELETE-TF-STRICT] Applied strict timeframe filter for:', qTrimmed, '->', filteredByAction.map(it => it.cmd || it));
+                                return filteredByAction;
+                            }
+                            
+                            // Handle "מחק מיילים מה" prefix - show all "מה-" timeframes
+                            if (/^מחק מיילים מ(ה|הש|הח|השנ)$/.test(qTrimmed)) {
+                                const prefixMatch = qTrimmed.match(/^מחק מיילים מ(.*)$/);
+                                const typedPrefix = prefixMatch ? prefixMatch[1] : '';
+                                const timeframeCommands = [
+                                    'מחק מיילים מהיום',
+                                    'מחק מיילים מאתמול',
+                                    'מחק מיילים מהשבוע',
+                                    'מחק מיילים מהשבוע שעבר',
+                                    'מחק מיילים מהחודש',
+                                    'מחק מיילים מהחודש שעבר',
+                                    'מחק מיילים מהשנה',
+                                    'מחק מיילים מהשנה שעברה'
+                                ];
+                                const matches = filteredByAction.filter(it => {
+                                    const cmd = (it && it.cmd) ? String(it.cmd) : String(it || '');
+                                    return timeframeCommands.includes(cmd) && cmd.includes(typedPrefix);
+                                });
+                                if (matches.length) {
+                                    filteredByAction = matches;
+                                    console.log('[HE-DELETE-TF-PREFIX] Applied prefix filter for:', qTrimmed, '->', filteredByAction.map(it => it.cmd || it));
+                                    return filteredByAction;
+                                }
+                            }
+                        }
+                    } catch(e) { try { console.log('[HE-DELETE-TF-STRICT] Error:', e); } catch(e2) {} }
                     // Ensure the BEST MATCHING archive sender+timeframe goes to top
                     console.log("Archive reordering check - filteredByAction.length:", filteredByAction.length, "actionKey:", actionKey);
                     console.log("FilteredByAction suggestions:");
@@ -5041,6 +5096,8 @@
                         if (deleteSenderMatchHebrew && actionKey === 'delete') {
                             // Check if user has typed a real sender (not a placeholder or timeframe keyword)
                             const typedSender = deleteSenderMatchHebrew[1];
+                            const remainderAfterMem = q.replace(/^מחק\s+מיילים\s+מ\s*/, '').trim();
+                            const isHebrewTimeframeProgressive = /^(ה|הי|היו|היום|א|את|אתי|אֶ?תמול|ש|הש|השב|השבו|השבוע|השבוע\s+שע|השבוע\s+שעבר|ח|חו|חוד|חודש|חודש\s+שעבר|שנ|שנה|שנה\s+שעברה|השנ|השנה|מהיום|מאתמול|מהשבוע|מהשבוע\s+שעבר|מהחודש|מהחודש\s+שעבר|מהשנה|מהשנה\s+שעברה)$/.test(remainderAfterMem);
                             const isPlaceholderOrKeyword = /^(שולח|דומיין|\[|מהיום|מאתמול|מהשבוע|מהחודש|מהשנה|מה|מא)$/.test(typedSender);
                             
                             // Check if typing a Hebrew timeframe prefix (ה/י/ש/מ) to suppress sender filter
@@ -5049,8 +5106,8 @@
                             // Check if typing a number (for duration) to suppress sender filter
                             const isNumber = /^\d+$/.test(typedSender);
                             
-                            if (isTimeframePrefix || isNumber) {
-                                // Don't apply sender filter for Hebrew timeframe prefixes or numbers
+                            if (isTimeframePrefix || isNumber || isHebrewTimeframeProgressive) {
+                                // Don't apply sender filter for Hebrew timeframe prefixes, progressive timeframe typing, or numbers
                                 filteredByAction = unique;
                             } else if (!isPlaceholderOrKeyword) {
                                 const beforeFilter = filteredByAction.length;
