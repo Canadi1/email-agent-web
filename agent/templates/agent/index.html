@@ -4312,8 +4312,8 @@
                             const heDeleteTimeframeMap = [
                                 { target: 'מחק מיילים מהיום', inputs: ['מחק מיילים מהי', 'מחק מיילים מהיו', 'מחק מיילים מהיום'] },
                                 { target: 'מחק מיילים מאתמול', inputs: ['מחק מיילים מא', 'מחק מיילים מאת', 'מחק מיילים מאתמ', 'מחק מיילים מאתמו', 'מחק מיילים מאתמול'] },
-                                { target: 'מחק מיילים מהשבוע', inputs: ['מחק מיילים מהש', 'מחק מיילים מהשב', 'מחק מיילים מהשבו', 'מחק מיילים מהשבוע'] },
-                                { target: 'מחק מיילים מהחודש', inputs: ['מחק מיילים מהח', 'מחק מיילים מהחו', 'מחק מיילים מהחוד', 'מחק מיילים מהחודש'] },
+                                { target: 'מחק מיילים מהשבוע', inputs: ['מחק מיילים מהשב', 'מחק מיילים מהשבו', 'מחק מיילים מהשבוע'] },
+                                { target: 'מחק מיילים מהחודש', inputs: ['מחק מיילים מהחו', 'מחק מיילים מהחוד', 'מחק מיילים מהחודש'] },
                                 { target: 'מחק מיילים מהשנה', inputs: ['מחק מיילים מהשנ', 'מחק מיילים מהשנה'] },
                                 { target: 'מחק מיילים מהשבוע שעבר', inputs: ['מחק מיילים מהשבוע ש', 'מחק מיילים מהשבוע שע', 'מחק מיילים מהשבוע שעב', 'מחק מיילים מהשבוע שעבר'] },
                                 { target: 'מחק מיילים מהחודש שעבר', inputs: ['מחק מיילים מהחודש ש', 'מחק מיילים מהחודש שע', 'מחק מיילים מהחודש שעב', 'מחק מיילים מהחודש שעבר'] },
@@ -4335,27 +4335,38 @@
                             }
                             
                             // Handle "מחק מיילים מה" prefix - show all "מה-" timeframes
-                            if (/^מחק מיילים מ(ה|הש|הח|השנ)$/.test(qTrimmed)) {
-                                const prefixMatch = qTrimmed.match(/^מחק מיילים מ(.*)$/);
+                            if (/^מחק מיילים מ/.test(qTrimmed)) {
+                                const prefixMatch = qTrimmed.match(/^מחק מיילים (.+)$/);
                                 const typedPrefix = prefixMatch ? prefixMatch[1] : '';
-                                const timeframeCommands = [
-                                    'מחק מיילים מהיום',
-                                    'מחק מיילים מאתמול',
-                                    'מחק מיילים מהשבוע',
-                                    'מחק מיילים מהשבוע שעבר',
-                                    'מחק מיילים מהחודש',
-                                    'מחק מיילים מהחודש שעבר',
-                                    'מחק מיילים מהשנה',
-                                    'מחק מיילים מהשנה שעברה'
-                                ];
-                                const matches = filteredByAction.filter(it => {
-                                    const cmd = (it && it.cmd) ? String(it.cmd) : String(it || '');
-                                    return timeframeCommands.includes(cmd) && cmd.includes(typedPrefix);
-                                });
-                                if (matches.length) {
-                                    filteredByAction = matches;
-                                    console.log('[HE-DELETE-TF-PREFIX] Applied prefix filter for:', qTrimmed, '->', filteredByAction.map(it => it.cmd || it));
-                                    return filteredByAction;
+                                // Only apply filtering if we have a specific prefix (not just "מ" alone)
+                                if (typedPrefix.length > 1) {
+                                    const timeframeCommands = [
+                                        'מחק מיילים מהיום',
+                                        'מחק מיילים מאתמול',
+                                        'מחק מיילים מהשבוע',
+                                        'מחק מיילים מהחודש',
+                                        'מחק מיילים מהשנה',
+                                        'מחק מיילים מהשבוע שעבר',
+                                        'מחק מיילים מהחודש שעבר',
+                                        'מחק מיילים מהשנה שעברה'
+                                    ];
+                                    const matches = timeframeCommands.filter(cmd => {
+                                        return filteredByAction.some(it => {
+                                            const itemCmd = (it && it.cmd) ? String(it.cmd) : String(it || '');
+                                            return itemCmd === cmd && cmd.startsWith('מחק מיילים ' + typedPrefix);
+                                        });
+                                    }).map(targetCmd => {
+                                        const found = filteredByAction.find(it => {
+                                            const itemCmd = (it && it.cmd) ? String(it.cmd) : String(it || '');
+                                            return itemCmd === targetCmd;
+                                        });
+                                        return found || { cmd: targetCmd };
+                                    });
+                                    if (matches.length) {
+                                        filteredByAction = matches;
+                                        console.log('[HE-DELETE-TF-PREFIX] Applied prefix filter for:', qTrimmed, '->', filteredByAction.map(it => it.cmd || it));
+                                        return filteredByAction;
+                                    }
                                 }
                             }
                         }
