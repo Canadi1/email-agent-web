@@ -9949,33 +9949,79 @@
                 }
             } catch (e) {}
             
-            // DELETE-CATEGORY-TODAY-FILTER: If typing 'delete [category] from to', filter to only today commands
+            // DELETE-CATEGORY-T-FILTER: If typing 'delete [category] from t', filter to show 'today' first, then 'this' commands
             try {
                 const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
-                const isDeleteCategoryFromToday = /^delete\s+(verification\s+codes|shipping\s+emails|account\s+security\s+emails)\s+from\s+to/.test(qlc);
-                if (isDeleteCategoryFromToday && Array.isArray(items)) {
-                    // Filter to only show today commands
+                const isDeleteCategoryFromT = /^delete\s+(verification\s+codes|shipping\s+emails|account\s+security\s+emails)\s+from\s+t$/.test(qlc);
+                if (isDeleteCategoryFromT && Array.isArray(items)) {
+                    // Filter to only show 'today' and 'this' commands
                     items = items.filter(function(it) {
                         const cmd = (it && it.cmd) ? it.cmd : String(it);
                         const lcCmd = cmd.toLowerCase();
-                        return /from\s+today$/.test(lcCmd);
+                        return /from\s+(today|this\s+(week|month|year))$/.test(lcCmd);
                     });
-                    try { console.log('[DELETE-CATEGORY-TODAY-FILTER] filtered to only today commands for:', qlc); } catch(e) {}
+                    
+                    // Prioritize 'today' first, then 'this' commands in specific order
+                    items.sort(function(a, b) {
+                        const cmdA = (a && a.cmd) ? a.cmd : String(a);
+                        const cmdB = (b && b.cmd) ? b.cmd : String(b);
+                        const lcCmdA = cmdA.toLowerCase();
+                        const lcCmdB = cmdB.toLowerCase();
+                        
+                        // Today command gets highest priority
+                        if (lcCmdA.includes(' from today')) return -1;
+                        if (lcCmdB.includes(' from today')) return 1;
+                        
+                        // Then this commands in specific order
+                        const thisOrder = ['this week', 'this month', 'this year'];
+                        const thisIndexA = thisOrder.findIndex(order => lcCmdA.includes(order));
+                        const thisIndexB = thisOrder.findIndex(order => lcCmdB.includes(order));
+                        if (thisIndexA !== -1 && thisIndexB !== -1) {
+                            return thisIndexA - thisIndexB;
+                        }
+                        if (thisIndexA !== -1) return -1;
+                        if (thisIndexB !== -1) return 1;
+                        
+                        return 0;
+                    });
+                    
+                    try { console.log('[DELETE-CATEGORY-T-FILTER] filtered and prioritized today/this commands for:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+            
+            // DELETE-CATEGORY-TODAY-FILTER: If typing 'delete [category] from to', filter to only today commands
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const categoryTodayMatch = qlc.match(/^delete\s+(verification\s+codes|shipping\s+emails|account\s+security\s+emails)\s+from\s+to/);
+                if (categoryTodayMatch && Array.isArray(items)) {
+                    const categoryName = categoryTodayMatch[1];
+                    const categoryEscaped = categoryName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                    // Filter to only show category today commands (not plain "delete emails from today")
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        const categoryTodayRegex = new RegExp('^delete\\s+' + categoryEscaped + '\\s+from\\s+today$', 'i');
+                        return categoryTodayRegex.test(lcCmd);
+                    });
+                    try { console.log('[DELETE-CATEGORY-TODAY-FILTER] filtered to only category today commands for:', qlc); } catch(e) {}
                 }
             } catch (e) {}
             
             // DELETE-CATEGORY-YESTERDAY-FILTER: If typing 'delete [category] from y', filter to only yesterday commands
             try {
                 const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
-                const isDeleteCategoryFromYesterday = /^delete\s+(verification\s+codes|shipping\s+emails|account\s+security\s+emails)\s+from\s+y/.test(qlc);
-                if (isDeleteCategoryFromYesterday && Array.isArray(items)) {
-                    // Filter to only show yesterday commands
+                const categoryYesterdayMatch = qlc.match(/^delete\s+(verification\s+codes|shipping\s+emails|account\s+security\s+emails)\s+from\s+y/);
+                if (categoryYesterdayMatch && Array.isArray(items)) {
+                    const categoryName = categoryYesterdayMatch[1];
+                    const categoryEscaped = categoryName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                    // Filter to only show category yesterday commands (not plain "delete emails from yesterday")
                     items = items.filter(function(it) {
                         const cmd = (it && it.cmd) ? it.cmd : String(it);
                         const lcCmd = cmd.toLowerCase();
-                        return /from\s+yesterday$/.test(lcCmd);
+                        const categoryYesterdayRegex = new RegExp('^delete\\s+' + categoryEscaped + '\\s+from\\s+yesterday$', 'i');
+                        return categoryYesterdayRegex.test(lcCmd);
                     });
-                    try { console.log('[DELETE-CATEGORY-YESTERDAY-FILTER] filtered to only yesterday commands for:', qlc); } catch(e) {}
+                    try { console.log('[DELETE-CATEGORY-YESTERDAY-FILTER] filtered to only category yesterday commands for:', qlc); } catch(e) {}
                 }
             } catch (e) {}
             
@@ -10075,6 +10121,180 @@
                     });
                     
                     try { console.log('[DELETE-CATEGORY-THIS-FILTER] filtered to ONLY this commands for:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+            
+            // DELETE-CATEGORY-THIS-WEEK-EXACT-FILTER: If typing 'delete [category] from this w/we/wee/week', show only the exact matching command
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isDeleteCategoryFromThisWeekExact = /^delete\s+(verification\s+codes|shipping\s+emails|account\s+security\s+emails)\s+from\s+this\s+(w|we|wee|week)$/.test(qlc);
+                if (isDeleteCategoryFromThisWeekExact && Array.isArray(items)) {
+                    // Find the exact matching command first
+                    const exactMatch = items.find(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        return lcCmd === qlc; // exact match
+                    });
+                    
+                    if (exactMatch) {
+                        // Show only the exact matching command
+                        items = [exactMatch];
+                    } else {
+                        // For progressive typing, show only the complete this week command for the specific category
+                        items = items.filter(function(it) {
+                            const cmd = (it && it.cmd) ? it.cmd : String(it);
+                            const lcCmd = cmd.toLowerCase();
+                            // Match the specific category and this week
+                            return lcCmd === qlc.replace(/\s+(w|we|wee)$/, ' week'); // replace partial with complete
+                        });
+                    }
+                    try { console.log('[DELETE-CATEGORY-THIS-WEEK-EXACT-FILTER] filtered to exact match for:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+            
+            // DELETE-CATEGORY-THIS-MONTH-EXACT-FILTER: If typing 'delete [category] from this m/mo/mon/month', show only the exact matching command
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isDeleteCategoryFromThisMonthExact = /^delete\s+(verification\s+codes|shipping\s+emails|account\s+security\s+emails)\s+from\s+this\s+(m|mo|mon|mont|month)$/.test(qlc);
+                if (isDeleteCategoryFromThisMonthExact && Array.isArray(items)) {
+                    // Find the exact matching command first
+                    const exactMatch = items.find(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        return lcCmd === qlc; // exact match
+                    });
+                    
+                    if (exactMatch) {
+                        // Show only the exact matching command
+                        items = [exactMatch];
+                    } else {
+                        // For progressive typing, show only the complete this month command for the specific category
+                        items = items.filter(function(it) {
+                            const cmd = (it && it.cmd) ? it.cmd : String(it);
+                            const lcCmd = cmd.toLowerCase();
+                            // Match the specific category and this month
+                            return lcCmd === qlc.replace(/\s+(m|mo|mon|mont)$/, ' month'); // replace partial with complete
+                        });
+                    }
+                    try { console.log('[DELETE-CATEGORY-THIS-MONTH-EXACT-FILTER] filtered to exact match for:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+            
+            // DELETE-CATEGORY-THIS-YEAR-EXACT-FILTER: If typing 'delete [category] from this y/ye/year', show only the exact matching command
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isDeleteCategoryFromThisYearExact = /^delete\s+(verification\s+codes|shipping\s+emails|account\s+security\s+emails)\s+from\s+this\s+(y|ye|yea|year)$/.test(qlc);
+                if (isDeleteCategoryFromThisYearExact && Array.isArray(items)) {
+                    // Find the exact matching command first
+                    const exactMatch = items.find(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        return lcCmd === qlc; // exact match
+                    });
+                    
+                    if (exactMatch) {
+                        // Show only the exact matching command
+                        items = [exactMatch];
+                    } else {
+                        // For progressive typing, show only the complete this year command for the specific category
+                        items = items.filter(function(it) {
+                            const cmd = (it && it.cmd) ? it.cmd : String(it);
+                            const lcCmd = cmd.toLowerCase();
+                            // Match the specific category and this year
+                            return lcCmd === qlc.replace(/\s+(y|ye|yea)$/, ' year'); // replace partial with complete
+                        });
+                    }
+                    try { console.log('[DELETE-CATEGORY-THIS-YEAR-EXACT-FILTER] filtered to exact match for:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+            
+            // DELETE-CATEGORY-THIS-WEEK-FILTER: If typing 'delete [category] from this w', filter to only 'this week' command
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isDeleteCategoryFromThisWeek = /^delete\s+(verification\s+codes|shipping\s+emails|account\s+security\s+emails)\s+from\s+this\s+w/.test(qlc);
+                if (isDeleteCategoryFromThisWeek && Array.isArray(items)) {
+                    // Filter to only show 'this week' command
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        return /from\s+this\s+week$/.test(lcCmd);
+                    });
+                    try { console.log('[DELETE-CATEGORY-THIS-WEEK-FILTER] filtered to only this week command for:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+            
+            // DELETE-CATEGORY-THIS-MONTH-FILTER: If typing 'delete [category] from this m', filter to only 'this month' command
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isDeleteCategoryFromThisMonth = /^delete\s+(verification\s+codes|shipping\s+emails|account\s+security\s+emails)\s+from\s+this\s+m/.test(qlc);
+                if (isDeleteCategoryFromThisMonth && Array.isArray(items)) {
+                    // Filter to only show 'this month' command
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        return /from\s+this\s+month$/.test(lcCmd);
+                    });
+                    try { console.log('[DELETE-CATEGORY-THIS-MONTH-FILTER] filtered to only this month command for:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+            
+            // DELETE-CATEGORY-THIS-YEAR-FILTER: If typing 'delete [category] from this y', filter to only 'this year' command
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isDeleteCategoryFromThisYear = /^delete\s+(verification\s+codes|shipping\s+emails|account\s+security\s+emails)\s+from\s+this\s+y/.test(qlc);
+                if (isDeleteCategoryFromThisYear && Array.isArray(items)) {
+                    // Filter to only show 'this year' command
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        return /from\s+this\s+year$/.test(lcCmd);
+                    });
+                    try { console.log('[DELETE-CATEGORY-THIS-YEAR-FILTER] filtered to only this year command for:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+            
+            // DELETE-CATEGORY-LAST-WEEK-FILTER: If typing 'delete [category] from last w/we/wee/week', filter to only last week command
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isDeleteCategoryFromLastWeek = /^delete\s+(verification\s+codes|shipping\s+emails|account\s+security\s+emails)\s+from\s+last\s+(w|we|wee|week)$/.test(qlc);
+                if (isDeleteCategoryFromLastWeek && Array.isArray(items)) {
+                    // Filter to only show last week command
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        return /from\s+last\s+week$/.test(lcCmd);
+                    });
+                    try { console.log('[DELETE-CATEGORY-LAST-WEEK-FILTER] filtered to last week command for:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+            
+            // DELETE-CATEGORY-LAST-MONTH-FILTER: If typing 'delete [category] from last m/mo/mon/mont/month', filter to only last month command
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isDeleteCategoryFromLastMonth = /^delete\s+(verification\s+codes|shipping\s+emails|account\s+security\s+emails)\s+from\s+last\s+(m|mo|mon|mont|month)$/.test(qlc);
+                if (isDeleteCategoryFromLastMonth && Array.isArray(items)) {
+                    // Filter to only show last month command
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        return /from\s+last\s+month$/.test(lcCmd);
+                    });
+                    try { console.log('[DELETE-CATEGORY-LAST-MONTH-FILTER] filtered to last month command for:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+            
+            // DELETE-CATEGORY-LAST-YEAR-FILTER: If typing 'delete [category] from last y/ye/yea/year', filter to only last year command
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isDeleteCategoryFromLastYear = /^delete\s+(verification\s+codes|shipping\s+emails|account\s+security\s+emails)\s+from\s+last\s+(y|ye|yea|year)$/.test(qlc);
+                if (isDeleteCategoryFromLastYear && Array.isArray(items)) {
+                    // Filter to only show last year command
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        return /from\s+last\s+year$/.test(lcCmd);
+                    });
+                    try { console.log('[DELETE-CATEGORY-LAST-YEAR-FILTER] filtered to last year command for:', qlc); } catch(e) {}
                 }
             } catch (e) {}
             
@@ -13988,6 +14208,28 @@
                     });
                     if (!items.length) items.push({ cmd: 'delete emails from [sender] older than [duration]', score: 1002, type: 'en_delete_sender_older_than_inject' });
                     try { console.log('[EN-DELETE-SENDER-OLDER-THAN-GATE] kept sender older than for input:', qlp); } catch(e) {}
+                }
+                // EARLY GATE: delete category today progressive (to/tod/toda/today)
+                const deleteCatTodayMatch = qlp.match(/^delete\s+(verification\s+codes|shipping\s+emails|account\s+security\s+emails)\s+from\s+to(d(a(y)?)?)?$/i);
+                if (deleteCatTodayMatch && Array.isArray(items)) {
+                    const categoryName = deleteCatTodayMatch[1];
+                    const reTodayOnly = new RegExp('^delete\\s+' + categoryName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s+from\\s+today$', 'i');
+                    items = items.filter(function(it){
+                        const s = (it && it.cmd ? String(it.cmd).toLowerCase() : '');
+                        return reTodayOnly.test(s);
+                    });
+                    try { console.log('[EN-DELETE-CATEGORY-TF-TODAY-GATE] kept category today for input:', qlp); } catch(e) {}
+                }
+                // EARLY GATE: delete category yesterday progressive (y/ye/yes/.../yesterday)
+                const deleteCatYesterdayMatch = qlp.match(/^delete\s+(verification\s+codes|shipping\s+emails|account\s+security\s+emails)\s+from\s+y(e(s(t(e(r(d(a(y)?)?)?)?)?)?)?)?$/i);
+                if (deleteCatYesterdayMatch && Array.isArray(items)) {
+                    const categoryName = deleteCatYesterdayMatch[1];
+                    const reYesterdayOnly = new RegExp('^delete\\s+' + categoryName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s+from\\s+yesterday$', 'i');
+                    items = items.filter(function(it){
+                        const s = (it && it.cmd ? String(it.cmd).toLowerCase() : '');
+                        return reYesterdayOnly.test(s);
+                    });
+                    try { console.log('[EN-DELETE-CATEGORY-TF-YESTERDAY-GATE] kept category yesterday for input:', qlp); } catch(e) {}
                 }
                 // EARLY GATE: this- progressive (th/this [w|m|y]) - for both list and archive
                 if (/^(list|archive)\s+emails\s+from\s+th(i(s)?)?(?:\s+.*)?$/i.test(qlp) && Array.isArray(items)) {
