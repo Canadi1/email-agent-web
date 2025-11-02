@@ -4853,8 +4853,18 @@
                             
                             // Check if typing a timeframe prefix (t/y/th/l) to suppress sender filter
                             const isTimeframePrefix = /^(t|y|th|l)$/i.test(typedSender);
-                            if (isTimeframePrefix) {
-                                // Don't apply sender filter for timeframe prefixes
+                            
+                            // Check if typing a number (for duration) to suppress sender filter
+                            const isNumber = /^\d+$/.test(typedSender);
+                            
+                            // Check if typing "a [unit]" pattern (for duration ago) to suppress sender filter
+                            const isAUnitPattern = /^delete\s+emails\s+from\s+a\s+(d|w|m|y|da|we|mo|ye|day|wee|mon|mont|yea|days|weeks|months|years|week|month|year)(\s+(a|ag|ago))?$/i.test(q);
+                            
+                            // Check if first word is "a" - this indicates "from a" pattern for duration ago
+                            const isFirstWordA = typedSender === 'a';
+                            
+                            if (isTimeframePrefix || isNumber || isAUnitPattern || isFirstWordA) {
+                                // Don't apply sender filter for timeframe prefixes, numbers, "a [unit]" patterns, or just "a"
                                 filteredByAction = unique;
                             } else if (!isPlaceholderOrKeyword) {
                                 const beforeFilter = filteredByAction.length;
@@ -4919,8 +4929,12 @@
                             
                             // Check if typing a Hebrew timeframe prefix (ה/י/ש/מ) to suppress sender filter
                             const isTimeframePrefix = /^(ה|י|ש|מ)$/.test(typedSender);
-                            if (isTimeframePrefix) {
-                                // Don't apply sender filter for Hebrew timeframe prefixes
+                            
+                            // Check if typing a number (for duration) to suppress sender filter
+                            const isNumber = /^\d+$/.test(typedSender);
+                            
+                            if (isTimeframePrefix || isNumber) {
+                                // Don't apply sender filter for Hebrew timeframe prefixes or numbers
                                 filteredByAction = unique;
                             } else if (!isPlaceholderOrKeyword) {
                                 const beforeFilter = filteredByAction.length;
@@ -9206,6 +9220,159 @@
                 }
             } catch (e) {}
             
+            // DELETE-FROM-DURATION-AGO-COMPREHENSIVE-FILTER: If typing 'delete emails from [number]' or 'delete emails from [number] [unit] a/ag/ago', filter to only from duration ago command
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isDeleteEmailsFromDurationAgoComprehensive = /^delete\s+emails\s+from\s+\d+(\s+(d|da|day|days|w|we|wee|week|weeks|m|mo|mon|mont|month|months|y|ye|yea|year|years))?(\s+(a|ag|ago))?$/.test(qlc);
+                if (isDeleteEmailsFromDurationAgoComprehensive && Array.isArray(items)) {
+                    // Filter to only show from duration ago commands
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        return /^delete\s+emails\s+from\s+\[duration\]\s+ago$/.test(lcCmd);
+                    });
+                    try { console.log('[DELETE-FROM-DURATION-AGO-COMPREHENSIVE-FILTER] filtered to from duration ago command for:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+            
+            // DELETE-FROM-DURATION-AGO-ANY-TYPO-FILTER: If typing 'delete emails from [number] [anything]', filter to only from duration ago command
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isDeleteEmailsFromDurationAgoAnyTypo = /^delete\s+emails\s+from\s+\d+\s+[a-z]+/.test(qlc);
+                if (isDeleteEmailsFromDurationAgoAnyTypo && Array.isArray(items)) {
+                    // Filter to only show from duration ago commands
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        return /^delete\s+emails\s+from\s+\[duration\]\s+ago$/.test(lcCmd);
+                    });
+                    try { console.log('[DELETE-FROM-DURATION-AGO-ANY-TYPO-FILTER] filtered to from duration ago command for any typo:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+            
+            // DELETE-FROM-A-UNIT-FILTER: If typing 'delete emails from a [unit]', filter to only from duration ago command
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isDeleteEmailsFromAUnit = /^delete\s+emails\s+from\s+a\s+(d|w|m|y|da|we|mo|ye|day|wee|mon|mont|yea|days|weeks|months|years|week|month|year)$/.test(qlc);
+                if (isDeleteEmailsFromAUnit && Array.isArray(items)) {
+                    // Filter to only show from duration ago commands
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        return /^delete\s+emails\s+from\s+\[duration\]\s+ago$/.test(lcCmd);
+                    });
+                    try { console.log('[DELETE-FROM-A-UNIT-FILTER] filtered to from duration ago command for:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+            
+            // DELETE-FROM-A-AGO-FILTER: If typing 'delete emails from a [unit] ago', filter to only from duration ago command
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isDeleteEmailsFromAAgo = /^delete\s+emails\s+from\s+a\s+(d|w|m|y|da|we|mo|ye|day|wee|mon|mont|yea|days|weeks|months|years|week|month|year)\s+ago$/.test(qlc);
+                if (isDeleteEmailsFromAAgo && Array.isArray(items)) {
+                    // Filter to only show from duration ago commands
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        return /^delete\s+emails\s+from\s+\[duration\]\s+ago$/.test(lcCmd);
+                    });
+                    try { console.log('[DELETE-FROM-A-AGO-FILTER] filtered to from duration ago command for:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+            
+            // DELETE-FROM-A-AGO-PROGRESSIVE-FILTER: If typing 'delete emails from a [unit] a/ag/ago', filter to only from duration ago command
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isDeleteEmailsFromAAgoProgressive = /^delete\s+emails\s+from\s+a\s+(d|w|m|y|da|we|mo|ye|day|wee|mon|mont|yea|days|weeks|months|years|week|month|year)\s+(a|ag|ago)$/.test(qlc);
+                // Only apply if it's NOT a typo (exclude patterns that look like typos)
+                const isNotTypo = !/^delete\s+emails\s+from\s+a\s+(d|w|m|y|da|we|mo|ye|day|wee|mon|mont|yea|days|weeks|months|years|week|month|year)\s+(a[g-z]|ag[a-z])$/.test(qlc);
+                if (isDeleteEmailsFromAAgoProgressive && isNotTypo && Array.isArray(items)) {
+                    // Filter to only show from duration ago commands
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        return /^delete\s+emails\s+from\s+\[duration\]\s+ago$/.test(lcCmd);
+                    });
+                    try { console.log('[DELETE-FROM-A-AGO-PROGRESSIVE-FILTER] filtered to from duration ago command for progressive ago:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+            
+            // DELETE-FROM-A-TYPO-FILTER: If typing 'delete emails from a [typo] ago', filter to only from duration ago command
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isDeleteEmailsFromATypo = /^delete\s+emails\s+from\s+a\s+[a-z]+\s+ago$/.test(qlc);
+                if (isDeleteEmailsFromATypo && Array.isArray(items)) {
+                    // Filter to only show from duration ago commands
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        return /^delete\s+emails\s+from\s+\[duration\]\s+ago$/.test(lcCmd);
+                    });
+                    try { console.log('[DELETE-FROM-A-TYPO-FILTER] filtered to from duration ago command for typo:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+            
+            // DELETE-FROM-A-UNIT-TYPO-FILTER: If typing 'delete emails from a [typo]', filter to only from duration ago command
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isDeleteEmailsFromAUnitTypo = /^delete\s+emails\s+from\s+a\s+[a-z]+$/.test(qlc);
+                if (isDeleteEmailsFromAUnitTypo && Array.isArray(items)) {
+                    // Filter to only show from duration ago commands
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        return /^delete\s+emails\s+from\s+\[duration\]\s+ago$/.test(lcCmd);
+                    });
+                    try { console.log('[DELETE-FROM-A-UNIT-TYPO-FILTER] filtered to from duration ago command for unit typo:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+            
+            // DELETE-FROM-A-AGO-TYPO-ONLY-FILTER: If typing 'delete emails from a [unit] [ago-typo]', filter to only from duration ago command
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isDeleteEmailsFromAAgoTypoOnly = /^delete\s+emails\s+from\s+a\s+(d|w|m|y|da|we|mo|ye|day|wee|mon|mont|yea|days|weeks|months|years|week|month|year)\s+(a[g-z]?|ag[a-z]?)$/.test(qlc);
+                if (isDeleteEmailsFromAAgoTypoOnly && Array.isArray(items)) {
+                    // Filter to only show from duration ago commands
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        return /^delete\s+emails\s+from\s+\[duration\]\s+ago$/.test(lcCmd);
+                    });
+                    try { console.log('[DELETE-FROM-A-AGO-TYPO-ONLY-FILTER] filtered to from duration ago command for ago-only typo:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+            
+            // DELETE-FROM-A-ANY-TYPO-FILTER: If typing 'delete emails from a [any-typo]', filter to only from duration ago command
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isDeleteEmailsFromAAnyTypo = /^delete\s+emails\s+from\s+a\s+[a-z]+$/.test(qlc) &&
+                    !/^delete\s+emails\s+from\s+a\s+(d|w|m|y|da|we|mo|ye|day|wee|mon|mont|yea|days|weeks|months|years|week|month|year)$/.test(qlc); // exclude exact matches
+                if (isDeleteEmailsFromAAnyTypo && Array.isArray(items)) {
+                    // Filter to only show from duration ago commands
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        return /^delete\s+emails\s+from\s+\[duration\]\s+ago$/.test(lcCmd);
+                    });
+                    try { console.log('[DELETE-FROM-A-ANY-TYPO-FILTER] filtered to from duration ago command for any typo:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+            
+            // DELETE-FROM-A-ANY-TYPO-AGO-FILTER: If typing 'delete emails from a [any-typo] [any-ago-variant]', filter to only from duration ago command
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isDeleteEmailsFromAAnyTypoAgo = /^delete\s+emails\s+from\s+a\s+[a-z]+\s+[a-z]+$/.test(qlc);
+                if (isDeleteEmailsFromAAnyTypoAgo && Array.isArray(items)) {
+                    // Filter to only show from duration ago commands
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        return /^delete\s+emails\s+from\s+\[duration\]\s+ago$/.test(lcCmd);
+                    });
+                    try { console.log('[DELETE-FROM-A-ANY-TYPO-AGO-FILTER] filtered to from duration ago command for any typo + ago:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+            
             // DELETE-SENDER-OLDER-THAN FILTER: If typing 'delete emails from [sender] o*', filter to only this command
             try {
                 const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
@@ -9219,6 +9386,22 @@
                         return /^delete\s+emails\s+from\s+\[sender\]\s+older\s+than\s+\[duration\]$/.test(lcCmd);
                     });
                     try { console.log('[DELETE-SENDER-OLDER-THAN-FILTER] filtered to sender older than command for:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+            
+            // DELETE-SENDER-FROM-DURATION-AGO-FILTER: If typing 'delete emails from [sender] from [number]', filter to only this command
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isDeleteSenderFromDurationAgo = /^delete\s+emails\s+from\s+[a-zA-Z0-9._\-+@\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff\s]+\s+from\s+\d+/.test(qlc);
+                if (isDeleteSenderFromDurationAgo && Array.isArray(items)) {
+                    // Filter to only show the sender from duration ago command
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        // Keep only the sender from duration ago command
+                        return /^delete\s+emails\s+from\s+\[sender\]\s+from\s+\[duration\]\s+ago$/.test(lcCmd);
+                    });
+                    try { console.log('[DELETE-SENDER-FROM-DURATION-AGO-FILTER] filtered to sender from duration ago command for:', qlc); } catch(e) {}
                 }
             } catch (e) {}
             
@@ -9490,6 +9673,165 @@
                         return categoryOlderThanRegex.test(lcCmd);
                     });
                     try { console.log('[DELETE-CATEGORY-OLDER-THAN-ANY-DURATION-FILTER] filtered to specific category older than duration command:', category, 'for input:', qlc, 'items remaining:', items.length); } catch(e) {}
+                }
+            } catch (e) {}
+            
+            // DELETE-CATEGORY-DURATION-AGO-COMPREHENSIVE-FILTER: If typing 'delete [category] from [number]' or 'delete [category] from [number] [unit] a/ag/ago', filter to duration ago commands
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isDeleteCategoryFromDurationAgoComprehensive = /^delete\s+(verification\s+codes|shipping\s+emails|account\s+security\s+emails)\s+from\s+\d+(\s+(d|da|day|days|w|we|wee|week|weeks|m|mo|mon|mont|month|months|y|ye|yea|year|years))?(\s+(a|ag|ago))?$/.test(qlc);
+                if (isDeleteCategoryFromDurationAgoComprehensive && Array.isArray(items)) {
+                    // Filter to only show duration ago commands
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        return /from\s+\[duration\]\s+ago$/.test(lcCmd);
+                    });
+                    try { console.log('[DELETE-CATEGORY-DURATION-AGO-COMPREHENSIVE-FILTER] filtered to duration ago commands for:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+            
+            // DELETE-CATEGORY-DURATION-AGO-ANY-TYPO-FILTER: If typing 'delete [category] from [number] [anything]', filter to only duration ago commands
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isDeleteCategoryFromDurationAgoAnyTypo = /^delete\s+(verification\s+codes|shipping\s+emails|account\s+security\s+emails)\s+from\s+\d+\s+[a-z]+/.test(qlc);
+                if (isDeleteCategoryFromDurationAgoAnyTypo && Array.isArray(items)) {
+                    // Filter to only show duration ago commands
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        return /from\s+\[duration\]\s+ago$/.test(lcCmd);
+                    });
+                    try { console.log('[DELETE-CATEGORY-DURATION-AGO-ANY-TYPO-FILTER] filtered to duration ago commands for any typo:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+            
+            // DELETE-CATEGORY-TODAY-FILTER: If typing 'delete [category] from to', filter to only today commands
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isDeleteCategoryFromToday = /^delete\s+(verification\s+codes|shipping\s+emails|account\s+security\s+emails)\s+from\s+to/.test(qlc);
+                if (isDeleteCategoryFromToday && Array.isArray(items)) {
+                    // Filter to only show today commands
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        return /from\s+today$/.test(lcCmd);
+                    });
+                    try { console.log('[DELETE-CATEGORY-TODAY-FILTER] filtered to only today commands for:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+            
+            // DELETE-CATEGORY-YESTERDAY-FILTER: If typing 'delete [category] from y', filter to only yesterday commands
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isDeleteCategoryFromYesterday = /^delete\s+(verification\s+codes|shipping\s+emails|account\s+security\s+emails)\s+from\s+y/.test(qlc);
+                if (isDeleteCategoryFromYesterday && Array.isArray(items)) {
+                    // Filter to only show yesterday commands
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        return /from\s+yesterday$/.test(lcCmd);
+                    });
+                    try { console.log('[DELETE-CATEGORY-YESTERDAY-FILTER] filtered to only yesterday commands for:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+            
+            // DELETE-CATEGORY-FROM-PROGRESSIVE-FILTER: If typing 'delete [category] f/fr/fro/from', filter to only 'from' commands and prioritize them
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isDeleteCategoryFromProgressive = /^delete\s+(verification\s+codes|shipping\s+emails|account\s+security\s+emails)\s+(f|fr|fro|from)$/.test(qlc);
+                if (isDeleteCategoryFromProgressive && Array.isArray(items)) {
+                    // Filter to only show 'from' commands (all timeframes)
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        return /from\s+(today|yesterday|this\s+(week|month|year)|last\s+(week|month|year)|\[duration\]\s+ago)$/.test(lcCmd);
+                    });
+                    
+                    // Prioritize 'from' commands in specific order
+                    items.sort(function(a, b) {
+                        const cmdA = (a && a.cmd) ? a.cmd : String(a);
+                        const cmdB = (b && b.cmd) ? b.cmd : String(b);
+                        const lcCmdA = cmdA.toLowerCase();
+                        const lcCmdB = cmdB.toLowerCase();
+
+                        // 1. From duration ago commands first
+                        if (/from\s+\[duration\]\s+ago$/.test(lcCmdA)) return -1;
+                        if (/from\s+\[duration\]\s+ago$/.test(lcCmdB)) return 1;
+
+                        // 2. Timeframe commands second (in specific order)
+                        const timeframeOrder = ['today', 'yesterday', 'this week', 'this month', 'this year', 'last week', 'last month', 'last year'];
+                        const getTimeframeIndex = (cmd) => {
+                            for (let i = 0; i < timeframeOrder.length; i++) {
+                                if (cmd.includes(timeframeOrder[i])) return i;
+                            }
+                            return 999; // fallback for other timeframes
+                        };
+                        const timeframeIndexA = getTimeframeIndex(lcCmdA);
+                        const timeframeIndexB = getTimeframeIndex(lcCmdB);
+                        if (timeframeIndexA !== 999 || timeframeIndexB !== 999) {
+                            return timeframeIndexA - timeframeIndexB;
+                        }
+
+                        return 0;
+                    });
+                    
+                    try { console.log('[DELETE-CATEGORY-FROM-PROGRESSIVE-FILTER] filtered and prioritized from commands for:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+            
+            // DELETE-CATEGORY-LAST-PROGRESSIVE-FILTER: If typing 'delete [category] from l/la/las/last', filter to only last commands
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isDeleteCategoryFromLastProgressive = /^delete\s+(verification\s+codes|shipping\s+emails|account\s+security\s+emails)\s+from\s+(l|la|las|last)$/.test(qlc);
+                if (isDeleteCategoryFromLastProgressive && Array.isArray(items)) {
+                    // Filter to only show last commands
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        return /from\s+last\s+(week|month|year)$/.test(lcCmd);
+                    });
+                    try { console.log('[DELETE-CATEGORY-LAST-PROGRESSIVE-FILTER] filtered to last commands for progressive:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+            
+            // DELETE-CATEGORY-THIS-FILTER: If typing 'delete [category] from th', filter to show ONLY 'this' commands
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isDeleteCategoryFromThis = /^delete\s+(verification\s+codes|shipping\s+emails|account\s+security\s+emails)\s+from\s+th/.test(qlc);
+                if (isDeleteCategoryFromThis && Array.isArray(items)) {
+                    // Filter to ONLY show 'this' commands (no 'today')
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        return /from\s+this\s+(week|month|year)$/.test(lcCmd);
+                    });
+                    
+                    // Prioritize 'this' commands in specific order
+                    items.sort(function(a, b) {
+                        const cmdA = (a && a.cmd) ? a.cmd : String(a);
+                        const cmdB = (b && b.cmd) ? b.cmd : String(b);
+                        const lcCmdA = cmdA.toLowerCase();
+                        const lcCmdB = cmdB.toLowerCase();
+
+                        // This commands in specific order
+                        const thisOrder = ['this week', 'this month', 'this year'];
+                        const getThisIndex = (cmd) => {
+                            for (let i = 0; i < thisOrder.length; i++) {
+                                if (cmd.includes(thisOrder[i])) return i;
+                            }
+                            return 999; // fallback
+                        };
+                        const thisIndexA = getThisIndex(lcCmdA);
+                        const thisIndexB = getThisIndex(lcCmdB);
+                        if (thisIndexA !== 999 || thisIndexB !== 999) {
+                            return thisIndexA - thisIndexB;
+                        }
+
+                        return 0;
+                    });
+                    
+                    try { console.log('[DELETE-CATEGORY-THIS-FILTER] filtered to ONLY this commands for:', qlc); } catch(e) {}
                 }
             } catch (e) {}
             
