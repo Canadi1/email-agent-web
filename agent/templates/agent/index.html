@@ -2647,6 +2647,17 @@
                     return [{ cmd: olderThanCmd, score: 996, type: 'he_delete_cat_short_older_than' }];
                 }
             }
+            // Check for "מלפני" pattern early - if typing "מחק מיילי <category> מלפני" (progressive like מל/מלפ/מלפנ/מלפני, with or without value)
+            const melefaniMatch = qNormHe.match(/^מחק\s+מיילי\s+([\u0590-\u05FF\s]+?)\s+מ(?:ל(?:פ(?:נ(?:י)?)?)?)?/);
+            if (melefaniMatch) {
+                const typedCat = (melefaniMatch[1] || '').trim();
+                let cat = '';
+                for (const c of categories) { if (c.startsWith(typedCat) || typedCat.startsWith(c)) { cat = c; break; } }
+                if (cat) {
+                    const durCmd = 'מחק מיילי ' + cat + ' מלפני [משך]';
+                    return [{ cmd: durCmd, score: 996, type: 'he_delete_cat_short_duration' }];
+                }
+            }
             // Match: מחק מיילי <קטגוריה> [מ<partial>] | or 'מלפני <...>' | or 'ישנים מ' for category
             const m = qNormHe.match(/^מחק\s+מיילי(?:ם)?\s+([\u0590-\u05FF\s]+?)(?:\s+י(?:ש(?:נ(?:י(?:ם)?)?)?)?(?:\s+מ)?)?(?:\s+מ([\u0590-\u05FF]*))?(?:\s+מלפני\b([\u0590-\u05FF\s\d]*)?)?$/);
             if (m) {
