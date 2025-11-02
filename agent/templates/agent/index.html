@@ -5128,6 +5128,14 @@
                                 // Hebrew "מ" is a single character, so it's already progressive
                                 const hasTypedSecondMem = /^מחק\s+מיילים\s+מ\s*[a-zA-Z0-9._\-+@\u0590-\u05FF\u0600-\u06FF\u4e00-\u9fff\s]+\s*מ\s*$/.test(q);
                                 
+                                // Progressive filtering for timeframe after sender
+                                let typedAfterSender = '';
+                                const afterSenderMatch = q.match(/^מחק\s+מיילים\s+מ\s*[^\s]+\s+(.+)$/);
+                                if (afterSenderMatch) {
+                                    typedAfterSender = afterSenderMatch[1];
+                                    console.log('[DELETE-SENDER-FILTER-HE] typedAfterSender:', typedAfterSender);
+                                }
+                                
                                 // Reorder the sender commands based on priority:
                                 // 1. מחק מיילים מ[שולח]
                                 // 2. מחק מיילים מ[שולח] ישנים מ[משך]
@@ -5147,10 +5155,35 @@
                                     'מחק מיילים מ[שולח] מהשנה שעברה'
                                 ];
                                 
+                                // If typing timeframe after sender, filter to matching commands
+                                if (typedAfterSender && typedAfterSender.length > 1) {
+                                    const matchingSenderTf = senderPriorities.filter(cmd => {
+                                        // Handle "מהיום" specially - only start filtering at "מהי", not "מה"
+                                        if (/^מה/.test(typedAfterSender)) {
+                                            if (/^מהי/.test(typedAfterSender)) {
+                                                const matchPattern = 'מחק מיילים מ[שולח] ' + typedAfterSender;
+                                                const result = cmd.startsWith(matchPattern);
+                                                console.log('[DELETE-SENDER-FILTER-HE] checking:', cmd, 'against:', matchPattern, 'result:', result);
+                                                return result;
+                                            } else {
+                                                // "מה" is ambiguous, don't filter yet
+                                                return false;
+                                            }
+                                        }
+                                        return cmd.startsWith('מחק מיילים מ[שולח] ' + typedAfterSender);
+                                    });
+                                    if (matchingSenderTf.length) {
+                                        filteredByAction = filteredByAction.filter(item => {
+                                            return matchingSenderTf.includes(item.cmd);
+                                        });
+                                        console.log('[DELETE-SENDER-FILTER-HE] Applied progressive timeframe filter for:', typedAfterSender);
+                                    }
+                                }
+                                
                                 const orderedSender = [];
                                 senderPriorities.forEach(cmd => {
-                                    // Skip plain sender command if user has typed second "מ"
-                                    if (hasTypedSecondMem && (cmd === 'מחק מיילים מ[שולח]')) {
+                                    // Skip plain sender command if user has typed second "מ" or is typing a timeframe
+                                    if ((hasTypedSecondMem || typedAfterSender) && (cmd === 'מחק מיילים מ[שולח]')) {
                                         return;
                                     }
                                     const found = filteredByAction.find(item => item.cmd === cmd);
