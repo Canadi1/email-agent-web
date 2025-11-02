@@ -2620,6 +2620,22 @@
                 out.push({ cmd: 'מחק מיילי אבטחת חשבון', score: 997, type: 'he_delete_cat_short' });
                 return out;
             }
+            // Check for "מחק מיילי [category] מ" pattern early - prioritize מלפני and timeframes
+            const categoryMemMatch = qNormHe.match(/^מחק\s+מיילי\s+([\u0590-\u05FF\s]+?)\s+מ\s*$/);
+            if (categoryMemMatch) {
+                const typedCat = (categoryMemMatch[1] || '').trim();
+                let cat = '';
+                for (const c of categories) { if (c.startsWith(typedCat) || typedCat.startsWith(c)) { cat = c; break; } }
+                if (cat) {
+                    const durCmd = 'מחק מיילי ' + cat + ' מלפני [משך]';
+                    const out = [{ cmd: durCmd, score: 994.5, type: 'he_delete_cat_short_duration_seed' }];
+                    // Add timeframes after מלפני
+                    for (const tf of tfAll) {
+                        out.push({ cmd: 'מחק מיילי ' + cat + ' ' + tf, score: 993, type: 'he_delete_cat_short_tf' });
+                    }
+                    return out;
+                }
+            }
             // Check for "ישנים מ" pattern early - if typing "מחק מיילי <category> ישנים מ" (with or without value)
             const yishanimMemMatch = qNormHe.match(/^מחק\s+מיילי\s+([\u0590-\u05FF\s]+?)\s+י(?:ש(?:נ(?:י(?:ם)?)?)?)?\s+מ/);
             if (yishanimMemMatch) {
@@ -2676,26 +2692,32 @@
                         // Order: Base category, then ישנים, then מלפני, then timeframes
                         out.push({ cmd: 'מחק מיילי ' + cat, score: 995, type: 'he_delete_cat_short_base' });
                         
-                        // Add duration commands after base (only if not typing duration/timeframe)
-                        if (isExactCategory || !afterM) {
-                            out.push({ cmd: 'מחק מיילי ' + cat + ' ישנים מ[משך]', score: 994.5, type: 'he_delete_cat_short_older_than' });
-                            out.push({ cmd: 'מחק מיילי ' + cat + ' מלפני [משך]', score: 994, type: 'he_delete_cat_short_duration' });
-                        }
-                        
                         // Check if typing duration pattern
                         const durCmd = 'מחק מיילי ' + cat + ' מלפני [משך]';
                         const isTypingDuration = /\sמ(ל|לפ|לפנ)$/.test(qNormHe) || (/\bמלפני\b/.test(qNormHe) && !/\sמלפני\s+\S/.test(qNormHe));
                         
-                        // Also surface duration placeholder when just 'מ' is typed after the category
-                        if (afterM === 'מ') {
-                            out.push({ cmd: durCmd, score: 993.4, type: 'he_delete_cat_short_duration_seed' });
+                        // Check if just 'מ' is typed after the category - prioritize מלפני
+                        // afterM includes the 'מ' prefix, so we need to check the raw captured group
+                        const rawAfterM = m[3] || '';
+                        if (rawAfterM === 'מ') {
+                            out.push({ cmd: durCmd, score: 994.5, type: 'he_delete_cat_short_duration_seed' });
+                            // Add timeframes after מלפני
+                            for (const tf of tfs) { out.push({ cmd: 'מחק מיילי ' + cat + ' ' + tf, score: 993, type: 'he_delete_cat_short_tf' }); }
+                        } else if (isExactCategory || !afterM) {
+                            // Add duration commands after base (only if not typing timeframe)
+                            out.push({ cmd: 'מחק מיילי ' + cat + ' ישנים מ[משך]', score: 994.5, type: 'he_delete_cat_short_older_than' });
+                            out.push({ cmd: durCmd, score: 994, type: 'he_delete_cat_short_duration' });
+                            // Add timeframes after duration commands
+                            for (const tf of tfs) { out.push({ cmd: 'מחק מיילי ' + cat + ' ' + tf, score: 993, type: 'he_delete_cat_short_tf' }); }
                         } else if (!isExactCategory && !afterDur) {
                             // Only add duration hints if there's no value after 'מלפני' (to avoid duplicates with duration value handler)
                             if (isTypingDuration) out.unshift({ cmd: durCmd, score: 996, type: 'he_delete_cat_short_duration' });
+                            // Add timeframes after duration commands
+                            for (const tf of tfs) { out.push({ cmd: 'מחק מיילי ' + cat + ' ' + tf, score: 993, type: 'he_delete_cat_short_tf' }); }
+                        } else {
+                            // Add timeframes
+                            for (const tf of tfs) { out.push({ cmd: 'מחק מיילי ' + cat + ' ' + tf, score: 993, type: 'he_delete_cat_short_tf' }); }
                         }
-                        
-                        // Add timeframes after duration commands
-                        for (const tf of tfs) { out.push({ cmd: 'מחק מיילי ' + cat + ' ' + tf, score: 993, type: 'he_delete_cat_short_tf' }); }
                     }
                     return out;
                 } else {
