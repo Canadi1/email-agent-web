@@ -7058,6 +7058,137 @@
                     }
                 }
                 
+                // Hebrew delete intent filter: if typing "מחק" progressively, prioritize delete commands
+                const isHeDeleteIntent = isHeb && (/^מ(?:ח(?:ק(\s+מ(?:י(?:י(?:ל(?:י(?:ם)?)?)?)?)?)?)?)?$/.test(q) || /^מחק\s+מיילים\s+מ$/.test(q) || /^מחק\s+מיילים\s+מ(היום|מאתמול|מהשבוע|מהחודש|מהשנה)/.test(q) || /^מחק\s+מיילים\s+מל/.test(q) || /^מחק\s+מיילים\s+י/.test(q));
+                if (isHeDeleteIntent && Array.isArray(items)) {
+                    try { console.log('[HE-DELETE-INTENT-FILTER] BEFORE filtering, items.length:', items.length); } catch(e) {}
+                    try { console.log('[HE-DELETE-INTENT-FILTER] BEFORE filtering, first 5 items:', items.slice(0,5).map(x => x.cmd || x)); } catch(e) {}
+                    
+                    // Check if typing Hebrew duration delete commands (including progressive typing)
+                    // Match "ישנים" or partial like "י", "יש", "ישנ" OR "מלפני" or partial like "מל", "מלפ", "מלפנ"
+                    const isTypingDeleteDuration = (/^מחק\s+מיילים\s+י/.test(q) || /^מחק\s+מיילים\s+ישנים/.test(q) || /^מחק\s+מיילים\s+מל/.test(q) || /^מחק\s+מיילים\s+מלפני/.test(q)) && !/^מחק\s+מיילים\s+מ[A-Za-z0-9@._-]+\s*[י]/.test(q);
+                    
+                    // Check if typing Hebrew timeframe delete commands (including progressive typing)
+                    const isTypingDeleteTimeframe = (/^מחק\s+מיילים\s+מ(היום|מאתמול|מהשבוע|מהחודש|מהשנה)/.test(q) || /^מחק\s+מיילים\s+מ(מהי?|מא|השב|השנ|השבוע|השנה|השבוע ש|השנה ש|מהחודש|מהשבוע|מהשנה)/.test(q) || /^מחק\s+מיילים\s+מל/.test(q)) && !/^מחק\s+מיילים\s+מ[A-Za-z0-9@._-]+\s*מ/.test(q);
+                    
+                    try { console.log('[HE-DELETE-INTENT-FILTER] isTypingDeleteDuration:', isTypingDeleteDuration, 'isTypingDeleteTimeframe:', isTypingDeleteTimeframe); } catch(e) {}
+                    
+                    if (isTypingDeleteDuration) {
+                        // When typing Hebrew duration delete commands, show only duration commands
+                        items = items.filter(it => {
+                            const text = typeof it === 'string' ? it : (it && it.cmd ? it.cmd : '');
+                            const lc = String(text || '').toLowerCase().trim();
+                            // Keep only "מחק מיילים" commands with duration, hide list/archive commands
+                            const keep = /^מחק\s+מיילים\b/.test(lc) && (/ישנים|מלפני/.test(lc));
+                            try { console.log('[HE-DELETE-DURATION-FILTER] checking:', lc, 'keep:', keep); } catch(e) {}
+                            return keep;
+                        });
+                        
+                        // Match progressive typing for "ישנים" or "מלפני"
+                        if (/^מחק\s+מיילים\s+י/.test(q)) {
+                            const durationCmd = 'מחק מיילים ישנים מ[משך]';
+                            items = [{ cmd: durationCmd }];
+                            try { console.log('[HE-DELETE-DURATION-FILTER] Forced ישנים placeholder command for progressive typing'); } catch(e) {}
+                        } else if (/^מחק\s+מיילים\s+מל/.test(q) || /^מחק\s+מיילים\s+מלפני/.test(q)) {
+                            const durationCmd = 'מחק מיילים מלפני [משך]';
+                            items = [{ cmd: durationCmd }];
+                            try { console.log('[HE-DELETE-DURATION-FILTER] Forced מלפני placeholder command for progressive typing'); } catch(e) {}
+                        } else if (items.length === 0) {
+                            items = [{ cmd: q.trim() }];
+                            try { console.log('[HE-DELETE-DURATION-FILTER] Injected exact command:', q.trim()); } catch(e) {}
+                        }
+                        
+                        // Set a flag to prevent other filters from overriding this
+                        window.heDeleteDurationFilterActive = true;
+                        try { console.log('[HE-DELETE-DURATION-FILTER] Set flag to prevent override'); } catch(e) {}
+                    } else if (isTypingDeleteTimeframe) {
+                        // When typing Hebrew timeframe delete commands, show only timeframe commands
+                        items = items.filter(it => {
+                            const text = typeof it === 'string' ? it : (it && it.cmd ? it.cmd : '');
+                            const lc = String(text || '').toLowerCase().trim();
+                            // Keep only "מחק מיילים" commands with timeframes, hide list commands
+                            const keep = /^מחק\s+מיילים\b/.test(lc);
+                            try { console.log('[HE-DELETE-TIMEFRAME-FILTER] checking:', lc, 'keep:', keep); } catch(e) {}
+                            return keep;
+                        });
+                        
+                        // Always ensure duration placeholder is present when typing מלפני (including progressive typing)
+                        if (/^מחק\s+מיילים\s+מל/i.test(q) || /^מחק\s+מיילים\s+מלפני/i.test(q)) {
+                            const durationCmd = 'מחק מיילים מלפני [משך]';
+                            items = [{ cmd: durationCmd }];
+                            try { console.log('[HE-DELETE-TIMEFRAME-FILTER] Forced duration placeholder command for progressive typing'); } catch(e) {}
+                        } else if (items.length === 0) {
+                            items = [{ cmd: q.trim() }];
+                            try { console.log('[HE-DELETE-TIMEFRAME-FILTER] Injected exact command:', q.trim()); } catch(e) {}
+                        }
+                        
+                        // Set a flag to prevent other filters from overriding this
+                        window.heDeleteTimeframeFilterActive = true;
+                        try { console.log('[HE-DELETE-TIMEFRAME-FILTER] Set flag to prevent override'); } catch(e) {}
+                    } else {
+                        // Check if typing "מחק מיילים מ" - show sender command + timeframe commands (same as archive)
+                        const isTypingDeleteFrom = /^מחק\s+מיילים\s+מ$/.test(q);
+                        const isTypingDeleteFromFlexible = /^מחק\s+מיילים\s+מ\s*$/.test(q);
+                        try { console.log('[HE-DELETE-FROM-CHECK] q:', q, 'isTypingDeleteFrom:', isTypingDeleteFrom, 'isTypingDeleteFromFlexible:', isTypingDeleteFromFlexible); } catch(e) {}
+                        
+                        if (isTypingDeleteFrom || isTypingDeleteFromFlexible) {
+                            // Show sender command first, then duration commands, then timeframe commands
+                            const timeframeCommands = [
+                                'מחק מיילים מהיום',
+                                'מחק מיילים מאתמול',
+                                'מחק מיילים מהשבוע',
+                                'מחק מיילים מהחודש',
+                                'מחק מיילים מהשנה',
+                                'מחק מיילים מהשבוע שעבר',
+                                'מחק מיילים מהחודש שעבר',
+                                'מחק מיילים מהשנה שעברה'
+                            ];
+                            
+                            items = [
+                                { cmd: 'מחק מיילים מ[שולח]' },
+                                { cmd: 'מחק מיילים מלפני [משך]' },
+                                ...timeframeCommands.map(cmd => ({ cmd: cmd }))
+                            ];
+                            
+                            // Set a flag to prevent other filters from overriding this
+                            window.heDeleteFromFilterActive = true;
+                            try { console.log('[HE-DELETE-FROM-FILTER] Set flag to prevent override'); } catch(e) {}
+                        } else {
+                            // When typing "מחק" or other patterns, only show plain delete commands
+                            items = items.filter(it => {
+                                const text = typeof it === 'string' ? it : (it && it.cmd ? it.cmd : '');
+                                const lc = String(text || '').toLowerCase().trim();
+                                // Keep only plain "מחק מיילים" commands, hide categories and list commands
+                                const keep = /^מחק\s+מיילים\b/.test(lc);
+                                try { console.log('[HE-DELETE-INTENT-FILTER] checking:', lc, 'keep:', keep); } catch(e) {}
+                                return keep;
+                            });
+                        }
+                    }
+                    
+                    try { console.log('[HE-DELETE-INTENT-FILTER] AFTER filtering and sorting, items.length:', items.length); } catch(e) {}
+                    try { console.log('[HE-DELETE-INTENT-FILTER] AFTER filtering and sorting, items:', items.map(x => x.cmd || x)); } catch(e) {}
+                    
+                    // If no items remain after filtering, inject Hebrew delete commands
+                    if (items.length === 0 && Array.isArray(commands)) {
+                        const hebrewDeleteCommands = [
+                            'מחק מיילים מ[שולח]',
+                            'מחק מיילים ישנים מ[משך]',
+                            'מחק מיילים מלפני [משך]',
+                            'מחק מיילים מהיום',
+                            'מחק מיילים מאתמול',
+                            'מחק מיילים מהשבוע',
+                            'מחק מיילים מהחודש',
+                            'מחק מיילים מהשנה',
+                            'מחק מיילים מהשבוע שעבר',
+                            'מחק מיילים מהחודש שעבר',
+                            'מחק מיילים מהשנה שעברה'
+                        ];
+                        items = hebrewDeleteCommands.map(cmd => ({ cmd: cmd }));
+                        try { console.log('[HE-DELETE-INTENT-FILTER] INJECTED Hebrew delete commands:', items.length); } catch(e) {}
+                    }
+                }
+                
                 // Normalize input (remove RTL marks, collapse spaces) and detect fixed timeframe tokens
                 qNorm = q.replace(/[\u200e\u200f]/g, '').replace(/\s+/g, ' ');
                 // Check if typing after a sender/domain - either with brackets [שולח] OR actual sender name (text between "מ" and timeframe)
