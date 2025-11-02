@@ -2620,16 +2620,36 @@
                 out.push({ cmd: 'מחק מיילי משלוח', score: 997, type: 'he_delete_cat_short' });
                 return out;
             }
-            // Match: מחק מיילי <קטגוריה> [מ<partial>] | or 'מלפני <...>' for category
-            const m = qNormHe.match(/^מחק\s+מיילי(?:ם)?\s+([\u0590-\u05FF\s]+?)(?:\s+מ([\u0590-\u05FF]*))?(?:\s+מלפני\b([\u0590-\u05FF\s\d]*)?)?$/);
+            // Check for "ישנים מ" pattern early - if typing "מחק מיילי <category> ישנים מ" (with or without value)
+            const yishanimMemMatch = qNormHe.match(/^מחק\s+מיילי\s+([\u0590-\u05FF\s]+?)\s+י(?:ש(?:נ(?:י(?:ם)?)?)?)?\s+מ/);
+            if (yishanimMemMatch) {
+                const typedCat = (yishanimMemMatch[1] || '').trim();
+                let cat = '';
+                for (const c of categories) { if (c.startsWith(typedCat) || typedCat.startsWith(c)) { cat = c; break; } }
+                if (cat) {
+                    const olderThanCmd = 'מחק מיילי ' + cat + ' ישנים מ[משך]';
+                    return [{ cmd: olderThanCmd, score: 996, type: 'he_delete_cat_short_older_than' }];
+                }
+            }
+            // Match: מחק מיילי <קטגוריה> [מ<partial>] | or 'מלפני <...>' | or 'ישנים מ' for category
+            const m = qNormHe.match(/^מחק\s+מיילי(?:ם)?\s+([\u0590-\u05FF\s]+?)(?:\s+י(?:ש(?:נ(?:י(?:ם)?)?)?)?(?:\s+מ)?)?(?:\s+מ([\u0590-\u05FF]*))?(?:\s+מלפני\b([\u0590-\u05FF\s\d]*)?)?$/);
             if (m) {
                 const typedCat = (m[1] || '').trim();
-                const afterM = m[2] ? ('מ' + m[2]) : '';
-                const afterDur = (m[3] || '').trim();
+                const hasYishanim = m[2] !== undefined; // Check if "ישנים" pattern was captured
+                const afterM = m[3] ? ('מ' + m[3]) : '';
+                const afterDur = (m[4] || '').trim();
                 // Resolve category by prefix in either direction
                 let cat = '';
                 for (const c of categories) { if (c.startsWith(typedCat) || typedCat.startsWith(c)) { cat = c; break; } }
                 if (cat) {
+                    // Check if typing "ישנים מ" - show only "ישנים מ[משך]"
+                    // Match patterns like " ישנים מ" or " יש מ" (progressive typing) at the end
+                    const isTypingOlderThanWithMem = /\sי(?:ש(?:נ(?:י(?:ם)?)?)?)?\s+מ\s*$/.test(qNormHe);
+                    if (isTypingOlderThanWithMem) {
+                        const olderThanCmd = 'מחק מיילי ' + cat + ' ישנים מ[משך]';
+                        return [{ cmd: olderThanCmd, score: 996, type: 'he_delete_cat_short_older_than' }];
+                    }
+                    
                     let tfs = tfAll.slice();
                     if (afterM) {
                         tfs = tfAll.filter(tf => tf.startsWith(afterM));
@@ -2644,7 +2664,25 @@
                     out.push({ cmd: 'מחק מיילי ' + cat, score: 995, type: 'he_delete_cat_short_base' });
                     for (const tf of tfs) { out.push({ cmd: 'מחק מיילי ' + cat + ' ' + tf, score: 994, type: 'he_delete_cat_short_tf' }); }
                     const durCmd = 'מחק מיילי ' + cat + ' מלפני [משך]';
-                    out.push({ cmd: durCmd, score: 993.4, type: 'he_delete_cat_short_duration_seed' });
+                    const isTypingDuration = /\sמ(ל|לפ|לפנ)$/.test(qNormHe) || (/\bמלפני\b/.test(qNormHe) && !/\sמלפני\s+\S/.test(qNormHe));
+                    // Also surface duration placeholder when just 'מ' is typed after the category
+                    if (afterM === 'מ') {
+                        out.push({ cmd: durCmd, score: 993.4, type: 'he_delete_cat_short_duration_seed' });
+                    }
+                    // Also add "older than" command when typing "ישנים" pattern (without "מ" yet)
+                    // Match progressive typing: " י", " יש", " ישנ", " ישנים"
+                    const isTypingOlderThan = /\sי(?:ש(?:נ(?:י(?:ם)?)?)?)?$/.test(qNormHe);
+                    if (isTypingOlderThan) {
+                        const olderThanCmd = 'מחק מיילי ' + cat + ' ישנים מ[משך]';
+                        // When typing "ישנים", only show that command (filter out everything else)
+                        out = [{ cmd: olderThanCmd, score: 996, type: 'he_delete_cat_short_older_than' }];
+                    } else {
+                        // Only add duration hints if there's no value after 'מלפני' (to avoid duplicates with duration value handler)
+                        if (!afterDur) {
+                            if (isTypingDuration) out.unshift({ cmd: durCmd, score: 996, type: 'he_delete_cat_short_duration' });
+                            else out.push({ cmd: durCmd, score: 993.5, type: 'he_delete_cat_short_duration_hint' });
+                        }
+                    }
                     return out;
                 } else {
                     // Only surface curated categories that prefix-match
@@ -7060,7 +7098,9 @@
                 
                 // Hebrew delete intent filter: if typing "מחק" progressively, prioritize delete commands
                 const isHeDeleteIntent = isHeb && (/^מ(?:ח(?:ק(\s+מ(?:י(?:י(?:ל(?:י(?:ם)?)?)?)?)?)?)?)?$/.test(q) || /^מחק\s+מיילים\s+מ$/.test(q) || /^מחק\s+מיילים\s+מ(היום|מאתמול|מהשבוע|מהחודש|מהשנה)/.test(q) || /^מחק\s+מיילים\s+מל/.test(q) || /^מחק\s+מיילים\s+י/.test(q));
-                if (isHeDeleteIntent && Array.isArray(items)) {
+                // Skip delete intent filter if typing "מחק מיילי" (category delete) - let category short-circuit handle it
+                const isCategoryDeleteTyping = /^מחק\s+מיילי\s*$/.test(q);
+                if (isHeDeleteIntent && !isCategoryDeleteTyping && Array.isArray(items)) {
                     try { console.log('[HE-DELETE-INTENT-FILTER] BEFORE filtering, items.length:', items.length); } catch(e) {}
                     try { console.log('[HE-DELETE-INTENT-FILTER] BEFORE filtering, first 5 items:', items.slice(0,5).map(x => x.cmd || x)); } catch(e) {}
                     
@@ -10747,7 +10787,7 @@
                     try { console.log('[DELETE-CATEGORY-DURATION-AGO-TYPO-PARTIAL-FILTER] filtered to duration ago commands for typo partial:', qlc); } catch(e) {}
                 }
             } catch (e) {}
-            
+
             // ARCHIVE-SENDER-TODAY FILTER: If typing 'archive emails from [sender] from to*', filter to only this command
             try {
                 const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
