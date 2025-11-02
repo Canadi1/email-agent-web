@@ -9962,6 +9962,218 @@
                 }
             } catch (e) {}
             
+            // DELETE-CATEGORY-A-FILTER: If typing 'delete [category] from a', filter to only duration ago commands
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isDeleteCategoryFromA = /^delete\s+(verification\s+codes|shipping\s+emails|account\s+security\s+emails)\s+from\s+a$/.test(qlc);
+                if (isDeleteCategoryFromA && Array.isArray(items)) {
+                    // Filter to only show duration ago commands
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        return /from\s+\[duration\]\s+ago$/.test(lcCmd);
+                    });
+                    try { console.log('[DELETE-CATEGORY-A-FILTER] filtered to duration ago commands for:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+            
+            // DELETE-CATEGORY-A-UNIT-FILTER: If typing 'delete [category] from a [unit]', filter to only duration ago commands
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isDeleteCategoryFromAUnit = /^delete\s+(verification\s+codes|shipping\s+emails|account\s+security\s+emails)\s+from\s+a\s+(d|w|m|y|da|we|mo|ye|day|wee|mon|mont|yea|days|weeks|months|years|week|month|year)$/.test(qlc);
+                if (isDeleteCategoryFromAUnit && Array.isArray(items)) {
+                    // Filter to only show duration ago commands
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        return /from\s+\[duration\]\s+ago$/.test(lcCmd);
+                    });
+                    try { console.log('[DELETE-CATEGORY-A-UNIT-FILTER] filtered to duration ago commands for:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+            
+            // DELETE-CATEGORY-A-AGO-FILTER: If typing 'delete [category] from a [unit] ago', filter to only duration ago commands
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isDeleteCategoryFromAAgo = /^delete\s+(verification\s+codes|shipping\s+emails|account\s+security\s+emails)\s+from\s+a\s+(d|w|m|y|da|we|mo|ye|day|wee|mon|mont|yea|days|weeks|months|years|week|month|year)\s+ago$/.test(qlc);
+                if (isDeleteCategoryFromAAgo && Array.isArray(items)) {
+                    // Filter to only show duration ago commands
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        return /from\s+\[duration\]\s+ago$/.test(lcCmd);
+                    });
+                    try { console.log('[DELETE-CATEGORY-A-AGO-FILTER] filtered to duration ago commands for:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+            
+            // DELETE-CATEGORY-A-TYPO-FILTER: If typing 'delete [category] from a [typo] ago', filter to only duration ago commands
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isDeleteCategoryFromATypo = /^delete\s+(verification\s+codes|shipping\s+emails|account\s+security\s+emails)\s+from\s+a\s+[a-z]+\s+ago$/.test(qlc);
+                if (isDeleteCategoryFromATypo && Array.isArray(items)) {
+                    // Filter to only show duration ago commands
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        return /from\s+\[duration\]\s+ago$/.test(lcCmd);
+                    });
+                    try { console.log('[DELETE-CATEGORY-A-TYPO-FILTER] filtered to duration ago commands for typo:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+            
+            // DELETE-CATEGORY-A-AGO-PROGRESSIVE-FILTER: If typing 'delete [category] from a [unit] a/ag/ago', filter to only duration ago commands
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isDeleteCategoryFromAAgoProgressive = /^delete\s+(verification\s+codes|shipping\s+emails|account\s+security\s+emails)\s+from\s+a\s+(d|w|m|y|da|we|mo|ye|day|wee|mon|mont|yea|days|weeks|months|years|week|month|year)\s+(a|ag|ago)$/.test(qlc);
+                // Only apply if it's NOT a typo (exclude patterns that look like typos)
+                const isNotTypo = !/^delete\s+(verification\s+codes|shipping\s+emails|account\s+security\s+emails)\s+from\s+a\s+(d|w|m|y|da|we|mo|ye|day|wee|mon|mont|yea|days|weeks|months|years|week|month|year)\s+(a[g-z]|ag[a-z])$/.test(qlc);
+                if (isDeleteCategoryFromAAgoProgressive && isNotTypo && Array.isArray(items)) {
+                    // Filter to only show duration ago commands
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        return /from\s+\[duration\]\s+ago$/.test(lcCmd);
+                    });
+                    try { console.log('[DELETE-CATEGORY-A-AGO-PROGRESSIVE-FILTER] filtered to duration ago commands for progressive ago:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+            
+            // DELETE-CATEGORY-A-UNIT-TYPO-FILTER: If typing 'delete [category] from a [typo]', filter to only duration ago commands
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isDeleteCategoryFromAUnitTypo = /^delete\s+(verification\s+codes|shipping\s+emails|account\s+security\s+emails)\s+from\s+a\s+[a-z]+$/.test(qlc);
+                if (isDeleteCategoryFromAUnitTypo && Array.isArray(items)) {
+                    // Filter to only show duration ago commands
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        return /from\s+\[duration\]\s+ago$/.test(lcCmd);
+                    });
+                    try { console.log('[DELETE-CATEGORY-A-UNIT-TYPO-FILTER] filtered to duration ago commands for unit typo:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+            
+            // DELETE-CATEGORY-A-AGO-TYPO-FILTER: If typing 'delete [category] from a [unit] [typo]', filter to only duration ago commands
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isDeleteCategoryFromAAgoTypo = /^delete\s+(verification\s+codes|shipping\s+emails|account\s+security\s+emails)\s+from\s+a\s+(d|w|m|y|da|we|mo|ye|day|wee|mon|mont|yea|days|weeks|months|years|week|month|year)\s+[a-z]+$/.test(qlc);
+                if (isDeleteCategoryFromAAgoTypo && Array.isArray(items)) {
+                    // Filter to only show duration ago commands
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        return /from\s+\[duration\]\s+ago$/.test(lcCmd);
+                    });
+                    try { console.log('[DELETE-CATEGORY-A-AGO-TYPO-FILTER] filtered to duration ago commands for ago typo:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+            
+            // DELETE-CATEGORY-A-AGO-TYPO-ONLY-FILTER: If typing 'delete [category] from a [unit] [ago-typo]', filter to only duration ago commands
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isDeleteCategoryFromAAgoTypoOnly = /^delete\s+(verification\s+codes|shipping\s+emails|account\s+security\s+emails)\s+from\s+a\s+(d|w|m|y|da|we|mo|ye|day|wee|mon|mont|yea|days|weeks|months|years|week|month|year)\s+(a[g-z]?|ag[a-z]?)$/.test(qlc);
+                if (isDeleteCategoryFromAAgoTypoOnly && Array.isArray(items)) {
+                    // Filter to only show duration ago commands
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        return /from\s+\[duration\]\s+ago$/.test(lcCmd);
+                    });
+                    try { console.log('[DELETE-CATEGORY-A-AGO-TYPO-ONLY-FILTER] filtered to duration ago commands for ago-only typo:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+            
+            // DELETE-CATEGORY-A-ANY-TYPO-AGO-FILTER: If typing 'delete [category] from a [any-typo] [ago-variant]', filter to only duration ago commands
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isDeleteCategoryFromAAnyTypoAgo = /^delete\s+(verification\s+codes|shipping\s+emails|account\s+security\s+emails)\s+from\s+a\s+[a-z]+\s+(a|ag|ago)$/.test(qlc);
+                if (isDeleteCategoryFromAAnyTypoAgo && Array.isArray(items)) {
+                    // Filter to only show duration ago commands
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        return /from\s+\[duration\]\s+ago$/.test(lcCmd);
+                    });
+                    try { console.log('[DELETE-CATEGORY-A-ANY-TYPO-AGO-FILTER] filtered to duration ago commands for any typo + ago:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+            
+            // DELETE-CATEGORY-A-ANY-TYPO-AGO-TYPO-FILTER: If typing 'delete [category] from a [any-typo] [any-ago-typo]', filter to only duration ago commands
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isDeleteCategoryFromAAnyTypoAgoTypo = /^delete\s+(verification\s+codes|shipping\s+emails|account\s+security\s+emails)\s+from\s+a\s+[a-z]+\s+[a-z]+$/.test(qlc);
+                if (isDeleteCategoryFromAAnyTypoAgoTypo && Array.isArray(items)) {
+                    // Filter to only show duration ago commands
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        return /from\s+\[duration\]\s+ago$/.test(lcCmd);
+                    });
+                    try { console.log('[DELETE-CATEGORY-A-ANY-TYPO-AGO-TYPO-FILTER] filtered to duration ago commands for any typo + any ago typo:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+            
+            // DELETE-CATEGORY-DURATION-AGO-COMPREHENSIVE-FILTER: If typing 'delete [category] from [number]' or 'delete [category] from [number] [unit] a/ag/ago', filter to duration ago commands
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isDeleteCategoryFromDurationAgoComprehensive = /^delete\s+(verification\s+codes|shipping\s+emails|account\s+security\s+emails)\s+from\s+\d+(\s+(d|da|day|days|w|we|wee|week|weeks|m|mo|mon|mont|month|months|y|ye|yea|year|years))?(\s+(a|ag|ago))?$/.test(qlc);
+                if (isDeleteCategoryFromDurationAgoComprehensive && Array.isArray(items)) {
+                    // Filter to only show duration ago commands
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        return /from\s+\[duration\]\s+ago$/.test(lcCmd);
+                    });
+                    try { console.log('[DELETE-CATEGORY-DURATION-AGO-COMPREHENSIVE-FILTER] filtered to duration ago commands for:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+            
+            // DELETE-CATEGORY-DURATION-AGO-ANY-TYPO-FILTER: If typing 'delete [category] from [number] [anything]', filter to only duration ago commands
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isDeleteCategoryFromDurationAgoAnyTypo = /^delete\s+(verification\s+codes|shipping\s+emails|account\s+security\s+emails)\s+from\s+\d+\s+[a-z]+/.test(qlc);
+                if (isDeleteCategoryFromDurationAgoAnyTypo && Array.isArray(items)) {
+                    // Filter to only show duration ago commands
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        return /from\s+\[duration\]\s+ago$/.test(lcCmd);
+                    });
+                    try { console.log('[DELETE-CATEGORY-DURATION-AGO-ANY-TYPO-FILTER] filtered to duration ago commands for any typo:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+            
+            // DELETE-CATEGORY-DURATION-AGO-TYPO-FILTER: If typing 'delete [category] from [number] [typo] ago', filter to only duration ago commands
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isDeleteCategoryFromDurationAgoTypo = /^delete\s+(verification\s+codes|shipping\s+emails|account\s+security\s+emails)\s+from\s+\d+\s+[a-z]+\s+ago$/.test(qlc);
+                if (isDeleteCategoryFromDurationAgoTypo && Array.isArray(items)) {
+                    // Filter to only show duration ago commands
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        return /from\s+\[duration\]\s+ago$/.test(lcCmd);
+                    });
+                    try { console.log('[DELETE-CATEGORY-DURATION-AGO-TYPO-FILTER] filtered to duration ago commands for typo:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+            
+            // DELETE-CATEGORY-DURATION-AGO-TYPO-PARTIAL-FILTER: If typing 'delete [category] from [number] [typo] a/ag', filter to only duration ago commands
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isDeleteCategoryFromDurationAgoTypoPartial = /^delete\s+(verification\s+codes|shipping\s+emails|account\s+security\s+emails)\s+from\s+\d+\s+[a-z]+\s+(a|ag)$/.test(qlc);
+                if (isDeleteCategoryFromDurationAgoTypoPartial && Array.isArray(items)) {
+                    // Filter to only show duration ago commands
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        return /from\s+\[duration\]\s+ago$/.test(lcCmd);
+                    });
+                    try { console.log('[DELETE-CATEGORY-DURATION-AGO-TYPO-PARTIAL-FILTER] filtered to duration ago commands for typo partial:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+            
             // ARCHIVE-SENDER-TODAY FILTER: If typing 'archive emails from [sender] from to*', filter to only this command
             try {
                 const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
