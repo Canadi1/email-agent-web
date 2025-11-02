@@ -2269,38 +2269,38 @@
                     'delete emails from [sender] from last year',
                     'delete emails from [sender] from [duration] ago',
                     'delete shipping emails',
+                    'delete shipping emails older than [duration]',
+                    'delete shipping emails from [duration] ago',
                     'delete shipping emails from today',
                     'delete shipping emails from yesterday',
                     'delete shipping emails from this week',
-                    'delete shipping emails from last week',
                     'delete shipping emails from this month',
-                    'delete shipping emails from last month',
                     'delete shipping emails from this year',
+                    'delete shipping emails from last week',
+                    'delete shipping emails from last month',
                     'delete shipping emails from last year',
-                    'delete shipping emails from [duration] ago',
-                    'delete shipping emails older than [duration]',
                     'delete verification codes',
+                    'delete verification codes older than [duration]',
+                    'delete verification codes from [duration] ago',
                     'delete verification codes from today',
                     'delete verification codes from yesterday',
                     'delete verification codes from this week',
-                    'delete verification codes from last week',
                     'delete verification codes from this month',
-                    'delete verification codes from last month',
                     'delete verification codes from this year',
+                    'delete verification codes from last week',
+                    'delete verification codes from last month',
                     'delete verification codes from last year',
-                    'delete verification codes from [duration] ago',
-                    'delete verification codes older than [duration]',
                     'delete account security emails',
+                    'delete account security emails older than [duration]',
+                    'delete account security emails from [duration] ago',
                     'delete account security emails from today',
                     'delete account security emails from yesterday',
                     'delete account security emails from this week',
-                    'delete account security emails from last week',
                     'delete account security emails from this month',
-                    'delete account security emails from last month',
                     'delete account security emails from this year',
+                    'delete account security emails from last week',
+                    'delete account security emails from last month',
                     'delete account security emails from last year',
-                    'delete account security emails from [duration] ago',
-                    'delete account security emails older than [duration]',
                     'archive emails from [sender]',
                     'archive emails older than [duration]',
                     'archive shipping emails',
@@ -4496,6 +4496,122 @@
                             }
                         }
                     }
+                    
+                    // DELETE CATEGORY PRIORITY: If typing a category name (e.g., "delete shipping emails"), reorder category commands
+                    try {
+                        // Detect partial category typing starting from "delete s", "delete v", "delete a"
+                        const qlcForCat = q.toLowerCase().trim();
+                        let categoryName = '';
+                        
+                        // Only detect if NOT starting with "delete e" (emails)
+                        if (!/^delete\s+e/.test(qlcForCat)) {
+                            if (/^delete\s+s/.test(qlcForCat)) {
+                                categoryName = 'shipping emails';
+                            } else if (/^delete\s+v/.test(qlcForCat)) {
+                                categoryName = 'verification codes';
+                            } else if (/^delete\s+a/.test(qlcForCat)) {
+                                categoryName = 'account security emails';
+                            }
+                        }
+                        
+                        const categoryMatch = q.match(/^delete\s+(shipping|verification|account)\s*$/i) || q.match(/^delete\s+(shipping\s+emails?|verification\s+codes?|account\s+security\s+emails?)\s*$/i) || q.match(/^delete\s+(shipping\s+emails|verification\s+codes|account\s+security\s+emails)\s*$/i) || categoryName;
+                        if ((categoryMatch || categoryName) && actionKey === 'delete') {
+                            const matchedText = (categoryMatch && categoryMatch[1]) ? categoryMatch[1].toLowerCase() : '';
+                            
+                            // Map partial matches to full category names
+                            if (!categoryName && matchedText) {
+                                if (matchedText.startsWith('shipping')) {
+                                    categoryName = 'shipping emails';
+                                } else if (matchedText.startsWith('verification')) {
+                                    categoryName = 'verification codes';
+                                } else if (matchedText.startsWith('account')) {
+                                    categoryName = 'account security emails';
+                                }
+                            }
+                            
+                            if (!categoryName) categoryName = matchedText;
+                            
+                            console.log('[DELETE-CATEGORY-PRIORITY] Detected category:', categoryName);
+                            
+                            // Build priority order for this category:
+                            // 1. category name (plain)
+                            // 2. category older than [duration]
+                            // 3. category from [duration] ago
+                            // 4. category from today
+                            // 5. category from yesterday
+                            // 6. category from this week
+                            // 7. category from this month
+                            // 8. category from this year
+                            // 9. category from last week
+                            // 10. category from last month
+                            // 11. category from last year
+                            const categoryEscaped = categoryName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                            const categoryRegex = new RegExp('^delete\\s+' + categoryEscaped + '(?:\\s|$)', 'i');
+                            
+                            // Filter to only category commands
+                            let categoryCommands = filteredByAction.filter(item => {
+                                const s = (item && item.cmd ? String(item.cmd).toLowerCase() : '');
+                                return categoryRegex.test(s);
+                            });
+                            
+                            console.log('[DELETE-CATEGORY-PRIORITY] Found category commands:', categoryCommands.length);
+                            
+                            if (categoryCommands.length > 0) {
+                                // Build priority order
+                                const priorityOrder = [
+                                    new RegExp('^delete\\s+' + categoryEscaped + '$', 'i'),
+                                    new RegExp('^delete\\s+' + categoryEscaped + '\\s+older\\s+than\\s+\\[duration\\]$', 'i'),
+                                    new RegExp('^delete\\s+' + categoryEscaped + '\\s+from\\s+\\[duration\\]\\s+ago$', 'i'),
+                                    new RegExp('^delete\\s+' + categoryEscaped + '\\s+from\\s+today$', 'i'),
+                                    new RegExp('^delete\\s+' + categoryEscaped + '\\s+from\\s+yesterday$', 'i'),
+                                    new RegExp('^delete\\s+' + categoryEscaped + '\\s+from\\s+this\\s+week$', 'i'),
+                                    new RegExp('^delete\\s+' + categoryEscaped + '\\s+from\\s+this\\s+month$', 'i'),
+                                    new RegExp('^delete\\s+' + categoryEscaped + '\\s+from\\s+this\\s+year$', 'i'),
+                                    new RegExp('^delete\\s+' + categoryEscaped + '\\s+from\\s+last\\s+week$', 'i'),
+                                    new RegExp('^delete\\s+' + categoryEscaped + '\\s+from\\s+last\\s+month$', 'i'),
+                                    new RegExp('^delete\\s+' + categoryEscaped + '\\s+from\\s+last\\s+year$', 'i')
+                                ];
+                                
+                                const orderedCategory = [];
+                                const addedSet = new Set();
+                                
+                                // Add commands in priority order
+                                priorityOrder.forEach(regex => {
+                                    const found = categoryCommands.find(item => {
+                                        const s = (item && item.cmd ? String(item.cmd).toLowerCase() : '');
+                                        return regex.test(s) && !addedSet.has(s);
+                                    });
+                                    if (found) {
+                                        const s = (found && found.cmd ? String(found.cmd).toLowerCase() : '');
+                                        addedSet.add(s);
+                                        orderedCategory.push(found);
+                                        console.log('[DELETE-CATEGORY-PRIORITY] Added:', s);
+                                    }
+                                });
+                                
+                                // Add remaining category commands not in priority list
+                                categoryCommands.forEach(item => {
+                                    const s = (item && item.cmd ? String(item.cmd).toLowerCase() : '');
+                                    if (!addedSet.has(s)) {
+                                        orderedCategory.push(item);
+                                    }
+                                });
+                                
+                                console.log('[DELETE-CATEGORY-PRIORITY] Final ordered count:', orderedCategory.length);
+                                
+                                // Replace the category commands in filteredByAction with the ordered ones
+                                filteredByAction = filteredByAction.filter(item => {
+                                    const s = (item && item.cmd ? String(item.cmd).toLowerCase() : '');
+                                    return !categoryRegex.test(s);
+                                });
+                                
+                                // Prepend ordered category commands to the front
+                                filteredByAction = orderedCategory.concat(filteredByAction);
+                                
+                                console.log('[DELETE-CATEGORY-PRIORITY] Applied category priority ordering');
+                            }
+                        }
+                    } catch(e) {}
                     
                     // Track filteredByAction before DELETE EMAILS FILTER
                     try {
