@@ -5157,20 +5157,10 @@
                                 
                                 // If typing timeframe after sender, filter to matching commands
                                 if (typedAfterSender && typedAfterSender.length > 1) {
-                                    const matchingSenderTf = senderPriorities.filter(cmd => {
-                                        // Handle "מהיום" specially - only start filtering at "מהי", not "מה"
-                                        if (/^מה/.test(typedAfterSender)) {
-                                            if (/^מהי/.test(typedAfterSender)) {
-                                                const matchPattern = 'מחק מיילים מ[שולח] ' + typedAfterSender;
-                                                const result = cmd.startsWith(matchPattern);
-                                                console.log('[DELETE-SENDER-FILTER-HE] checking:', cmd, 'against:', matchPattern, 'result:', result);
-                                                return result;
-                                            } else {
-                                                // "מה" is ambiguous, don't filter yet
-                                                return false;
-                                            }
-                                        }
-                                        return cmd.startsWith('מחק מיילים מ[שולח] ' + typedAfterSender);
+                                    const senderTfCommands = senderPriorities.slice(3); // Skip first 3 (plain sender, older than, from duration)
+                                    const matchingSenderTf = senderTfCommands.filter(cmd => {
+                                        const cmdAfterSender = cmd.replace('מחק מיילים מ[שולח] ', '');
+                                        return cmdAfterSender.startsWith(typedAfterSender);
                                     });
                                     if (matchingSenderTf.length) {
                                         filteredByAction = filteredByAction.filter(item => {
