@@ -2620,6 +2620,18 @@
                 out.push({ cmd: 'מחק מיילי אבטחת חשבון', score: 997, type: 'he_delete_cat_short' });
                 return out;
             }
+            // Strongest guard: if typing "ישנים מ" after a category, return ONLY the older-than command
+            const yishanimMemExact = qNormHe.match(/^מחק\s+מיילי\s+([\u0590-\u05FF\s]+?)\s+י(?:ש(?:נ(?:י(?:ם)?)?)?)?\s+מ\s*$/);
+            if (yishanimMemExact) {
+                const typedCat = (yishanimMemExact[1] || '').trim();
+                let cat = '';
+                for (const c of categories) { if (c.startsWith(typedCat) || typedCat.startsWith(c)) { cat = c; break; } }
+                if (cat) {
+                    const olderThanCmd = 'מחק מיילי ' + cat + ' ישנים מ[משך]';
+                    try { console.log('[HE-CAT-SS][YISHANIM-EXACT] returning:', olderThanCmd); } catch(e) {}
+                    return [{ cmd: olderThanCmd, score: 997, type: 'he_delete_cat_short_older_than_exact' }];
+                }
+            }
             // Check for "מחק מיילי [category] מ" pattern early - prioritize מלפני and timeframes
             const categoryMemMatch = qNormHe.match(/^מחק\s+מיילי\s+([\u0590-\u05FF\s]+?)\s+מ\s*$/);
             if (categoryMemMatch) {
@@ -2638,17 +2650,27 @@
             }
             // Check for "ישנים מ" pattern early - if typing "מחק מיילי <category> ישנים מ" (with or without value)
             const yishanimMemMatch = qNormHe.match(/^מחק\s+מיילי\s+([\u0590-\u05FF\s]+?)\s+י(?:ש(?:נ(?:י(?:ם)?)?)?)?\s+מ/);
+            try { console.log('[HE-CAT-SS][YISHANIM] yishanimMemMatch:', yishanimMemMatch); } catch(e) {}
             if (yishanimMemMatch) {
                 const typedCat = (yishanimMemMatch[1] || '').trim();
+                try { console.log('[HE-CAT-SS][YISHANIM] typedCat:', typedCat); } catch(e) {}
                 let cat = '';
-                for (const c of categories) { if (c.startsWith(typedCat) || typedCat.startsWith(c)) { cat = c; break; } }
+                for (const c of categories) { 
+                    if (c.startsWith(typedCat) || typedCat.startsWith(c)) { 
+                        cat = c; 
+                        break; 
+                    } 
+                }
+                try { console.log('[HE-CAT-SS][YISHANIM] cat:', cat); } catch(e) {}
                 if (cat) {
                     const olderThanCmd = 'מחק מיילי ' + cat + ' ישנים מ[משך]';
+                    try { console.log('[HE-CAT-SS][YISHANIM] returning early with:', olderThanCmd); } catch(e) {}
                     return [{ cmd: olderThanCmd, score: 996, type: 'he_delete_cat_short_older_than' }];
                 }
             }
             // Check for "מלפני" pattern early - if typing "מחק מיילי <category> מלפני" (progressive like מל/מלפ/מלפנ/מלפני, with or without value)
-            const melefaniMatch = qNormHe.match(/^מחק\s+מיילי\s+([\u0590-\u05FF\s]+?)\s+מ(?:ל(?:פ(?:נ(?:י)?)?)?)?/);
+            // Must have "ל" after "מ" to distinguish from timeframes
+            const melefaniMatch = qNormHe.match(/^מחק\s+מיילי\s+([\u0590-\u05FF\s]+?)\s+מל(?:פ(?:נ(?:י)?)?)?/);
             if (melefaniMatch) {
                 const typedCat = (melefaniMatch[1] || '').trim();
                 let cat = '';
@@ -2658,13 +2680,48 @@
                     return [{ cmd: durCmd, score: 996, type: 'he_delete_cat_short_duration' }];
                 }
             }
+            // Check for category timeframes early (מהיום, מאתמול, מהשבוע, etc.)
+            // Skip if "ישנים מ" is being typed to avoid false-positive on 'מ'/'מה'
+            if (/\sי(?:ש(?:נ(?:י(?:ם)?)?)?)?\s+מ\s*$/.test(qNormHe)) {
+                // skip timeframe check
+            } else {
+            const catTimeframeMatch = qNormHe.match(/^מחק\s+מיילי\s+([\u0590-\u05FF\s]+?)\s+מ(?:היום|מאתמול|מה|מא|השבוע|החודש|השנה|השבוע שעבר|החודש שעבר|השנה שעברה)/);
+            try { console.log('[HE-CAT-SS][TIMEframe] catTimeframeMatch:', catTimeframeMatch); } catch(e) {}
+            if (catTimeframeMatch) {
+                const typedCat = (catTimeframeMatch[1] || '').trim();
+                let cat = '';
+                for (const c of categories) { if (c.startsWith(typedCat) || typedCat.startsWith(c)) { cat = c; break; } }
+                try { console.log('[HE-CAT-SS][TIMEframe] typedCat:', typedCat, 'cat:', cat); } catch(e) {}
+                if (cat) {
+                    // Extract the partial timeframe typed
+                    const afterCat = qNormHe.substring(qNormHe.indexOf(cat) + cat.length).trim();
+                    const partialTf = afterCat;
+                    let filteredTfs = tfAll.filter(tf => tf.startsWith(partialTf));
+                    if (!filteredTfs.length) {
+                        if (partialTf === 'מא') filteredTfs = ['מאתמול'];
+                        else if (partialTf === 'מה') filteredTfs = ['מהיום','מהשבוע','מהחודש','מהשנה'];
+                        else if (partialTf === 'השבוע ש') filteredTfs = ['השבוע שעבר'];
+                        else if (partialTf === 'החודש ש') filteredTfs = ['החודש שעבר'];
+                        else if (partialTf === 'השנה ש') filteredTfs = ['השנה שעברה'];
+                        else if (partialTf === 'השבוע') filteredTfs = ['השבוע','השבוע שעבר'];
+                        else if (partialTf === 'החודש') filteredTfs = ['החודש','החודש שעבר'];
+                        else if (partialTf === 'השנה') filteredTfs = ['השנה','השנה שעברה'];
+                    }
+                    const out = filteredTfs.map(tf => ({ cmd: 'מחק מיילי ' + cat + ' ' + tf, score: 996, type: 'he_delete_cat_tf' }));
+                    try { console.log('[HE-CAT-SS][TIMEframe] returning early with:', out.map(x => x.cmd)); } catch(e) {}
+                    return out;
+                }
+            }
+            }
             // Match: מחק מיילי <קטגוריה> [מ<partial>] | or 'מלפני <...>' | or 'ישנים מ' for category
             const m = qNormHe.match(/^מחק\s+מיילי(?:ם)?\s+([\u0590-\u05FF\s]+?)(?:\s+י(?:ש(?:נ(?:י(?:ם)?)?)?)?(?:\s+מ)?)?(?:\s+מ([\u0590-\u05FF]*))?(?:\s+מלפני\b([\u0590-\u05FF\s\d]*)?)?$/);
             if (m) {
                 const typedCat = (m[1] || '').trim();
-                const hasYishanim = m[2] !== undefined; // Check if "ישנים" pattern was captured
-                const afterM = m[3] ? ('מ' + m[3]) : '';
-                const afterDur = (m[4] || '').trim();
+                // In this regex layout:
+                // m[2] = content immediately after a standalone 'מ' (timeframe prefix)
+                // m[3] = content after 'מלפני'
+                const afterM = m[2] ? ('מ' + m[2]) : '';
+                const afterDur = (m[3] || '').trim();
                 // Resolve category by prefix in either direction
                 let cat = '';
                 for (const c of categories) { if (c.startsWith(typedCat) || typedCat.startsWith(c)) { cat = c; break; } }
@@ -7146,7 +7203,8 @@
                 // Hebrew delete intent filter: if typing "מחק" progressively, prioritize delete commands
                 const isHeDeleteIntent = isHeb && (/^מ(?:ח(?:ק(\s+מ(?:י(?:י(?:ל(?:י(?:ם)?)?)?)?)?)?)?)?$/.test(q) || /^מחק\s+מיילים\s+מ$/.test(q) || /^מחק\s+מיילים\s+מ(היום|מאתמול|מהשבוע|מהחודש|מהשנה)/.test(q) || /^מחק\s+מיילים\s+מל/.test(q) || /^מחק\s+מיילים\s+י/.test(q));
                 // Skip delete intent filter if typing "מחק מיילי" (category delete) - let category short-circuit handle it
-                const isCategoryDeleteTyping = /^מחק\s+מיילי\s*$/.test(q);
+                const isCategoryDeleteTyping = /^מחק\s+מיילי/.test(q);
+                try { console.log('[HE-DELETE-DEBUG] q:', q, 'isHeDeleteIntent:', isHeDeleteIntent, 'isCategoryDeleteTyping:', isCategoryDeleteTyping, 'will skip?', isHeDeleteIntent && !isCategoryDeleteTyping); } catch(e) {}
                 if (isHeDeleteIntent && !isCategoryDeleteTyping && Array.isArray(items)) {
                     try { console.log('[HE-DELETE-INTENT-FILTER] BEFORE filtering, items.length:', items.length); } catch(e) {}
                     try { console.log('[HE-DELETE-INTENT-FILTER] BEFORE filtering, first 5 items:', items.slice(0,5).map(x => x.cmd || x)); } catch(e) {}
@@ -7376,7 +7434,8 @@
                 const isDurationIntent = isHeb && /(?:^|\s)(?:י(?:ש(?:נ(?:י(?:ם)?)?)?)?|מל(?:פ(?:נ(?:י)?)?)?|older\s+than|from\s+duration)/i.test(q);
                 const isDurationWithValue = isHeb && /(?:^|\s)י(?:ש(?:נ(?:י(?:ם)?)?)?)?\s+מ\s*\S+/i.test(q);
                 const hasSenderBeforeDuration = /מיילים\s+מ\s+[^\s]+\s+(?:י(?:ש(?:נ(?:י(?:ם)?)?)?)?|מל(?:פ(?:נ(?:י)?)?)?)/i.test(q);
-                if ((isDurationIntent || isDurationWithValue) && Array.isArray(items)) {
+                const isCategoryDeleteQ = /^מחק\s+מיילי/.test(q);
+                if ((isDurationIntent || isDurationWithValue) && Array.isArray(items) && !isCategoryDeleteQ) {
                     console.log('[HE-DURATION-FILTER] Detected duration intent, filtering sender-only commands. HasSenderBeforeDuration:', hasSenderBeforeDuration);
                     items = items.filter(it => {
                         const text = typeof it === 'string' ? it : (it && it.cmd ? it.cmd : '');
