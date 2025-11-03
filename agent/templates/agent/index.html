@@ -2757,34 +2757,27 @@
                         const olderThanCmd = 'מחק מיילי ' + cat + ' ישנים מ[משך]';
                         out = [{ cmd: olderThanCmd, score: 996, type: 'he_delete_cat_short_older_than' }];
                     } else {
-                        // Order: Base category, then ישנים, then מלפני, then timeframes
-                        out.push({ cmd: 'מחק מיילי ' + cat, score: 995, type: 'he_delete_cat_short_base' });
-                        
-                        // Check if typing duration pattern
+                        // Order rules:
+                        // - If a timeframe prefix after 'מ' is being typed, show ONLY timeframes (and optional מלפני seed), no base
+                        // - Otherwise (no 'מ' after category), show base + durations + timeframes
                         const durCmd = 'מחק מיילי ' + cat + ' מלפני [משך]';
                         const isTypingDuration = /\sמ(ל|לפ|לפנ)$/.test(qNormHe) || (/\bמלפני\b/.test(qNormHe) && !/\sמלפני\s+\S/.test(qNormHe));
-                        
-                        // Check if just 'מ' is typed after the category - prioritize מלפני
-                        // afterM includes the 'מ' prefix, so we need to check the raw captured group
-                        const rawAfterM = m[3] || '';
-                        if (rawAfterM === 'מ') {
-                            out.push({ cmd: durCmd, score: 994.5, type: 'he_delete_cat_short_duration_seed' });
-                            // Add timeframes after מלפני
-                            for (const tf of tfs) { out.push({ cmd: 'מחק מיילי ' + cat + ' ' + tf, score: 993, type: 'he_delete_cat_short_tf' }); }
-                        } else if (isExactCategory || !afterM) {
-                            // Add duration commands after base (only if not typing timeframe)
+
+                        if (afterM) {
+                            if (isTypingDuration) {
+                                out.push({ cmd: durCmd, score: 996, type: 'he_delete_cat_short_duration' });
+                            }
+                            for (const tf of tfs) {
+                                out.push({ cmd: 'מחק מיילי ' + cat + ' ' + tf, score: 993, type: 'he_delete_cat_short_tf' });
+                            }
+                        } else {
+                            // No timeframe prefix typed yet: show base, then durations, then timeframes
+                            out.push({ cmd: 'מחק מיילי ' + cat, score: 995, type: 'he_delete_cat_short_base' });
                             out.push({ cmd: 'מחק מיילי ' + cat + ' ישנים מ[משך]', score: 994.5, type: 'he_delete_cat_short_older_than' });
                             out.push({ cmd: durCmd, score: 994, type: 'he_delete_cat_short_duration' });
-                            // Add timeframes after duration commands
-                            for (const tf of tfs) { out.push({ cmd: 'מחק מיילי ' + cat + ' ' + tf, score: 993, type: 'he_delete_cat_short_tf' }); }
-                        } else if (!isExactCategory && !afterDur) {
-                            // Only add duration hints if there's no value after 'מלפני' (to avoid duplicates with duration value handler)
-                            if (isTypingDuration) out.unshift({ cmd: durCmd, score: 996, type: 'he_delete_cat_short_duration' });
-                            // Add timeframes after duration commands
-                            for (const tf of tfs) { out.push({ cmd: 'מחק מיילי ' + cat + ' ' + tf, score: 993, type: 'he_delete_cat_short_tf' }); }
-                        } else {
-                            // Add timeframes
-                            for (const tf of tfs) { out.push({ cmd: 'מחק מיילי ' + cat + ' ' + tf, score: 993, type: 'he_delete_cat_short_tf' }); }
+                            for (const tf of tfs) {
+                                out.push({ cmd: 'מחק מיילי ' + cat + ' ' + tf, score: 993, type: 'he_delete_cat_short_tf' });
+                            }
                         }
                     }
                     return out;
@@ -2798,6 +2791,21 @@
         }
     } catch (e) {}
     
+            // HEBREW DELETE PLAIN DURATION SHORT-CIRCUIT: if input is plain 'מחק מיילים' with duration keywords, return ONLY duration suggestions
+            try {
+                const isPlainDelete = /^מחק\s+מיילים(?:\s|$)/.test(qNormHe);
+                if (isPlainDelete) {
+                    // Progressive/plain older-than: "י", "יש", "ישנ", "ישנים" with optional/any trailing after 'מ'
+                    if (/^מחק\s+מיילים\s+י(?:ש(?:נ(?:י(?:ם)?)?)?)?(?:\s+מ(?:\s*\S.*)?)?$/.test(qNormHe)) {
+                        return [{ cmd: 'מחק מיילים ישנים מ[משך]', score: 1000, type: 'he_delete_plain_duration_older' }];
+                    }
+                    // Progressive/plain ago: "מל", "מלפ", "מלפנ", "מלפני" with or without value after it
+                    if (/^מחק\s+מיילים\s+מל(?:פ(?:נ(?:י)?)?)?(?:\s+\S.*)?$/.test(qNormHe)) {
+                        return [{ cmd: 'מחק מיילים מלפני [משך]', score: 1000, type: 'he_delete_plain_duration_ago' }];
+                    }
+                }
+            } catch (e) {}
+
             const scored = [];
             const includeMatches = [];
             // Hebrew cues used throughout ranking adjustments
