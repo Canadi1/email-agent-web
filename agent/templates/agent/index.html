@@ -1532,28 +1532,32 @@
                         <li><b>{% trans 'list emails older than [duration]' %}</b> - {% trans "e.g., '6 months', '1 year'" %}</li>
                         <li><b>{% trans 'list emails from [sender] from [timeframe]' %}</b> - {% trans "e.g., 'list emails from google from today', 'list emails from amazon from last month', 'list emails from google from 2 weeks ago'" %}</li>
                         <li><b>{% trans 'list emails from [sender] older than [duration]' %}</b> - {% trans "e.g., 'list emails from google older than 3 months'" %}</li>
-                        <li><b>{% trans 'list verification codes' %}</b> - {% trans 'Finds login and 2FA codes.' %}</li>
-                        <li><b>{% trans 'list verification codes older than [duration]' %}</b> - {% trans 'Lists codes by age window.' %}</li>
-                        <li><b>{% trans 'list verification codes from [duration] ago' %}</b> - {% trans 'Lists codes from a specific time period ago.' %}</li>
-                        <li><b>{% trans 'list shipping emails' %}</b> - {% trans 'Carrier updates and delivery notices.' %}</li>
-                        <li><b>{% trans 'list shipping emails older than [duration]' %}</b> - {% trans 'Carrier updates and delivery notices.' %}</li>
-                        <li><b>{% trans 'list shipping emails from [duration] ago' %}</b> - {% trans 'Carrier updates and delivery notices from a specific time period ago.' %}</li>
-                        <li><b>{% trans 'list account security emails' %}</b> - {% trans 'Security alerts and sign-in notices.' %}</li>
-                        <li><b>{% trans 'list account security emails older than [duration]' %}</b> - {% trans 'Older security notices.' %}</li>
-                        <li><b>{% trans 'list account security emails from [duration] ago' %}</b> - {% trans 'Security alerts and sign-in notices from a specific time period ago.' %}</li>
+                        <li><b>{% trans 'list [category] emails' %}</b> - {% trans 'e.g., verification codes, shipping, account security' %}</li>
+                        <li><b>{% trans 'list [category] emails older than [duration]' %}</b> - {% trans 'Lists category emails by age window.' %}</li>
+                        <li><b>{% trans 'list [category] emails from [duration] ago' %}</b> - {% trans 'Lists category emails from a time period ago.' %}</li>
+                        <li><b>{% trans 'list [category] emails from [timeframe]' %}</b> - {% trans 'Lists category emails by fixed time (today, yesterday, last week, etc.).' %}</li>
                         <!-- Archive group -->
                         <li><b>{% trans 'archive emails older than [duration]' %}</b> - {% trans 'Bulk archives old emails.' %}</li>
+                        <li><b>{% trans 'archive emails from [timeframe]' %}</b> - {% trans 'Archives emails from a fixed time (today, yesterday, last week, etc.).' %}</li>
+                        <li><b>{% trans 'archive emails from [duration] ago' %}</b> - {% trans 'Archives emails from a specific time period ago.' %}</li>
                         <li><b>{% trans 'archive emails from [sender] older than [duration]' %}</b> - {% trans 'Archives messages from a sender with an age filter.' %}</li>
                         <li><b>{% trans 'archive emails from [sender] from [time period]' %}</b> - {% trans 'Archives messages from a sender from specific time (today, yesterday, last week, etc.).' %}</li>
-                        <li><b>{% trans 'archive verification codes older than [duration]' %}</b> - {% trans 'Archives codes after a period.' %}</li>
-                        <li><b>{% trans 'archive shipping emails older than [duration]' %}</b> - {% trans 'Archives old shipping updates.' %}</li>
-                        <li><b>{% trans 'archive account security emails older than [duration]' %}</b> - {% trans 'Archives older security alerts.' %}</li>
+                        <li><b>{% trans 'archive emails from [sender] from [duration] ago' %}</b> - {% trans 'Archives messages from a sender from a time period ago.' %}</li>
+                        <li><b>{% trans 'archive [category] emails older than [duration]' %}</b> - {% trans 'Archives category emails by age window.' %}</li>
+                        <li><b>{% trans 'archive [category] emails from [timeframe]' %}</b> - {% trans 'Archives category emails by fixed time (today, yesterday, last week, etc.).' %}</li>
+                        <li><b>{% trans 'archive [category] emails from [duration] ago' %}</b> - {% trans 'Archives category emails from a time period ago.' %}</li>
                         <!-- Delete group -->
                         <li><b>{% trans 'delete emails from [sender/domain]' %}</b> - {% trans 'Moves emails to Trash.' %}</li>
+                        <li><b>{% trans 'delete emails older than [duration]' %}</b> - {% trans 'Bulk deletes old emails.' %}</li>
+                        <li><b>{% trans 'delete emails from [timeframe]' %}</b> - {% trans 'Deletes emails from a fixed time (today, yesterday, last week, etc.).' %}</li>
+                        <li><b>{% trans 'delete emails from [duration] ago' %}</b> - {% trans 'Deletes emails from a specific time period ago.' %}</li>
+                        <li><b>{% trans 'delete emails from [sender] older than [duration]' %}</b> - {% trans 'Deletes messages from a sender with an age filter.' %}</li>
+                        <li><b>{% trans 'delete emails from [sender] from [timeframe]' %}</b> - {% trans 'Deletes messages from a sender from a specific time (today, yesterday, last week, etc.).' %}</li>
+                        <li><b>{% trans 'delete emails from [sender] from [duration] ago' %}</b> - {% trans 'Deletes messages from a sender from a time period ago.' %}</li>
                         <li><b>{% trans 'delete promotions older than [duration]' %}</b> - {% trans 'Cleans up the Promotions tab.' %}</li>
-                        <li><b>{% trans 'delete verification codes older than [duration]' %}</b> - {% trans 'Cleans codes past a safe window.' %}</li>
-                        <li><b>{% trans 'delete shipping emails older than [duration]' %}</b> - {% trans 'Deletes stale shipping updates.' %}</li>
-                        <li><b>{% trans 'delete account security emails older than [duration]' %}</b> - {% trans 'Deletes stale security alerts.' %}</li>
+                        <li><b>{% trans 'delete [category] emails older than [duration]' %}</b> - {% trans 'Deletes category emails by age window.' %}</li>
+                        <li><b>{% trans 'delete [category] emails from [duration] ago' %}</b> - {% trans 'Deletes category emails from a time period ago.' %}</li>
+                        <li><b>{% trans 'delete [category] emails from [timeframe]' %}</b> - {% trans 'Deletes category emails by fixed time (today, yesterday, last week, etc.).' %}</li>
                         <!-- Label group -->
                         <li><b>{% trans 'label emails from [sender] as [label]' %}</b> - {% trans 'Organizes emails with a label.' %}</li>
                         <li><b>{% trans 'list labels' %}</b> - {% trans 'Shows all your custom Gmail labels.' %}</li>
@@ -2135,6 +2139,16 @@
                     'חפש מיילים עם נושא "[מילת מפתח]"',
                     'הצג סטטיסטיקות דואל',
                     'מחק מיילים מ[דומיין]',
+                    'מחק מיילים מ[דומיין] ישנים מ[משך]',
+                    'מחק מיילים מ[דומיין] מלפני [משך]',
+                    'מחק מיילים מ[דומיין] מהיום',
+                    'מחק מיילים מ[דומיין] מאתמול',
+                    'מחק מיילים מ[דומיין] מהשבוע',
+                    'מחק מיילים מ[דומיין] מהשבוע שעבר',
+                    'מחק מיילים מ[דומיין] מהחודש',
+                    'מחק מיילים מ[דומיין] מהחודש שעבר',
+                    'מחק מיילים מ[דומיין] מהשנה',
+                    'מחק מיילים מ[דומיין] מהשנה שעברה',
                     'מחק מיילים מ[שולח]',
                     'מחק מיילים ישנים מ[משך]',
                     'מחק מיילים מלפני [משך]',
@@ -2255,6 +2269,16 @@
                     'search emails with subject "[keyword]"',
                     'show email stats',
                     'delete emails from [domain.com]',
+                    'delete emails from [domain.com] older than [duration]',
+                    'delete emails from [domain.com] from [duration] ago',
+                    'delete emails from [domain.com] from today',
+                    'delete emails from [domain.com] from yesterday',
+                    'delete emails from [domain.com] from this week',
+                    'delete emails from [domain.com] from last week',
+                    'delete emails from [domain.com] from this month',
+                    'delete emails from [domain.com] from last month',
+                    'delete emails from [domain.com] from this year',
+                    'delete emails from [domain.com] from last year',
                     'delete all promotions older than [duration]',
                     'delete emails from [sender] older than [duration]',
                     'delete emails older than [duration]',

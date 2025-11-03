@@ -1,3 +1,185 @@
+msgid "list [category] emails"
+msgstr "רשום מיילי [קטגוריה]"
+
+msgid "e.g., verification codes, shipping, account security"
+msgstr "למשל: קודי אימות, מיילי משלוח, אבטחת חשבון"
+
+msgid "list [category] emails older than [duration]"
+msgstr "רשום מיילי [קטגוריה] ישנים מ-[משך]"
+
+msgid "Lists category emails by age window."
+msgstr "רשימת מיילי קטגוריה לפי חלון גיל."
+
+msgid "list [category] emails from [duration] ago"
+msgstr "רשום מיילי [קטגוריה] מלפני [משך]"
+
+msgid "Lists category emails from a time period ago."
+msgstr "רשימת מיילי קטגוריה מתקופת זמן מסוימת שעברה."
+
+msgid "list [category] emails from [timeframe]"
+msgstr "רשום מיילי [קטגוריה] מ-[תקופה]"
+
+msgid "Lists category emails by fixed time (today, yesterday, last week, etc.)."
+msgstr "רשימת מיילי קטגוריה לפי זמן קבוע (היום, אתמול, שבוע שעבר וכו')."
+
+msgid "archive [category] emails older than [duration]"
+msgstr "ארכב מיילי [קטגוריה] ישנים מ-[משך]"
+
+msgid "Archives category emails by age window."
+msgstr "ארכוב מיילי קטגוריה לפי חלון גיל."
+
+msgid "archive [category] emails from [timeframe]"
+msgstr "ארכב מיילי [קטגוריה] מ-[תקופה]"
+
+msgid "Archives category emails by fixed time (today, yesterday, last week, etc.)."
+msgstr "ארכוב מיילי קטגוריה לפי זמן קבוע (היום, אתמול, שבוע שעבר וכו')."
+
+msgid "archive [category] emails from [duration] ago"
+msgstr "ארכב מיילי [קטגוריה] מלפני [משך]"
+
+msgid "Archives category emails from a time period ago."
+msgstr "ארכוב מיילי קטגוריה מתקופת זמן מסוימת שעברה."
+
+msgid "delete [category] emails older than [duration]"
+msgstr "מחק מיילי [קטגוריה] ישנים מ-[משך]"
+
+msgid "Deletes category emails by age window."
+msgstr "מחיקת מיילי קטגוריה לפי חלון גיל."
+
+msgid "delete [category] emails from [timeframe]"
+msgstr "מחק מיילי [קטגוריה] מ-[תקופה]"
+
+msgid "Deletes category emails by fixed time (today, yesterday, last week, etc.)."
+msgstr "מחיקת מיילי קטגוריה לפי זמן קבוע (היום, אתמול, שבוע שעבר וכו')."
+
+msgid "delete [category] emails from [duration] ago"
+msgstr "מחק מיילי [קטגוריה] מלפני [משך]"
+
+msgid "Deletes category emails from a time period ago."
+msgstr "מחיקת מיילי קטגוריה מתקופת זמן מסוימת שעברה."
+# New All-Commands (Archive) UI strings
+msgid "archive emails from [timeframe]"
+msgstr "ארכב מיילים מ-[תקופה]"
+
+msgid "Archives emails from a fixed time (today, yesterday, last week, etc.)."
+msgstr "מארכב מיילים ממועד קבוע (היום, אתמול, שבוע שעבר וכו')."
+
+msgid "archive emails from [duration] ago"
+msgstr "ארכב מיילים מלפני [משך]"
+
+msgid "Archives emails from a specific time period ago."
+msgstr "מארכב מיילים מתקופת זמן מסוימת שעברה."
+
+msgid "archive emails from [sender] from [duration] ago"
+msgstr "ארכב מיילים מ-[שולח] מלפני [משך]"
+
+msgid "Archives messages from a sender from a time period ago."
+msgstr "מארכב הודעות משולח מתקופת זמן מסוימת שעברה."
+
+msgid "archive verification codes from [timeframe]"
+msgstr "ארכב קודי אימות מ-[תקופה]"
+
+msgid "Archives codes by fixed time (today, yesterday, last week, etc.)."
+msgstr "מארכב קודים לפי זמן קבוע (היום, אתמול, שבוע שעבר וכו')."
+
+msgid "archive verification codes from [duration] ago"
+msgstr "ארכב קודי אימות מלפני [משך]"
+
+msgid "Archives codes from a time period ago."
+msgstr "מארכב קודים מתקופת זמן מסוימת שעברה."
+
+msgid "archive shipping emails from [timeframe]"
+msgstr "ארכב מיילי משלוח מ-[תקופה]"
+
+msgid "Archives shipping updates by fixed time (today, yesterday, last week, etc.)."
+msgstr "מארכב עדכוני משלוח לפי זמן קבוע (היום, אתמול, שבוע שעבר וכו')."
+
+msgid "archive shipping emails from [duration] ago"
+msgstr "ארכב מיילי משלוח מלפני [משך]"
+
+msgid "Archives shipping updates from a time period ago."
+msgstr "מארכב עדכוני משלוח מתקופת זמן מסוימת שעברה."
+
+msgid "archive account security emails from [timeframe]"
+msgstr "ארכב מיילי אבטחת חשבון מ-[תקופה]"
+
+msgid "Archives security alerts by fixed time (today, yesterday, last week, etc.)."
+msgstr "מארכב התראות אבטחה לפי זמן קבוע (היום, אתמול, שבוע שעבר וכו')."
+
+msgid "archive account security emails from [duration] ago"
+msgstr "ארכב מיילי אבטחת חשבון מלפני [משך]"
+
+msgid "Archives security alerts from a time period ago."
+msgstr "מארכב התראות אבטחה מתקופת זמן מסוימת שעברה."
+# New All-Commands (Delete) UI strings
+msgid "delete emails older than [duration]"
+msgstr "מחק מיילים ישנים מ-[משך]"
+
+msgid "delete emails from [timeframe]"
+msgstr "מחק מיילים מ-[תקופה]"
+
+msgid "Deletes emails from a fixed time (today, yesterday, last week, etc.)."
+msgstr "מוחק מיילים ממועד קבוע (היום, אתמול, שבוע שעבר וכו')."
+
+msgid "delete emails from [duration] ago"
+msgstr "מחק מיילים מלפני [משך]"
+
+msgid "Deletes emails from a specific time period ago."
+msgstr "מוחק מיילים מתקופת זמן מסוימת שעברה."
+
+msgid "delete emails from [sender] older than [duration]"
+msgstr "מחק מיילים מ-[שולח] ישנים מ-[משך]"
+
+msgid "Deletes messages from a sender with an age filter."
+msgstr "מוחק הודעות משולח עם מסנן גיל."
+
+msgid "delete emails from [sender] from [timeframe]"
+msgstr "מחק מיילים מ-[שולח] מ-[תקופה]"
+
+msgid "Deletes messages from a sender from a specific time (today, yesterday, last week, etc.)."
+msgstr "מוחק הודעות משולח ממועד מסוים (היום, אתמול, שבוע שעבר וכו')."
+
+msgid "delete emails from [sender] from [duration] ago"
+msgstr "מחק מיילים מ-[שולח] מלפני [משך]"
+
+msgid "Deletes messages from a sender from a time period ago."
+msgstr "מוחק הודעות משולח מתקופת זמן מסוימת שעברה."
+
+msgid "delete verification codes from [timeframe]"
+msgstr "מחק קודי אימות מ-[תקופה]"
+
+msgid "Deletes codes by fixed time (today, yesterday, last week, etc.)."
+msgstr "מוחק קודים לפי זמן קבוע (היום, אתמול, שבוע שעבר וכו')."
+
+msgid "delete verification codes from [duration] ago"
+msgstr "מחק קודי אימות מלפני [משך]"
+
+msgid "Deletes codes from a time period ago."
+msgstr "מוחק קודים מתקופת זמן מסוימת שעברה."
+
+msgid "delete shipping emails from [timeframe]"
+msgstr "מחק מיילי משלוח מ-[תקופה]"
+
+msgid "Deletes shipping updates by fixed time (today, yesterday, last week, etc.)."
+msgstr "מוחק עדכוני משלוח לפי זמן קבוע (היום, אתמול, שבוע שעבר וכו')."
+
+msgid "delete shipping emails from [duration] ago"
+msgstr "מחק מיילי משלוח מלפני [משך]"
+
+msgid "Deletes shipping updates from a time period ago."
+msgstr "מוחק עדכוני משלוח מתקופת זמן מסוימת שעברה."
+
+msgid "delete account security emails from [timeframe]"
+msgstr "מחק מיילי אבטחת חשבון מ-[תקופה]"
+
+msgid "Deletes security alerts by fixed time (today, yesterday, last week, etc.)."
+msgstr "מוחק התראות אבטחה לפי זמן קבוע (היום, אתמול, שבוע שעבר וכו')."
+
+msgid "delete account security emails from [duration] ago"
+msgstr "מחק מיילי אבטחת חשבון מלפני [משך]"
+
+msgid "Deletes security alerts from a time period ago."
+msgstr "מוחק התראות אבטחה מתקופת זמן מסוימת שעברה."
 # Custom category timeframe autocomplete entries
 msgid "list shipping emails from [timeframe]"
 msgstr "רשום מיילי משלוח מ-[תקופה]"
