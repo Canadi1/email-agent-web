@@ -2814,6 +2814,14 @@
                 }
             } catch (e) {}
 
+            // HEBREW DELETE SENDER AGO SHORT-CIRCUIT: keep ONLY sender+'מלפני' when typing duration-ago after a sender
+            try {
+                const senderAgo = /^מחק\s+מיילים\s+מ\s*(?:\[שולח\]|[^\s]+)\s+מל(?:פ(?:נ(?:י)?)?)?(?:\s+\S.*)?\s*$/.test(qNormHe);
+                if (senderAgo) {
+                    return [{ cmd: 'מחק מיילים מ[שולח] מלפני [משך]', score: 1001, type: 'he_delete_sender_duration_ago' }];
+                }
+            } catch (e) {}
+
             const scored = [];
             const includeMatches = [];
             // Hebrew cues used throughout ranking adjustments
