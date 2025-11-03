@@ -127,9 +127,6 @@ msgstr "מחק מיילים מלפני [משך]"
 msgid "Deletes emails from a specific time period ago."
 msgstr "מוחק מיילים מתקופת זמן מסוימת שעברה."
 
-msgid "delete emails from [sender] older than [duration]"
-msgstr "מחק מיילים מ-[שולח] ישנים מ-[משך]"
-
 msgid "Deletes messages from a sender with an age filter."
 msgstr "מוחק הודעות משולח עם מסנן גיל."
 
