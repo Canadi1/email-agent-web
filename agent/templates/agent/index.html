@@ -2806,6 +2806,14 @@
                 }
             } catch (e) {}
 
+            // HEBREW DELETE SENDER OLDER-THAN SHORT-CIRCUIT: keep ONLY sender+older-than when typing 'ישנים' after a sender
+            try {
+                const senderOlderThan = /^מחק\s+מיילים\s+מ\s*(?:\[שולח\]|[^\s]+)\s+י(?:ש(?:נ(?:י(?:ם)?)?)?)?(?:\s+מ(?:\s*\S.*)?)?\s*$/.test(qNormHe);
+                if (senderOlderThan) {
+                    return [{ cmd: 'מחק מיילים מ[שולח] ישנים מ[משך]', score: 1001, type: 'he_delete_sender_duration_older' }];
+                }
+            } catch (e) {}
+
             const scored = [];
             const includeMatches = [];
             // Hebrew cues used throughout ranking adjustments
@@ -7307,15 +7315,54 @@
                             window.heDeleteFromFilterActive = true;
                             try { console.log('[HE-DELETE-FROM-FILTER] Set flag to prevent override'); } catch(e) {}
                         } else {
-                            // When typing "מחק" or other patterns, only show plain delete commands
-                            items = items.filter(it => {
-                                const text = typeof it === 'string' ? it : (it && it.cmd ? it.cmd : '');
-                                const lc = String(text || '').toLowerCase().trim();
-                                // Keep only plain "מחק מיילים" commands, hide categories and list commands
-                                const keep = /^מחק\s+מיילים\b/.test(lc);
-                                try { console.log('[HE-DELETE-INTENT-FILTER] checking:', lc, 'keep:', keep); } catch(e) {}
-                                return keep;
-                            });
+                            // After-sender typing: "מחק מיילים מ <sender> מ..."
+                            const senderAfterM = q.match(/^מחק\s+מיילים\s+מ\s*([^\s]+)\s+מ([\u0590-\u05FF]*)\s*$/);
+                            if (senderAfterM) {
+                                const typedAfter = 'מ' + (senderAfterM[2] || '');
+                                // If typed "מל..." → only duration placeholder
+                                if (/^מל(?:פ(?:נ(?:י)?)?)?/i.test(typedAfter)) {
+                                    items = [{ cmd: 'מחק מיילים מלפני [משך]' }];
+                                } else {
+                                    // Timeframe suggestions filtered by prefix, with special handling for tiny prefixes
+                                    const tfAll = ['מחק מיילים מהיום','מחק מיילים מאתמול','מחק מיילים מהשבוע','מחק מיילים מהשבוע שעבר','מחק מיילים מהחודש','מחק מיילים מהחודש שעבר','מחק מיילים מהשנה','מחק מיילים מהשנה שעברה'];
+                                    let filtered;
+                                    if (typedAfter === 'מ') {
+                                        // Just 'מ' after sender: show 'מלפני' first, then timeframes
+                                        items = [{ cmd: 'מחק מיילים מלפני [משך]' }].concat(tfAll.map(cmd => ({ cmd })));
+                                    } else if (typedAfter === 'מא') {
+                                        filtered = ['מחק מיילים מאתמול'];
+                                        items = filtered.map(cmd => ({ cmd }));
+                                    } else if (typedAfter === 'מה') {
+                                        filtered = ['מחק מיילים מהיום','מחק מיילים מהשבוע','מחק מיילים מהחודש','מחק מיילים מהשנה'];
+                                        items = filtered.map(cmd => ({ cmd }));
+                                    } else if (/^מהש/.test(typedAfter)) {
+                                        // Show week/year plus their past variants for 'מהש'
+                                        filtered = ['מחק מיילים מהשבוע','מחק מיילים מהשבוע שעבר','מחק מיילים מהשנה','מחק מיילים מהשנה שעברה'];
+                                        items = filtered.map(cmd => ({ cmd }));
+                                    } else if (/^מהח/.test(typedAfter)) {
+                                        filtered = ['מחק מיילים מהחודש','מחק מיילים מהחודש שעבר'];
+                                        items = filtered.map(cmd => ({ cmd }));
+                                    } else {
+                                        // Generic prefix filter on tfAll (by the leading token after 'מ')
+                                        const justTfs = tfAll;
+                                        const pref = typedAfter;
+                                        const out = justTfs.filter(s => s.replace(/^מחק\s+מיילים\s+/, '').startsWith(pref.replace(/^מ/, 'מ')));
+                                        items = (out.length ? out : justTfs).map(cmd => ({ cmd }));
+                                    }
+                                }
+                                window.heDeleteSenderAfterMActive = true;
+                                try { console.log('[HE-DELETE-SENDER-AFTER-M] typedAfter:', typedAfter, 'items:', items.map(x => x.cmd)); } catch(e) {}
+                            } else {
+                                // When typing "מחק" or other patterns, only show plain delete commands
+                                items = items.filter(it => {
+                                    const text = typeof it === 'string' ? it : (it && it.cmd ? it.cmd : '');
+                                    const lc = String(text || '').toLowerCase().trim();
+                                    // Keep only plain "מחק מיילים" commands, hide categories and list commands
+                                    const keep = /^מחק\s+מיילים\b/.test(lc);
+                                    try { console.log('[HE-DELETE-INTENT-FILTER] checking:', lc, 'keep:', keep); } catch(e) {}
+                                    return keep;
+                                });
+                            }
                         }
                     }
                     
