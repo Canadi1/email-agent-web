@@ -1131,6 +1131,7 @@ def index(request):
         _("delete account security emails from last year"),
         _("delete account security emails from [duration] ago"),
         _("label emails from [sender] as \"[label]\""),
+        _("label emails with [keyword] as \"[label]\""),
         _("search emails with subject \"[keyword]\""),
         _("send email")
     ]
@@ -1254,7 +1255,6 @@ def index(request):
                 "שחזר מיילים מ[שולח]",
                 "צור תווית \"[תווית]\"",
                 "תייג מיילים מ[שולח] כ\"[תווית]\"",
-                "תייג מיילים מ[דומיין] כ\"[תווית]\"",
                 "תייג מיילים עם מילות מפתח כ\"[תווית]\"",
                 "רשום תוויות",
                 "הצג תווית \"[תווית]\"",

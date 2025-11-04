@@ -3162,6 +3162,38 @@ class GmailAIAgent:
                     "confirmation_required": True
                 }
 
+        # Early handling for label with keywords command
+        # Accept multiple formats:
+        # - "label emails with keywords [keyword] as [label]"
+        # - "label emails with [keyword] as [label]"
+        # - "label [keyword] as [label]" (short form, assumes emails with)
+        if "label" in command_lower and " as " in command_lower and " from " not in command_lower:
+            # Unified regex that handles all forms
+            # Matches: label [emails] [with [keywords]] [keyword(s)] as [label]
+            label_keywords_match = re.search(
+                r'label\s+(?:emails\s+)?(?:with\s+(?:keywords\s+)?)?(.+?)\s+as\s+["\']?([^"\']+)["\']?', 
+                command_lower
+            )
+            if label_keywords_match:
+                keywords_str = label_keywords_match.group(1).strip()
+                label_name = label_keywords_match.group(2).strip()
+                
+                # Remove "emails" if present at the start of keywords
+                keywords_str = re.sub(r'^emails\s+', '', keywords_str, flags=re.IGNORECASE)
+                
+                # Ensure this is not a "from sender" command (would have "from" before "as")
+                if "from" not in keywords_str.lower() and keywords_str and label_name:
+                    # Split keywords by spaces, filter out empty strings
+                    keywords = [k.strip() for k in keywords_str.split() if k.strip()]
+                    if keywords:
+                        return {
+                            "action": "label",
+                            "target_type": "subject_keywords",
+                            "target": keywords,  # Pass as list
+                            "label": label_name,
+                            "confirmation_required": True
+                        }
+
         # Early handling for restore commands
         if "restore" in command_lower and " from " in command_lower:
             # Capture multi-word sender until end of command
@@ -3786,6 +3818,14 @@ class GmailAIAgent:
             elif action == "label_by_keywords":
                 return self.label_emails_by_keywords(
                     confirmation_data["keywords"], confirmation_data["label"], confirm=True
+                )
+            elif action == "label_by_sender":
+                return self.label_emails_by_sender(
+                    confirmation_data["sender"], confirmation_data["label"], confirm=True
+                )
+            elif action == "label_by_domain":
+                return self.label_emails_by_domain(
+                    confirmation_data["domain"], confirmation_data["label"], confirm=True
                 )
             elif action == "archive_by_age":
                 return self.archive_emails_by_age_only(
@@ -6355,31 +6395,189 @@ class GmailAIAgent:
             keyword_query = " OR ".join([f'subject:"{keyword}"' for keyword in keywords])
             query = f"({keyword_query})"
             
-            results = self.service.users().messages().list(
-                userId='me', q=query).execute()
-            messages = results.get('messages', [])
+            results = self.api_list_messages(q=query, maxResults=500)
+            all_messages = []
+            if results.get('messages'):
+                all_messages.extend(results['messages'])
+            page_token = results.get('nextPageToken')
+            while page_token:
+                results = self.api_list_messages(q=query, maxResults=500, pageToken=page_token)
+                if results.get('messages'):
+                    all_messages.extend(results['messages'])
+                page_token = results.get('nextPageToken')
             
-            if not messages:
-                return {"status": "success", "message": f"No emails found with keywords: {', '.join(keywords)}.", "labeled_count": 0}
+            if not all_messages:
+                return {"status": "success", "message": _("No emails found with keywords: %(keywords)s.") % {"keywords": ', '.join(keywords)}, "labeled_count": 0}
             
             if not confirm:
                 return {
                     "status": "confirmation_required",
-                    "count": len(messages),
-                    "total_estimated": len(messages),
-                    "preview": self._build_preview(messages),
+                    "message": _("Found %(count)d emails with keywords %(keywords)s. Do you want to label them as '%(label)s'?") % {"count": len(all_messages), "keywords": ', '.join(keywords), "label": label_name},
+                    "count": len(all_messages),
+                    "total_estimated": len(all_messages),
+                    "preview": self._build_preview(all_messages),
                     "action_details": {"action": "label_by_keywords", "keywords": keywords, "label": label_name}
                 }
             
-            # Label the emails
-            for message in messages:
-                self.service.users().messages().modify(
-                    userId='me', 
-                    id=message['id'],
-                    body={'addLabelIds': [label_id]}
-                ).execute()
+            batch_size = 100
+            total_processed = 0
+            message_ids = [m['id'] for m in all_messages]
             
-            return {"status": "success", "message": f"Labeled {len(messages)} emails with keywords {', '.join(keywords)} as '{label_name}'.", "labeled_count": len(messages)}
+            for i in range(0, len(all_messages), batch_size):
+                batch = all_messages[i:i + batch_size]
+                message_ids_batch = [m['id'] for m in batch]
+                try:
+                    self.api_batch_modify(message_ids_batch, add_label_ids=[label_id])
+                    total_processed += len(batch)
+                except HttpError as e:
+                    for message in batch:
+                        try:
+                            self.api_modify(message['id'], add_label_ids=[label_id])
+                            total_processed += 1
+                        except HttpError:
+                            continue
+            
+            return {"status": "success", "message": _("Labeled %(count)d emails with keywords %(keywords)s as '%(label)s'.") % {"count": total_processed, "keywords": ', '.join(keywords), "label": label_name}, "labeled_count": total_processed}
+            
+        except HttpError as error:
+            return {"status": "error", "message": f"Error labeling emails: {error}"}
+
+    def label_emails_by_sender(self, sender_email, label_name, confirm=False):
+        """Label emails from a specific sender.
+        Optionally filter by age using older_than_days.
+        """
+        try:
+            # Create label if it doesn't exist
+            self.create_label(label_name)
+            label_id = self.get_label_id(label_name)
+            
+            if not label_id:
+                return {"status": "error", "message": f"Could not create or find label '{label_name}'"}
+            
+            # Search for emails from the sender
+            query = f"from:{sender_email}"
+            
+            results = self.api_list_messages(q=query, maxResults=500)
+            messages = results.get('messages', [])
+            page_token = results.get('nextPageToken')
+            all_messages = []
+            if messages:
+                all_messages.extend(messages)
+            while page_token:
+                results = self.api_list_messages(q=query, maxResults=500, pageToken=page_token)
+                messages = results.get('messages', [])
+                if messages:
+                    all_messages.extend(messages)
+                page_token = results.get('nextPageToken')
+            
+            if not all_messages:
+                return {"status": "success", "message": _("No emails found from %(sender)s.") % {"sender": sender_email}, "labeled_count": 0}
+            
+            if not confirm:
+                return {
+                    "status": "confirmation_required",
+                    "message": _("Found %(count)d emails from %(sender)s. Do you want to label them as '%(label)s'?") % {"count": len(all_messages), "sender": sender_email, "label": label_name},
+                    "count": len(all_messages),
+                    "total_estimated": len(all_messages),
+                    "preview": self._build_preview(all_messages),
+                    "action_details": {
+                        "action": "label_by_sender",
+                        "sender": sender_email,
+                        "label": label_name
+                    }
+                }
+            
+            # Process in batches for better performance
+            batch_size = 100
+            total_processed = 0
+            message_ids = [m['id'] for m in all_messages]
+            
+            for i in range(0, len(all_messages), batch_size):
+                batch = all_messages[i:i + batch_size]
+                message_ids_batch = [m['id'] for m in batch]
+                try:
+                    self.api_batch_modify(message_ids_batch, add_label_ids=[label_id])
+                    total_processed += len(batch)
+                except HttpError as e:
+                    # Fallback to individual labeling if batch fails
+                    for message in batch:
+                        try:
+                            self.api_modify(message['id'], add_label_ids=[label_id])
+                            total_processed += 1
+                        except HttpError:
+                            continue
+            
+            return {"status": "success", "message": _("Labeled %(count)d emails from %(sender)s as '%(label)s'.") % {"count": total_processed, "sender": sender_email, "label": label_name}, "labeled_count": total_processed}
+            
+        except HttpError as error:
+            return {"status": "error", "message": f"Error labeling emails: {error}"}
+
+    def label_emails_by_domain(self, domain, label_name, confirm=False):
+        """Label emails from a specific domain.
+        Optionally filter by age using older_than_days.
+        """
+        try:
+            # Create label if it doesn't exist
+            self.create_label(label_name)
+            label_id = self.get_label_id(label_name)
+            
+            if not label_id:
+                return {"status": "error", "message": f"Could not create or find label '{label_name}'"}
+            
+            query_parts = [f"from:*@{domain}"]
+            query = " ".join(query_parts)
+            
+            results = self.api_list_messages(q=query, maxResults=500)
+            messages = results.get('messages', [])
+            page_token = results.get('nextPageToken')
+            all_messages = []
+            if messages:
+                all_messages.extend(messages)
+            while page_token:
+                results = self.api_list_messages(q=query, maxResults=500, pageToken=page_token)
+                messages = results.get('messages', [])
+                if messages:
+                    all_messages.extend(messages)
+                page_token = results.get('nextPageToken')
+            
+            if not all_messages:
+                return {"status": "success", "message": _("No emails found from domain: %(domain)s.") % {"domain": domain}, "labeled_count": 0}
+            
+            if not confirm:
+                return {
+                    "status": "confirmation_required",
+                    "message": _("Found %(count)d emails from domain %(domain)s. Do you want to label them as '%(label)s'?") % {"count": len(all_messages), "domain": domain, "label": label_name},
+                    "count": len(all_messages),
+                    "total_estimated": len(all_messages),
+                    "preview": self._build_preview(all_messages),
+                    "action_details": {
+                        "action": "label_by_domain",
+                        "domain": domain,
+                        "label": label_name
+                    }
+                }
+            
+            # Process in batches for better performance
+            batch_size = 100
+            total_processed = 0
+            message_ids = [m['id'] for m in all_messages]
+            
+            for i in range(0, len(all_messages), batch_size):
+                batch = all_messages[i:i + batch_size]
+                message_ids_batch = [m['id'] for m in batch]
+                try:
+                    self.api_batch_modify(message_ids_batch, add_label_ids=[label_id])
+                    total_processed += len(batch)
+                except HttpError as e:
+                    # Fallback to individual labeling if batch fails
+                    for message in batch:
+                        try:
+                            self.api_modify(message['id'], add_label_ids=[label_id])
+                            total_processed += 1
+                        except HttpError:
+                            continue
+            
+            return {"status": "success", "message": _("Labeled %(count)d emails from domain %(domain)s as '%(label)s'.") % {"count": total_processed, "domain": domain, "label": label_name}, "labeled_count": total_processed}
             
         except HttpError as error:
             return {"status": "error", "message": f"Error labeling emails: {error}"}
