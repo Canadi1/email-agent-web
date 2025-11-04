@@ -2803,7 +2803,9 @@ class GmailAIAgent:
         Optionally filter by age using older_than_days.
         """
         try:
-            keyword_query = " OR ".join([f'subject:"{keyword}"' for keyword in keywords])
+            # Use word matching (without quotes) instead of exact phrase matching
+            # This finds emails where the keyword appears anywhere in the subject
+            keyword_query = " OR ".join([f'subject:{keyword}' for keyword in keywords])
             query = f"({keyword_query})"
             if older_than_days:
                 from datetime import datetime, timedelta
@@ -4686,7 +4688,9 @@ class GmailAIAgent:
         for attempt in range(max_retries):
             try:
                 # Build search query for subject keywords
-                keyword_query = " OR ".join([f'subject:"{keyword}"' for keyword in keywords])
+                # Use word matching (without quotes) instead of exact phrase matching
+                # This finds emails where the keyword appears anywhere in the subject
+                keyword_query = " OR ".join([f'subject:{keyword}' for keyword in keywords])
                 query = f"({keyword_query})"
                 
                 try:
@@ -6385,14 +6389,20 @@ class GmailAIAgent:
         """Label emails containing specific keywords in subject"""
         try:
             # Create label if it doesn't exist
-            self.create_label(label_name)
+            try:
+                self.create_label(label_name)
+            except Exception as e:
+                return {"status": "error", "message": str(e)}
+            
             label_id = self.get_label_id(label_name)
             
             if not label_id:
-                return {"status": "error", "message": f"Could not create or find label '{label_name}'"}
+                return {"status": "error", "message": f"Could not find label '{label_name}' after creation. Please try again."}
             
             # Build search query for subject keywords
-            keyword_query = " OR ".join([f'subject:"{keyword}"' for keyword in keywords])
+            # Use word matching (without quotes) instead of exact phrase matching
+            # This finds emails where the keyword appears anywhere in the subject, not just as an exact phrase
+            keyword_query = " OR ".join([f'subject:{keyword}' for keyword in keywords])
             query = f"({keyword_query})"
             
             results = self.api_list_messages(q=query, maxResults=500)
@@ -6448,11 +6458,15 @@ class GmailAIAgent:
         """
         try:
             # Create label if it doesn't exist
-            self.create_label(label_name)
+            try:
+                self.create_label(label_name)
+            except Exception as e:
+                return {"status": "error", "message": str(e)}
+            
             label_id = self.get_label_id(label_name)
             
             if not label_id:
-                return {"status": "error", "message": f"Could not create or find label '{label_name}'"}
+                return {"status": "error", "message": f"Could not find label '{label_name}' after creation. Please try again."}
             
             # Search for emails from the sender
             query = f"from:{sender_email}"
@@ -6518,11 +6532,15 @@ class GmailAIAgent:
         """
         try:
             # Create label if it doesn't exist
-            self.create_label(label_name)
+            try:
+                self.create_label(label_name)
+            except Exception as e:
+                return {"status": "error", "message": str(e)}
+            
             label_id = self.get_label_id(label_name)
             
             if not label_id:
-                return {"status": "error", "message": f"Could not create or find label '{label_name}'"}
+                return {"status": "error", "message": f"Could not find label '{label_name}' after creation. Please try again."}
             
             query_parts = [f"from:*@{domain}"]
             query = " ".join(query_parts)
@@ -6686,8 +6704,14 @@ class GmailAIAgent:
             created_label = self.service.users().labels().create(userId='me', body=label).execute()
             return created_label.get('id')
         except HttpError as error:
-            print(f"❌ Error creating label: {error}")
-            return None
+            error_msg = str(error)
+            print(f"❌ Error creating label: {error_msg}")
+            # Re-raise with more context or return error info
+            raise Exception(f"Failed to create label '{label_name}': {error_msg}")
+        except Exception as error:
+            error_msg = str(error)
+            print(f"❌ Unexpected error creating label: {error_msg}")
+            raise Exception(f"Failed to create label '{label_name}': {error_msg}")
 
     def get_emails_by_label(self, label_name, max_results=None, page_token=None):
         """Get emails with a specific label"""
