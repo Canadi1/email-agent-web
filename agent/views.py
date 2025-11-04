@@ -1255,7 +1255,7 @@ def index(request):
                 "שחזר מיילים מ[שולח]",
                 "צור תווית \"[תווית]\"",
                 "תייג מיילים מ[שולח] כ\"[תווית]\"",
-                "תייג מיילים עם מילות מפתח כ\"[תווית]\"",
+                "תייג מיילים עם [מילת מפתח] כ\"[תווית]\"",
                 "רשום תוויות",
                 "הצג תווית \"[תווית]\"",
                 "רשום מיילים עם תווית \"[תווית]\"",
@@ -1468,6 +1468,14 @@ def _translate_hebrew_command_to_english(command: str) -> str:
         (r"^[\s]*מחק", "delete "),
         (r"^[\s]*ארכב", "archive "),
         (r"^[\s]*תייג|^[\s]*הוסף\s+תווית", "label "),
+        # Translate Hebrew 'מיילים' (emails) to English 'emails' for label commands
+        (r"\bמיילים\b", "emails"),
+        # Translate Hebrew 'עם' (with) to English 'with' for label commands
+        # Match 'עם' with optional space before and after, ensure proper spacing in replacement
+        (r"\s*עם\s*", " with "),
+        # Translate Hebrew 'כ' (as) to English 'as' for label commands
+        # Match 'כ' with optional space before and after, ensure proper spacing in replacement
+        (r"\s*כ\s*", " as "),
         (r"^[\s]*שחזר", "restore "),
         (r"^[\s]*חפש", "search "),
 
