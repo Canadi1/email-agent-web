@@ -2641,6 +2641,7 @@ class GmailAIAgent:
     def search_emails_by_subject(self, search_term, max_results=50):
         """Search for emails with a specific term in the subject."""
         try:
+            from datetime import datetime
             query = f"subject:({search_term})"
             results = self.api_list_messages(q=query, maxResults=max_results)
             messages = results.get('messages', [])
@@ -2650,11 +2651,21 @@ class GmailAIAgent:
 
             email_list = []
             for message in messages:
-                msg = self.api_get_message(message['id'], format='metadata', metadataHeaders=['From', 'Subject'])
+                msg = self.api_get_message(message['id'], format='metadata', metadataHeaders=['From', 'Subject'], fields='id,internalDate,payload/headers')
                 headers = msg['payload']['headers']
                 subject = next((h['value'] for h in headers if h['name'] == 'Subject'), 'No Subject')
                 sender = next((h['value'] for h in headers if h['name'] == 'From'), 'Unknown Sender')
-                email_list.append({'id': message['id'], 'sender': sender, 'subject': subject})
+                
+                # Add date information
+                date_str = ''
+                try:
+                    ts_ms = int(msg.get('internalDate', '0') or '0')
+                    if ts_ms:
+                        date_str = datetime.fromtimestamp(ts_ms/1000).strftime('%Y-%m-%d %H:%M')
+                except Exception:
+                    date_str = ''
+                
+                email_list.append({'id': message['id'], 'sender': sender, 'subject': subject, 'date': date_str})
                 
             return email_list
 
