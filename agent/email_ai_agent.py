@@ -3182,11 +3182,13 @@ class GmailAIAgent:
                 
                 # Remove "emails" if present at the start of keywords
                 keywords_str = re.sub(r'^emails\s+', '', keywords_str, flags=re.IGNORECASE)
+                # Remove "with" if present (can appear after "emails" or at the start)
+                keywords_str = re.sub(r'^(?:with\s+|emails\s+with\s+)', '', keywords_str, flags=re.IGNORECASE)
                 
                 # Ensure this is not a "from sender" command (would have "from" before "as")
                 if "from" not in keywords_str.lower() and keywords_str and label_name:
-                    # Split keywords by spaces, filter out empty strings
-                    keywords = [k.strip() for k in keywords_str.split() if k.strip()]
+                    # Split keywords by spaces, filter out empty strings and "with"
+                    keywords = [k.strip() for k in keywords_str.split() if k.strip() and k.strip().lower() != "with"]
                     if keywords:
                         return {
                             "action": "label",

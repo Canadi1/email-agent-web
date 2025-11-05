@@ -6305,13 +6305,13 @@
                 }
             }
 
-            // Special handling: if next token is [duration], bold through it as soon as any characters are typed after ' from '
+            // Special handling: if next token is [duration] or [label], bold through it as soon as any characters are typed after the fixed text
             if (nextTokenText) {
                 const idxFixed = typedAfterPrefix.indexOf(afterFixedLc);
                 if (idxFixed !== -1) {
                     const afterAfterFixedTyped = typedAfterPrefix.slice(idxFixed + afterFixedLc.length);
                     if (afterAfterFixedTyped.length > 0) {
-                        // Bold up to and including [sender], ' from ', and the [duration] token
+                        // Bold up to and including [sender], fixed text after sender (e.g., ' as '), and the next token (e.g., [duration] or [label])
                         const afterNextFixedLc = (afterNextFixed || '').toLowerCase();
                         let k2 = 0;
                         if (afterNextFixedLc) {
@@ -6319,6 +6319,16 @@
                             for (let j = max2; j >= 1; j--) {
                                 if (afterAfterFixedTyped.endsWith(afterNextFixedLc.substring(0, j))) { k2 = j; break; }
                             }
+                        }
+                        // For label commands: if user is typing the label, extend bold to include it
+                        const isLabelCommand = /label\s+emails\s+(?:from|with)/i.test(cmd) && /\[label\]|\[תווית\]/i.test(nextTokenText);
+                        if (isLabelCommand && afterAfterFixedTyped.length > 0) {
+                            // Extend bold to include the full "[label]" token and any typed label text
+                            const strongEnd = before.length + tokenText.length + afterFixed.length + nextTokenText.length;
+                            const bold = escapeHtml(cmd.substring(0, strongEnd));
+                            const rest = escapeHtml(cmd.substring(strongEnd));
+                            div.innerHTML = `<strong>${bold}</strong>${rest}`;
+                            return true;
                         }
                         const strongEnd = before.length + tokenText.length + afterFixed.length + nextTokenText.length + k2;
                         const bold = escapeHtml(cmd.substring(0, strongEnd));
@@ -6341,6 +6351,18 @@
             } else {
                 const extra = cutoffMat - (before.length + typedInsidePlaceholderLen);
                 cutoffTpl = before.length + tokenText.length + extra;
+            }
+            
+            // Special handling for label commands: if user typed "as" and the label, extend bold to include them
+            const isLabelCommand = /label\s+emails\s+(?:from|with)/i.test(cmd) && nextTokenText && /\[label\]|\[תווית\]/i.test(nextTokenText);
+            if (isLabelCommand) {
+                // Check if user has typed "as" (or "כ" in Hebrew) in the typed text after the sender
+                const hasTypedAs = typedAfterPrefix.includes(afterFixedLc.trim()) || typedAfterPrefix.includes(' as ') || typedAfterPrefix.includes(' כ');
+                if (hasTypedAs) {
+                    // Extend bold to include "as" and the [label] token
+                    const labelTokenEnd = before.length + tokenText.length + afterFixed.length + nextTokenText.length;
+                    cutoffTpl = Math.max(cutoffTpl, labelTokenEnd);
+                }
             }
             // Additional guard: if the next fixed word does not prefix-match what's typed after the sender,
             // do not render sender materialization at all (prevents any bold for non-matching suggestions)
@@ -15343,6 +15365,62 @@
                 const lc = cmd.toLowerCase();
                 const pos = lc.indexOf(input.toLowerCase());
                 let boldLen = 0; // defensive default to avoid ReferenceError during fallback bolding
+                // EN LABEL-WITH SPECIAL BOLDING: progressive bolding for 'as' and "[label]"
+                try {
+                    const qlcLabel = (input || '').toLowerCase().trim();
+                    const isLabelWithTemplate = /^label\s+emails\s+with\s+\[keyword\]\s+as\s+"\[label\]"$/.test(lc);
+                    const hasLabelWithCue = qlcLabel.startsWith('label emails with ');
+                    if (isLabelWithTemplate && hasLabelWithCue) {
+                        // Extract what comes after "label emails with "
+                        const afterWith = qlcLabel.slice('label emails with '.length);
+                        // Check if user has started typing the label (text after "as")
+                        const afterAsMatch = qlcLabel.match(/\sas\s+(.+)$/);
+                        const hasLabelText = afterAsMatch && afterAsMatch[1] && afterAsMatch[1].trim().length > 0;
+                        // Check for progressive "as" typing: ends with " a" or " as" (with optional trailing space)
+                        const asEndMatch = qlcLabel.match(/\s(a|as)\s*$/);
+                        const hasAsTyping = asEndMatch !== null;
+                        const asTyped = asEndMatch ? asEndMatch[1] : ''; // "a" or "as"
+                        
+                        // Calculate what to bold
+                        const prefix = 'label emails with ';
+                        const keywordToken = '[keyword]';
+                        const asText = ' as ';
+                        const labelToken = '"[label]"';
+                        const prefixEnd = prefix.length + keywordToken.length;
+                        
+                        if (hasLabelText) {
+                            // User is typing the label - bold everything including [label] token
+                            const boldEnd = prefixEnd + asText.length + labelToken.length;
+                            const bold = escapeHtml(cmd.substring(0, boldEnd));
+                            const rest = escapeHtml(cmd.substring(boldEnd));
+                            div.innerHTML = `<strong>${bold}</strong>${rest}`;
+                        } else if (hasAsTyping) {
+                            // User is typing "as" progressively - bold up to and including typed portion of "as"
+                            // In template: "label emails with [keyword] as "[label]""
+                            // prefixEnd points to the start of " as " in the template
+                            // We want to bold: prefix + keywordToken + " as ".substring(0, 1 + asTyped.length)
+                            // where 1 is for the space, and asTyped.length is 1 for "a" or 2 for "as"
+                            const spaceAndAsBoldLength = 1 + asTyped.length; // 1 space + "a"(1) or "as"(2)
+                            const boldEnd = prefixEnd + spaceAndAsBoldLength;
+                            const bold = escapeHtml(cmd.substring(0, boldEnd));
+                            const rest = escapeHtml(cmd.substring(boldEnd));
+                            div.innerHTML = `<strong>${bold}</strong>${rest}`;
+                        } else {
+                            // User is typing keyword - use normal bolding up to keyword
+                            const bold = escapeHtml(cmd.substring(0, prefixEnd));
+                            const rest = escapeHtml(cmd.substring(prefixEnd));
+                            div.innerHTML = `<strong>${bold}</strong>${rest}`;
+                        }
+                        
+                        // Attach and append now, then skip rest of rendering for this item
+                        div.addEventListener('mouseenter', () => { setActive(idx); activeByKeyboard = false; });
+                        div.addEventListener('click', () => { commandInput.value = cmd; closeAllLists(); commandInput.focus(); });
+                        suggestionsContainer.appendChild(div);
+                        suggestionItems.push(div);
+                        console.log('[LABEL-WITH-BOLD] Applied progressive bold.', { hasAsTyping, asTyped, hasLabelText, afterWith });
+                        return;
+                    }
+                } catch (e) { console.error('[LABEL-WITH-BOLD] Error:', e); }
                 // HARD OVERRIDE: For Hebrew 'ארכב מיילים מלפני', always display placeholder and ignore typed value
                 try {
                     const qPref = (input || '').toLowerCase().replace(/[\u200e\u200f\u202a\u202b\u202c\u202d\u202e]/g,'').replace(/\u00a0/g,' ').replace(/\s+/g,' ').trim();
@@ -15440,6 +15518,20 @@
                 }
                 // Do not override prior specialized rendering (e.g., label materialization)
                 if (!div.innerHTML) {
+                    // DEBUG: Special-case bolding for "label emails with [keyword] as \"[label]\""
+                    try {
+                        const qLowerDbg = (input || '').toLowerCase().trim();
+                        const cmdLowerDbg = (cmd || '').toLowerCase().trim();
+                        const isLabelWithTpl = /^label\s+emails\s+with\s+\[keyword\]\s+as\s+"\[label\]"$/.test(cmdLowerDbg);
+                        const typedLabelWith = qLowerDbg.startsWith('label emails with ');
+                        const typedAsCue = /\sas$|\sas\s/.test(qLowerDbg);
+                        if (isLabelWithTpl && typedLabelWith && typedAsCue) {
+                            // Bold through "as" and the [label] token
+                            const bold = escapeHtml(cmd);
+                            div.innerHTML = `<strong>${bold}</strong>`;
+                            console.log('[LABEL-WITH-BOLD] Applied full bold for label-with template because "as" detected.', { qLowerDbg, cmdLowerDbg });
+                        }
+                    } catch (_) {}
                     if (hasSenderToken) {
                     const isHeb = document.documentElement.lang === 'he';
                     if (isHeb) {
