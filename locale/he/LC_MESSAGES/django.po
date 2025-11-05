@@ -115,6 +115,9 @@ msgstr "מארכב התראות אבטחה מתקופת זמן מסוימת שע
 msgid "delete emails older than [duration]"
 msgstr "מחק מיילים ישנים מ-[משך]"
 
+msgid "Bulk deletes old emails."
+msgstr "מוחק מיילים ישנים בכמות גדולה."
+
 msgid "delete emails from [timeframe]"
 msgstr "מחק מיילים מ-[תקופה]"
 
@@ -1277,6 +1280,14 @@ msgstr "תייג מיילים מ-[שולח] כתווית \"[תווית]\""
 #: .\agent\templates\agent\index.html:651
 msgid "Organizes emails with a label."
 msgstr "מארגן הודעות באמצעות תווית."
+
+#: .\agent\templates\agent\index.html
+msgid "label emails with [keyword] as [label]"
+msgstr "תייג מיילים עם [מילת מפתח] כ\"[תווית]\""
+
+#: .\agent\templates\agent\index.html
+msgid "Labels emails containing specific keywords in subject."
+msgstr "מתייג מיילים המכילים מילות מפתח ספציפיות בנושא."
 
 #: .\agent\templates\agent\index.html:652 .\agent\views.py:250
 msgid "list labels"

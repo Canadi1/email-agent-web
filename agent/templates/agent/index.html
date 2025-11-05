@@ -1281,7 +1281,9 @@
                                 {% endwith %}
                                 {% endif %}
                             {% else %}
-                                <div class="success-message">{{ result.message }}</div>
+                                {% if result.message %}
+                                    <div class="success-message">{{ result.message }}</div>
+                                {% endif %}
                             {% endif %}
                             {% if result.type == 'email_list' and result.data %}
                                 <ul class="email-list" id="email-list">

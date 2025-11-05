@@ -914,9 +914,9 @@ def index(request):
                     # Default status if missing so snackbar can render
                     if not result.get('status'):
                         result['status'] = 'success'
-                    # 'list labels' view
+                    # 'list labels' view - no message needed, heading is in template
                     if (result.get('type') == 'label_list') and not msg:
-                        result['message'] = _("Your Labels")
+                        result['message'] = ""
                     # 'show label "<label>"' view (email list by label)
                     lc = result.get('list_context') or {}
                     if lc.get('mode') == 'label':
