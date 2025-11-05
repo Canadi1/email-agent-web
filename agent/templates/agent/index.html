@@ -15421,6 +15421,112 @@
                         return;
                     }
                 } catch (e) { console.error('[LABEL-WITH-BOLD] Error:', e); }
+                // HE LABEL-FROM-SENDER SPECIAL BOLDING: progressive bolding for 'כ' and "[תווית]"
+                try {
+                    const qlcHeLabel = (input || '').replace(/[\u200e\u200f\u202a-\u202e]/g,'').replace(/\u00a0/g,' ').replace(/\s+/g,' ').trim();
+                    const cmdNormHe = lc.replace(/[\u200e\u200f\u202a-\u202e]/g,'').replace(/\u00a0/g,' ').replace(/\s+/g,' ').trim();
+                    const isHeLabelFromTemplate = /^תייג\s+מיילים\s+מ\[שולח\]\s+כ"\[תווית\]"$/.test(cmdNormHe);
+                    const hasHeLabelFromCue = /^תייג\s+מיילים\s+מ/.test(qlcHeLabel);
+                    if (isHeLabelFromTemplate && hasHeLabelFromCue) {
+                        // Check if user has started typing the label (text after "כ")
+                        const afterKafMatch = qlcHeLabel.match(/\sכ\s+(.+)$/);
+                        const hasLabelText = afterKafMatch && afterKafMatch[1] && afterKafMatch[1].trim().length > 0;
+                        // Check if user has typed "כ" (Hebrew "as")
+                        const hasKafTyped = /\sכ\s*$/.test(qlcHeLabel) || /\sכ\s+/.test(qlcHeLabel);
+                        
+                        // Calculate what to bold
+                        const prefix = 'תייג מיילים מ';
+                        const senderToken = '[שולח]';
+                        const kafText = ' כ';
+                        const labelToken = '"[תווית]"';
+                        const prefixEnd = prefix.length + senderToken.length;
+                        
+                        if (hasLabelText) {
+                            // User is typing the label - bold everything including [תווית] token
+                            const boldEnd = prefixEnd + kafText.length + labelToken.length;
+                            const bold = escapeHtml(cmd.substring(0, boldEnd));
+                            const rest = escapeHtml(cmd.substring(boldEnd));
+                            div.innerHTML = `<strong>${bold}</strong>${rest}`;
+                        } else if (hasKafTyped) {
+                            // User has typed "כ" - bold up to and including " כ" but not [תווית] yet
+                            const boldEnd = prefixEnd + kafText.length;
+                            const bold = escapeHtml(cmd.substring(0, boldEnd));
+                            const rest = escapeHtml(cmd.substring(boldEnd));
+                            div.innerHTML = `<strong>${bold}</strong>${rest}`;
+                        } else {
+                            // User is typing sender - use normal bolding up to sender
+                            const bold = escapeHtml(cmd.substring(0, prefixEnd));
+                            const rest = escapeHtml(cmd.substring(prefixEnd));
+                            div.innerHTML = `<strong>${bold}</strong>${rest}`;
+                        }
+                        
+                        // Attach and append now, then skip rest of rendering for this item
+                        div.addEventListener('mouseenter', () => { setActive(idx); activeByKeyboard = false; });
+                        div.addEventListener('click', () => { commandInput.value = cmd; closeAllLists(); commandInput.focus(); });
+                        suggestionsContainer.appendChild(div);
+                        suggestionItems.push(div);
+                        console.log('[HE-LABEL-FROM-BOLD] Applied progressive bold.', { hasKafTyped, hasLabelText });
+                        return;
+                    }
+                } catch (e) { console.error('[HE-LABEL-FROM-BOLD] Error:', e); }
+                // HE LABEL-WITH-KEYWORD SPECIAL BOLDING: progressive bolding for 'כ' and "[תווית]"
+                try {
+                    const qlcHeLabelWith = (input || '').replace(/[\u200e\u200f\u202a-\u202e]/g,'').replace(/\u00a0/g,' ').replace(/\s+/g,' ').trim();
+                    const cmdNormHeWith = lc.replace(/[\u200e\u200f\u202a-\u202e]/g,'').replace(/\u00a0/g,' ').replace(/\s+/g,' ').trim();
+                    const isHeLabelWithTemplate = /^תייג\s+מיילים\s+עם\s+\[מילת\s+מפתח\]\s+כ"\[תווית\]"$/.test(cmdNormHeWith);
+                    const hasHeLabelWithCue = /^תייג\s+מיילים\s+עם/.test(qlcHeLabelWith);
+                    if (isHeLabelWithTemplate && hasHeLabelWithCue) {
+                        // Check if user has started typing the label (text after "כ")
+                        const afterKafMatch = qlcHeLabelWith.match(/\sכ\s+(.+)$/);
+                        const hasLabelText = afterKafMatch && afterKafMatch[1] && afterKafMatch[1].trim().length > 0;
+                        // Check if user has typed "כ" (Hebrew "as")
+                        const hasKafTyped = /\sכ\s*$/.test(qlcHeLabelWith) || /\sכ\s+/.test(qlcHeLabelWith);
+                        // Check if user started typing the keyword (any non-space char after "עם ", before optional "כ")
+                        const afterIm = qlcHeLabelWith.split(/תייג\s+מיילים\s+עם\s*/)[1] || '';
+                        const beforeKaf = afterIm.split(/\sכ/)[0] || '';
+                        const hasKeywordTyped = /\S/.test(beforeKaf);
+                        
+                        // Calculate what to bold
+                        const prefix = 'תייג מיילים עם ';
+                        const keywordToken = '[מילת מפתח]';
+                        const kafText = ' כ';
+                        const labelToken = '"[תווית]"';
+                        const prefixEnd = prefix.length + keywordToken.length;
+                        
+                        if (hasLabelText) {
+                            // User is typing the label - bold everything including [תווית] token
+                            const boldEnd = prefixEnd + kafText.length + labelToken.length;
+                            const bold = escapeHtml(cmd.substring(0, boldEnd));
+                            const rest = escapeHtml(cmd.substring(boldEnd));
+                            div.innerHTML = `<strong>${bold}</strong>${rest}`;
+                        } else if (hasKafTyped) {
+                            // User has typed "כ" - bold up to and including " כ" but not [תווית] yet
+                            const boldEnd = prefixEnd + kafText.length;
+                            const bold = escapeHtml(cmd.substring(0, boldEnd));
+                            const rest = escapeHtml(cmd.substring(boldEnd));
+                            div.innerHTML = `<strong>${bold}</strong>${rest}`;
+                        } else if (hasKeywordTyped) {
+                            // User started typing the keyword - now bold the placeholder token as a cue
+                            const boldEnd = prefixEnd; // prefix + [מילת מפתח]
+                            const bold = escapeHtml(cmd.substring(0, boldEnd));
+                            const rest = escapeHtml(cmd.substring(boldEnd));
+                            div.innerHTML = `<strong>${bold}</strong>${rest}`;
+                        } else {
+                            // User is typing keyword - use normal bolding up to keyword
+                            const bold = escapeHtml(cmd.substring(0, prefix.length)); // only fixed prefix until keyword typed
+                            const rest = escapeHtml(cmd.substring(prefix.length));
+                            div.innerHTML = `<strong>${bold}</strong>${rest}`;
+                        }
+                        
+                        // Attach and append now, then skip rest of rendering for this item
+                        div.addEventListener('mouseenter', () => { setActive(idx); activeByKeyboard = false; });
+                        div.addEventListener('click', () => { commandInput.value = cmd; closeAllLists(); commandInput.focus(); });
+                        suggestionsContainer.appendChild(div);
+                        suggestionItems.push(div);
+                        console.log('[HE-LABEL-WITH-BOLD] Applied progressive bold.', { hasKeywordTyped, hasKafTyped, hasLabelText });
+                        return;
+                    }
+                } catch (e) { console.error('[HE-LABEL-WITH-BOLD] Error:', e); }
                 // HARD OVERRIDE: For Hebrew 'ארכב מיילים מלפני', always display placeholder and ignore typed value
                 try {
                     const qPref = (input || '').toLowerCase().replace(/[\u200e\u200f\u202a\u202b\u202c\u202d\u202e]/g,'').replace(/\u00a0/g,' ').replace(/\s+/g,' ').trim();
