@@ -15724,7 +15724,51 @@
                         }
                     } catch (_) { /* fallback handled below */ }
                 }
-                // Do not override prior specialized rendering (e.g., label materialization)
+                // Special-case bolding for Hebrew search command "חפש מיילים עם נושא \"[מילת מפתח]\"" 
+                // When user starts typing keyword, bold the entire placeholder at once (not progressively)
+                try {
+                    const qHeSearch = (input || '').replace(/[\u200e\u200f\u202a-\u202e]/g,'').replace(/\u00a0/g,' ').replace(/\s+/g,' ').trim();
+                    const cmdHeSearch = (cmd || '').replace(/[\u200e\u200f\u202a-\u202e]/g,'').replace(/\u00a0/g,' ').replace(/\s+/g,' ').trim();
+                    // Check if this is the Hebrew search template command
+                    const isHeSearchTpl = /^חפש\s+מיילים\s+עם\s+נושא\s+("?\[מילת\s+מפתח\]"?|"\[מילת\s+מפתח\]")$/.test(cmdHeSearch);
+                    // Check if user is typing the Hebrew search command (with or without keyword)
+                    const typedHeSearchWithSubject = /^חפש\s+מיילים\s+עם\s+נושא\s+/.test(qHeSearch);
+                    if (isHeSearchTpl && typedHeSearchWithSubject && !div.innerHTML) {
+                        // Extract what comes after "חפש מיילים עם נושא "
+                        const prefix = 'חפש מיילים עם נושא ';
+                        const afterPrefix = qHeSearch.slice(prefix.length);
+                        
+                        // Find where "נושא " ends in the command template
+                        const nusMatch = cmd.match(/נושא\s+/);
+                        if (nusMatch) {
+                            const prefixEnd = nusMatch.index + nusMatch[0].length;
+                            
+                            // If user has typed anything after "נושא ", bold the entire placeholder
+                            if (afterPrefix && afterPrefix.length > 0) {
+                                // Find the entire placeholder (including quotes if present)
+                                const placeholderMatch = cmd.substring(prefixEnd).match(/^("[^\"]*"|\[[^\]]+\])/);
+                                if (placeholderMatch) {
+                                    // Bold: prefix + entire placeholder
+                                    const placeholderEnd = prefixEnd + placeholderMatch[0].length;
+                                    const bold = escapeHtml(cmd.substring(0, placeholderEnd));
+                                    const rest = escapeHtml(cmd.substring(placeholderEnd));
+                                    div.innerHTML = `<strong>${bold}</strong>${rest}`;
+                                } else {
+                                    // Fallback: just bold the prefix
+                                    const bold = escapeHtml(cmd.substring(0, prefixEnd));
+                                    const rest = escapeHtml(cmd.substring(prefixEnd));
+                                    div.innerHTML = `<strong>${bold}</strong>${rest}`;
+                                }
+                            } else {
+                                // User hasn't typed keyword yet, just bold up to "נושא "
+                                const bold = escapeHtml(cmd.substring(0, prefixEnd));
+                                const rest = escapeHtml(cmd.substring(prefixEnd));
+                                div.innerHTML = `<strong>${bold}</strong>${rest}`;
+                            }
+                        }
+                    }
+                } catch (_) {}
+                
                 if (!div.innerHTML) {
                     // DEBUG: Special-case bolding for "label emails with [keyword] as \"[label]\""
                     try {

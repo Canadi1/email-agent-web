@@ -50,6 +50,15 @@ class GmailAIAgent:
     
     def _is_retryable_network_error(self, error):
         """Detect retryable SSL/connection errors from googleapiclient/requests."""
+        # Check if it's an SSL exception type
+        try:
+            import ssl
+            if isinstance(error, (ssl.SSLError, ssl.CertificateError)):
+                return True
+        except Exception:
+            pass
+        
+        # Check error message for retryable patterns
         try:
             message = str(error)
         except Exception:
@@ -60,6 +69,9 @@ class GmailAIAgent:
             "certificate",
             "wrong_version_number",
             "wrong version number",
+            "wrong_version",
+            "decryption_failed",
+            "bad_record_mac",
             "timed out",
             "timeout",
             "read timed out",
@@ -3597,7 +3609,8 @@ class GmailAIAgent:
 
         # Search
         if best_match_action == "search":
-            search_match = re.search(r'(?:for )?emails? (?:with subject|about|containing)\s+["\']?([^"\']+)["\']?', command_lower)
+            # Match patterns like: "search emails with subject keyword", "emails with subject keyword", "for emails with subject keyword"
+            search_match = re.search(r'(?:search\s+)?(?:for\s+)?emails?\s+(?:with\s+subject|about|containing)\s+["\']?([^"\']+)["\']?', command_lower)
             if search_match:
                 search_term = search_match.group(1)
                 return {"action": "search", "target_type": "subject", "target": search_term, "confirmation_required": False}

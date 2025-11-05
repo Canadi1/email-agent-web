@@ -1470,6 +1470,8 @@ def _translate_hebrew_command_to_english(command: str) -> str:
         (r"^[\s]*תייג|^[\s]*הוסף\s+תווית", "label "),
         # Translate Hebrew 'מיילים' (emails) to English 'emails' for label commands
         (r"\bמיילים\b", "emails"),
+        # Translate Hebrew 'עם נושא' (with subject) to English 'with subject' - MUST come before generic 'עם'
+        (r"עם\s+נושא", "with subject"),
         # Translate Hebrew 'עם' (with) to English 'with' for label commands
         # Match 'עם' with optional space before and after, ensure proper spacing in replacement
         (r"\s*עם\s*", " with "),
@@ -1525,7 +1527,6 @@ def _translate_hebrew_command_to_english(command: str) -> str:
         # Keywords and targets
         (r"הדואר|אימיילים|מיילים|דואר|דוא""ל", "emails"),
         (r"\bאת\s*כל\b|\bכל\b", "all "),
-        (r"עם\s+נושא", "with subject"),
         (r"קודים\s+לאימות|קוד(?:י)?\s+אימות", "verification codes"),
         (r"משלוח(?:ים)?|שילוח|משלוחים", "shipping emails"),
         (r"קידומי\s*המכירות|קידומי\s*מכירות|קידומי\s*שיווק|קידומי\s*המחירות|קידומי\s*המחירו?ת|קידומי\s*מכירה", "promotions"),
