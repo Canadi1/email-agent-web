@@ -647,6 +647,9 @@ msgstr "לא נמצאו מיילים מהשולח: %(sender)s."
 msgid "No emails found with subject: '%(subject)s'."
 msgstr "לא נמצאו מיילים עם נושא: '%(subject)s'."
 
+msgid "Found %(count)d emails with subject '%(subject)s'."
+msgstr "נמצאו %(count)d מיילים עם הנושא '%(subject)s'."
+
 #: .\agent\email_ai_agent.py:2091 .\agent\email_ai_agent.py:3638
 #, python-format
 msgid ""

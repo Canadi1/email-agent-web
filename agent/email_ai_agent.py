@@ -4317,8 +4317,12 @@ class GmailAIAgent:
             elif action == "search":
                 if target_type == "subject":
                     emails = self.search_emails_by_subject(target)
-                    if not emails: return {"status": "success", "message": _("No emails found with subject: '%(subject)s'.") % {"subject": target}}
-                    return {"status": "success", "data": emails, "type": "email_list"}
+                    if not emails: 
+                        return {"status": "success", "message": _("No emails found with subject: '%(subject)s'.") % {"subject": target}}
+                    # Add message with count for snackbar
+                    count = len(emails)
+                    msg = _("Found %(count)d emails with subject '%(subject)s'.") % {"count": count, "subject": target}
+                    return {"status": "success", "data": emails, "type": "email_list", "message": msg}
 
             elif action == "send":
                 to = parsed.get("to")
