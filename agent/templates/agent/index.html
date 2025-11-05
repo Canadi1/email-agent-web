@@ -2906,6 +2906,34 @@
                 }
             } catch (e) {}
 
+            // ENGLISH SEARCH SHORT-CIRCUIT: filter to only "search emails with subject [keyword]" when typing "search emails with subject [keyword]"
+            try {
+                // Match "search emails with subject [keyword]"
+                const searchPattern = /^search\s+emails\s+with\s+subject\s+(\S+(?:\s+\S+)*?)\s*$/i;
+                const searchMatch = searchPattern.exec(q);
+                if (searchMatch) {
+                    const keywordPart = (searchMatch[1] || '').trim();
+                    // If user typed a keyword (non-whitespace content after "subject"), return only the full command
+                    if (keywordPart && keywordPart.length > 0 && !keywordPart.match(/^\s*$/)) {
+                        return [{ cmd: 'search emails with subject [keyword]', score: 1000, type: 'en_search' }];
+                    }
+                }
+            } catch (e) {}
+
+            // HEBREW SEARCH SHORT-CIRCUIT: filter to only "חפש מיילים עם נושא \"[מילת מפתח]\"" when typing "חפש מיילים עם נושא [keyword]"
+            try {
+                // Match "חפש מיילים עם נושא [keyword]"
+                const heSearchPattern = /^חפש\s+מיילים\s+עם\s+נושא\s+([^\s]+(?:\s+[^\s]+)*?)\s*$/i;
+                const heSearchMatch = heSearchPattern.exec(qNormHe);
+                if (heSearchMatch) {
+                    const keywordPart = (heSearchMatch[1] || '').trim();
+                    // If user typed a keyword (non-whitespace content after "נושא"), return only the full command
+                    if (keywordPart && keywordPart.length > 0 && !keywordPart.match(/^\s*$/)) {
+                        return [{ cmd: 'חפש מיילים עם נושא "[מילת מפתח]"', score: 1000, type: 'he_search' }];
+                    }
+                }
+            } catch (e) {}
+
             const scored = [];
             const includeMatches = [];
             // Hebrew cues used throughout ranking adjustments
@@ -7596,6 +7624,78 @@
                     }
                     
                     try { console.log('[HE-LABEL-INTENT-FILTER] AFTER filtering, items.length:', items.length); } catch(e) {}
+                }
+                
+                // ENGLISH SEARCH INTENT FILTER: if typing "search" progressively, prioritize search commands
+                // Only activate when enough context: "sea" or more (not just "s" or "se" which could be other commands)
+                const isSearchIntent = /^sea(?:r(?:c(?:h(?:\s+e(?:m(?:a(?:i(?:l(?:s)?)?)?)?)?)?)?)?)?$/i.test(q) || /^search\s+e(?:m(?:a(?:i(?:l(?:s)?)?)?)?)?$/i.test(q) || /^search\s+emails\s+w(?:i(?:t(?:h(?:\s+s(?:u(?:b(?:j(?:e(?:c(?:t)?)?)?)?)?)?)?)?)?)?/i.test(q);
+                if (isSearchIntent && Array.isArray(items)) {
+                    try { console.log('[EN-SEARCH-INTENT-FILTER] BEFORE filtering, items.length:', items.length); } catch(e) {}
+                    
+                    // Check if typing "search emails with subject" (including progressive typing)
+                    // Match "w", "wi", "wit", "with" for "with"
+                    const isTypingSearchWithSubject = /^search\s+emails\s+w(?:i(?:t(?:h(?:\s+s(?:u(?:b(?:j(?:e(?:c(?:t(?:\s|$))?)?)?)?)?)?)?)?)?)?/i.test(q);
+                    
+                    if (isTypingSearchWithSubject) {
+                        // Filter to only show "search emails with subject [keyword]" command
+                        items = items.filter(it => {
+                            const text = typeof it === 'string' ? it : (it && it.cmd ? it.cmd : '');
+                            const lc = String(text || '').toLowerCase().trim();
+                            return /^search\s+emails\s+with\s+subject\s+\[keyword\]$/.test(lc);
+                        });
+                        // If no items found, inject the command
+                        if (items.length === 0) {
+                            items = [{ cmd: 'search emails with subject [keyword]' }];
+                        }
+                    } else {
+                        // When typing "search" or "search emails", show only search commands
+                        items = items.filter(it => {
+                            const text = typeof it === 'string' ? it : (it && it.cmd ? it.cmd : '');
+                            const lc = String(text || '').toLowerCase().trim();
+                            // Keep only search commands
+                            const keep = /^search\s+/.test(lc);
+                            try { console.log('[EN-SEARCH-INTENT-FILTER] checking:', lc, 'keep:', keep); } catch(e) {}
+                            return keep;
+                        });
+                    }
+                    
+                    try { console.log('[EN-SEARCH-INTENT-FILTER] AFTER filtering, items.length:', items.length); } catch(e) {}
+                }
+                
+                // HEBREW SEARCH INTENT FILTER: if typing "חפש" progressively, prioritize search commands
+                const isHeSearchIntent = isHeb && (/^ח(?:פ(?:ש(?:\s+מיילים)?)?)?$/.test(q) || /^חפש\s+מיילים\s+עם\s+נושא\s*/i.test(q));
+                if (isHeSearchIntent && Array.isArray(items)) {
+                    try { console.log('[HE-SEARCH-INTENT-FILTER] BEFORE filtering, items.length:', items.length); } catch(e) {}
+                    
+                    // Check if typing "חפש מיילים עם נושא" (search emails with subject)
+                    const isTypingHeSearchWithSubject = /^חפש\s+מיילים\s+עם\s+נושא\s*/i.test(q);
+                    
+                    if (isTypingHeSearchWithSubject) {
+                        // Filter to only show Hebrew search command
+                        items = items.filter(it => {
+                            const text = typeof it === 'string' ? it : (it && it.cmd ? it.cmd : '');
+                            const lc = String(text || '').toLowerCase().trim();
+                            // Keep Hebrew search commands
+                            const keep = /^חפש\s+מיילים\s+עם\s+נושא/.test(lc);
+                            return keep;
+                        });
+                        // If no items found, inject the Hebrew search command
+                        if (items.length === 0) {
+                            items = [{ cmd: 'חפש מיילים עם נושא "[מילת מפתח]"' }];
+                        }
+                    } else {
+                        // When typing "חפש" or "חפש מיילים", show only Hebrew search commands
+                        items = items.filter(it => {
+                            const text = typeof it === 'string' ? it : (it && it.cmd ? it.cmd : '');
+                            const lc = String(text || '').toLowerCase().trim();
+                            // Keep only Hebrew search commands
+                            const keep = /^חפש\s+/.test(lc);
+                            try { console.log('[HE-SEARCH-INTENT-FILTER] checking:', lc, 'keep:', keep); } catch(e) {}
+                            return keep;
+                        });
+                    }
+                    
+                    try { console.log('[HE-SEARCH-INTENT-FILTER] AFTER filtering, items.length:', items.length); } catch(e) {}
                 }
                 
                 // Normalize input (remove RTL marks, collapse spaces) and detect fixed timeframe tokens
