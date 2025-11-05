@@ -6390,17 +6390,6 @@ class GmailAIAgent:
     def label_emails_by_keywords(self, keywords, label_name, confirm=False):
         """Label emails containing specific keywords in subject"""
         try:
-            # Create label if it doesn't exist
-            try:
-                self.create_label(label_name)
-            except Exception as e:
-                return {"status": "error", "message": str(e)}
-            
-            label_id = self.get_label_id(label_name)
-            
-            if not label_id:
-                return {"status": "error", "message": f"Could not find label '{label_name}' after creation. Please try again."}
-            
             # Build search query for subject keywords
             # Use word matching (without quotes) instead of exact phrase matching
             # This finds emails where the keyword appears anywhere in the subject, not just as an exact phrase
@@ -6431,6 +6420,17 @@ class GmailAIAgent:
                     "action_details": {"action": "label_by_keywords", "keywords": keywords, "label": label_name}
                 }
             
+            # Create label only after confirmation
+            try:
+                self.create_label(label_name)
+            except Exception as e:
+                return {"status": "error", "message": str(e)}
+            
+            label_id = self.get_label_id(label_name)
+            
+            if not label_id:
+                return {"status": "error", "message": f"Could not find label '{label_name}' after creation. Please try again."}
+            
             batch_size = 100
             total_processed = 0
             message_ids = [m['id'] for m in all_messages]
@@ -6459,17 +6459,6 @@ class GmailAIAgent:
         Optionally filter by age using older_than_days.
         """
         try:
-            # Create label if it doesn't exist
-            try:
-                self.create_label(label_name)
-            except Exception as e:
-                return {"status": "error", "message": str(e)}
-            
-            label_id = self.get_label_id(label_name)
-            
-            if not label_id:
-                return {"status": "error", "message": f"Could not find label '{label_name}' after creation. Please try again."}
-            
             # Search for emails from the sender
             query = f"from:{sender_email}"
             
@@ -6503,6 +6492,17 @@ class GmailAIAgent:
                     }
                 }
             
+            # Create label only after confirmation
+            try:
+                self.create_label(label_name)
+            except Exception as e:
+                return {"status": "error", "message": str(e)}
+            
+            label_id = self.get_label_id(label_name)
+            
+            if not label_id:
+                return {"status": "error", "message": f"Could not find label '{label_name}' after creation. Please try again."}
+            
             # Process in batches for better performance
             batch_size = 100
             total_processed = 0
@@ -6533,17 +6533,6 @@ class GmailAIAgent:
         Optionally filter by age using older_than_days.
         """
         try:
-            # Create label if it doesn't exist
-            try:
-                self.create_label(label_name)
-            except Exception as e:
-                return {"status": "error", "message": str(e)}
-            
-            label_id = self.get_label_id(label_name)
-            
-            if not label_id:
-                return {"status": "error", "message": f"Could not find label '{label_name}' after creation. Please try again."}
-            
             query_parts = [f"from:*@{domain}"]
             query = " ".join(query_parts)
             
@@ -6576,6 +6565,17 @@ class GmailAIAgent:
                         "label": label_name
                     }
                 }
+            
+            # Create label only after confirmation
+            try:
+                self.create_label(label_name)
+            except Exception as e:
+                return {"status": "error", "message": str(e)}
+            
+            label_id = self.get_label_id(label_name)
+            
+            if not label_id:
+                return {"status": "error", "message": f"Could not find label '{label_name}' after creation. Please try again."}
             
             # Process in batches for better performance
             batch_size = 100
