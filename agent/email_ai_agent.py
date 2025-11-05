@@ -6852,39 +6852,26 @@ class GmailAIAgent:
                        else _("Undo complete. Restored %(count)d emails to Inbox.") % {"count": len(msg_ids)})
                 return {"status": "success", "message": msg, "undone_count": len(msg_ids)}
             elif action_type == 'trash':
-                # Untrash and add INBOX
-                # Process untrash in smaller batches to avoid timeout (Gmail API requires individual calls)
-                untrash_batch_size = 20  # Smaller batches for untrash to avoid overwhelming API
-                successfully_untrashed = []
+                # Untrash and add INBOX using batch operations (much faster!)
+                # Use batch_modify to remove TRASH label and add INBOX label in a single operation
+                restored = 0
+                batch_size = 100  # Gmail API supports up to 1000, but 100 is safer
                 
-                # Step 1: Untrash emails in batches with delays
-                for i in range(0, len(msg_ids), untrash_batch_size):
-                    batch = msg_ids[i:i + untrash_batch_size]
-                    for msg_id in batch:
-                        try:
-                            self.api_untrash(msg_id)
-                            successfully_untrashed.append(msg_id)
-                        except HttpError:
-                            continue
-                    # Small delay between batches to avoid rate limiting
-                    if i + untrash_batch_size < len(msg_ids):
-                        time.sleep(0.2)
-                
-                # Step 2: Batch add INBOX label to all successfully untrashed messages
-                restored = len(successfully_untrashed)
-                if successfully_untrashed:
-                    # Add INBOX label in batches of 100 (much more efficient than individual calls)
-                    for j in range(0, len(successfully_untrashed), 100):
-                        batch_ids = successfully_untrashed[j:j + 100]
-                        try:
-                            self.api_batch_modify(batch_ids, add_label_ids=['INBOX'])
-                        except HttpError:
-                            # Fallback: try individual modify for this batch
-                            for msg_id in batch_ids:
-                                try:
-                                    self.api_modify(msg_id, add_label_ids=['INBOX'])
-                                except HttpError:
-                                    continue
+                # Process in batches of 100
+                for i in range(0, len(msg_ids), batch_size):
+                    batch_ids = msg_ids[i:i + batch_size]
+                    try:
+                        # Remove TRASH label and add INBOX label in a single batch operation
+                        self.api_batch_modify(batch_ids, add_label_ids=['INBOX'], remove_label_ids=['TRASH'])
+                        restored += len(batch_ids)
+                    except HttpError as e:
+                        # If batch fails, try individual operations as fallback
+                        for msg_id in batch_ids:
+                            try:
+                                self.api_batch_modify([msg_id], add_label_ids=['INBOX'], remove_label_ids=['TRASH'])
+                                restored += 1
+                            except HttpError:
+                                continue
                 
                 del self._undo_store[action_id]
                 msg = (f"הביטול הושלם. הוחזרו מהאשפה {restored} מיילים." if is_he
