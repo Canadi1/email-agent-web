@@ -2847,6 +2847,63 @@
                 }
             } catch (e) {}
 
+            // ENGLISH LABEL FROM SENDER SHORT-CIRCUIT: filter to only "label emails from [sender] as [label]" when typing "label emails from [sender]" or after "as"
+            try {
+                // Match "label emails from [sender]" with optional "as [label]"
+                const labelFromPattern = /^label\s+emails\s+from\s+(\S+(?:\s+\S+)*?)(?:\s+as(?:\s+(.+))?)?\s*$/i;
+                const labelFromMatch = labelFromPattern.exec(q);
+                if (labelFromMatch) {
+                    const senderPart = (labelFromMatch[1] || '').trim();
+                    // If user typed a sender (non-whitespace content after "from"), return only the full command
+                    if (senderPart && senderPart.length > 0 && !senderPart.match(/^\s*$/)) {
+                        return [{ cmd: 'label emails from [sender] as "[label]"', score: 1000, type: 'en_label_sender' }];
+                    }
+                }
+            } catch (e) {}
+
+            // ENGLISH LABEL WITH KEYWORD SHORT-CIRCUIT: filter to only "label emails with [keyword] as [label]" when typing "label emails with [keyword]" or after "as"
+            try {
+                // Match "label emails with [keyword]" with optional "as [label]"
+                const labelWithPattern = /^label\s+emails\s+with\s+(\S+(?:\s+\S+)*?)(?:\s+as(?:\s+(.+))?)?\s*$/i;
+                const labelWithMatch = labelWithPattern.exec(q);
+                if (labelWithMatch) {
+                    const keywordPart = (labelWithMatch[1] || '').trim();
+                    // If user typed a keyword (non-whitespace content after "with"), return only the full command
+                    if (keywordPart && keywordPart.length > 0 && !keywordPart.match(/^\s*$/)) {
+                        return [{ cmd: 'label emails with [keyword] as "[label]"', score: 1000, type: 'en_label_keyword' }];
+                    }
+                }
+            } catch (e) {}
+
+            // HEBREW LABEL FROM SENDER SHORT-CIRCUIT: filter to only "תייג מיילים מ[שולח] כ\"[תווית]\"" when typing "תייג מיילים מ[שולח]" or after "כ"
+            try {
+                // Match "תייג מיילים מ[sender]" with optional "כ [label]"
+                // Hebrew characters are non-ASCII, so we use a more flexible pattern
+                const heLabelFromPattern = /^תייג\s+מיילים\s+מ\s+([^\s]+(?:\s+[^\s]+)*?)(?:\s+כ(?:\s+(.+))?)?\s*$/i;
+                const heLabelFromMatch = heLabelFromPattern.exec(qNormHe);
+                if (heLabelFromMatch) {
+                    const senderPart = (heLabelFromMatch[1] || '').trim();
+                    // If user typed a sender (non-whitespace content after "מ"), return only the full command
+                    if (senderPart && senderPart.length > 0 && !senderPart.match(/^\s*$/)) {
+                        return [{ cmd: 'תייג מיילים מ[שולח] כ"[תווית]"', score: 1000, type: 'he_label_sender' }];
+                    }
+                }
+            } catch (e) {}
+
+            // HEBREW LABEL WITH KEYWORD SHORT-CIRCUIT: filter to only "תייג מיילים עם [מילת מפתח] כ\"[תווית]\"" when typing "תייג מיילים עם [מילת מפתח]" or after "כ"
+            try {
+                // Match "תייג מיילים עם [keyword]" with optional "כ [label]"
+                const heLabelWithPattern = /^תייג\s+מיילים\s+עם\s+([^\s]+(?:\s+[^\s]+)*?)(?:\s+כ(?:\s+(.+))?)?\s*$/i;
+                const heLabelWithMatch = heLabelWithPattern.exec(qNormHe);
+                if (heLabelWithMatch) {
+                    const keywordPart = (heLabelWithMatch[1] || '').trim();
+                    // If user typed a keyword (non-whitespace content after "עם"), return only the full command
+                    if (keywordPart && keywordPart.length > 0 && !keywordPart.match(/^\s*$/)) {
+                        return [{ cmd: 'תייג מיילים עם [מילת מפתח] כ"[תווית]"', score: 1000, type: 'he_label_keyword' }];
+                    }
+                }
+            } catch (e) {}
+
             const scored = [];
             const includeMatches = [];
             // Hebrew cues used throughout ranking adjustments
@@ -7420,6 +7477,101 @@
                         items = hebrewDeleteCommands.map(cmd => ({ cmd: cmd }));
                         try { console.log('[HE-DELETE-INTENT-FILTER] INJECTED Hebrew delete commands:', items.length); } catch(e) {}
                     }
+                }
+                
+                // ENGLISH LABEL INTENT FILTER: if typing "label" progressively, prioritize label commands
+                // Only activate when enough context: "lab" or more (not just "l" or "la" which could be other commands)
+                const isLabelIntent = /^lab(?:e(?:l(?:\s+e(?:m(?:a(?:i(?:l(?:s)?)?)?)?)?)?)?)?$/i.test(q) || /^label\s+e(?:m(?:a(?:i(?:l(?:s)?)?)?)?)?$/i.test(q) || /^label\s+emails\s+(?:f(?:r(?:o(?:m)?)?)?|w(?:i(?:t(?:h)?)?)?)/i.test(q);
+                if (isLabelIntent && Array.isArray(items)) {
+                    try { console.log('[EN-LABEL-INTENT-FILTER] BEFORE filtering, items.length:', items.length); } catch(e) {}
+                    
+                    // Check if typing "label emails from" or "label emails with" (including progressive typing)
+                    // Match "f", "fr", "fro", "from" for "from"
+                    const isTypingLabelFrom = /^label\s+emails\s+f(?:r(?:o(?:m(?:\s|$))?)?)?/i.test(q);
+                    // Match "w", "wi", "wit", "with" for "with"
+                    const isTypingLabelWith = /^label\s+emails\s+w(?:i(?:t(?:h(?:\s|$))?)?)?/i.test(q);
+                    
+                    if (isTypingLabelFrom) {
+                        // Filter to only show "label emails from [sender] as [label]" command
+                        items = items.filter(it => {
+                            const text = typeof it === 'string' ? it : (it && it.cmd ? it.cmd : '');
+                            const lc = String(text || '').toLowerCase().trim();
+                            return /^label\s+emails\s+from\s+\[sender\]\s+as\s+"\[label\]"$/.test(lc);
+                        });
+                        // If no items found, inject the command
+                        if (items.length === 0) {
+                            items = [{ cmd: 'label emails from [sender] as "[label]"' }];
+                        }
+                    } else if (isTypingLabelWith) {
+                        // Filter to only show "label emails with [keyword] as [label]" command
+                        items = items.filter(it => {
+                            const text = typeof it === 'string' ? it : (it && it.cmd ? it.cmd : '');
+                            const lc = String(text || '').toLowerCase().trim();
+                            return /^label\s+emails\s+with\s+\[keyword\]\s+as\s+"\[label\]"$/.test(lc);
+                        });
+                        // If no items found, inject the command
+                        if (items.length === 0) {
+                            items = [{ cmd: 'label emails with [keyword] as "[label]"' }];
+                        }
+                    } else {
+                        // When typing "label" or "label emails", show only label commands
+                        items = items.filter(it => {
+                            const text = typeof it === 'string' ? it : (it && it.cmd ? it.cmd : '');
+                            const lc = String(text || '').toLowerCase().trim();
+                            // Keep only label commands
+                            const keep = /^label\s+/.test(lc);
+                            try { console.log('[EN-LABEL-INTENT-FILTER] checking:', lc, 'keep:', keep); } catch(e) {}
+                            return keep;
+                        });
+                    }
+                    
+                    try { console.log('[EN-LABEL-INTENT-FILTER] AFTER filtering, items.length:', items.length); } catch(e) {}
+                }
+                
+                // HEBREW LABEL INTENT FILTER: if typing "תייג" progressively, prioritize label commands
+                const isHeLabelIntent = isHeb && (/^ת(?:י(?:י(?:ג(\s+מ(?:י(?:י(?:ל(?:י(?:ם)?)?)?)?)?)?)?)?)?$/.test(q) || /^תייג\s+מיילים\s+(?:מ|עם)\s*/i.test(q));
+                if (isHeLabelIntent && Array.isArray(items)) {
+                    try { console.log('[HE-LABEL-INTENT-FILTER] BEFORE filtering, items.length:', items.length); } catch(e) {}
+                    
+                    // Check if typing "תייג מיילים מ" (from sender) or "תייג מיילים עם" (with keyword)
+                    const isTypingLabelFrom = /^תייג\s+מיילים\s+מ\s*/i.test(q);
+                    const isTypingLabelWith = /^תייג\s+מיילים\s+עם\s*/i.test(q);
+                    
+                    if (isTypingLabelFrom) {
+                        // Filter to only show "תייג מיילים מ[שולח] כ\"[תווית]\"" command
+                        items = items.filter(it => {
+                            const text = typeof it === 'string' ? it : (it && it.cmd ? it.cmd : '');
+                            const lc = String(text || '').toLowerCase().trim();
+                            return /^תייג\s+מיילים\s+מ\[שולח\]\s+כ"\[תווית\]"$/.test(lc);
+                        });
+                        // If no items found, inject the command
+                        if (items.length === 0) {
+                            items = [{ cmd: 'תייג מיילים מ[שולח] כ"[תווית]"' }];
+                        }
+                    } else if (isTypingLabelWith) {
+                        // Filter to only show "תייג מיילים עם [מילת מפתח] כ\"[תווית]\"" command
+                        items = items.filter(it => {
+                            const text = typeof it === 'string' ? it : (it && it.cmd ? it.cmd : '');
+                            const lc = String(text || '').toLowerCase().trim();
+                            return /^תייג\s+מיילים\s+עם\s+\[מילת\s+מפתח\]\s+כ"\[תווית\]"$/.test(lc);
+                        });
+                        // If no items found, inject the command
+                        if (items.length === 0) {
+                            items = [{ cmd: 'תייג מיילים עם [מילת מפתח] כ"[תווית]"' }];
+                        }
+                    } else {
+                        // When typing "תייג" or "תייג מיילים", show only Hebrew label commands
+                        items = items.filter(it => {
+                            const text = typeof it === 'string' ? it : (it && it.cmd ? it.cmd : '');
+                            const lc = String(text || '').toLowerCase().trim();
+                            // Keep only Hebrew label commands
+                            const keep = /^תייג\s+/.test(lc);
+                            try { console.log('[HE-LABEL-INTENT-FILTER] checking:', lc, 'keep:', keep); } catch(e) {}
+                            return keep;
+                        });
+                    }
+                    
+                    try { console.log('[HE-LABEL-INTENT-FILTER] AFTER filtering, items.length:', items.length); } catch(e) {}
                 }
                 
                 // Normalize input (remove RTL marks, collapse spaces) and detect fixed timeframe tokens
