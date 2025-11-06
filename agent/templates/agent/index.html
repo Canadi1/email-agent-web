@@ -7713,8 +7713,25 @@
                     try { console.log('[EN-RESTORE-INTENT] AFTER filtering, items.length:', items.length); } catch(e) {}
                 }
 
+                // HEBREW SEND INTENT FILTER: prioritize send commands when typing "שלח"
+                // Only activate when enough context: "של" or more (not just "ש" which could be restore)
+                const isHeSendIntent = isHeb && (/^של(?:ח(?:\s+מייל)?)?$/.test(q) || /^שלח\s+מייל\s*/i.test(q));
+                if (isHeSendIntent && Array.isArray(items)) {
+                    try { console.log('[HE-SEND-INTENT] BEFORE filtering, items.length:', items.length); } catch(e) {}
+                    items = items.filter(it => {
+                        const text = typeof it === 'string' ? it : (it && it.cmd ? it.cmd : '');
+                        const lc = String(text || '').toLowerCase().trim();
+                        return /^שלח\s+/.test(lc);
+                    });
+                    if (items.length === 0) {
+                        items = [{ cmd: 'שלח מייל' }];
+                    }
+                    try { console.log('[HE-SEND-INTENT] AFTER filtering, items.length:', items.length); } catch(e) {}
+                }
+                
                 // HEBREW RESTORE INTENT FILTER: prioritize restore commands when typing "שחזר"
-                const isHeRestoreIntent = isHeb && (/^ש(?:ח(?:ז(?:ר(?:\s+מייל(?:י(?:ם)?)?)?)?)?)?$/.test(q) || /^שחזר\s+מיילים\s+/.test(q));
+                // Only activate when enough context: "שח" or more (not just "ש" which could be send)
+                const isHeRestoreIntent = isHeb && (/^שח(?:ז(?:ר(?:\s+מייל(?:י(?:ם)?)?)?)?)?$/.test(q) || /^שחזר\s+מיילים\s+/.test(q));
                 if (isHeRestoreIntent && Array.isArray(items)) {
                     try { console.log('[HE-RESTORE-INTENT] BEFORE filtering, items.length:', items.length); } catch(e) {}
                     const isTypingHeRestoreFrom = /^שחזר\s+מיילים\s+מ\s*/i.test(q);
@@ -7731,6 +7748,33 @@
                         }
                     }
                     try { console.log('[HE-RESTORE-INTENT] AFTER filtering, items.length:', items.length); } catch(e) {}
+                }
+                
+                // HEBREW "ש" HANDLER: when typing just "ש", show both send and restore commands with send first
+                if (isHeb && /^ש\s*$/.test(q) && Array.isArray(items)) {
+                    try { console.log('[HE-SHIN-HANDLER] Showing both send and restore commands'); } catch(e) {}
+                    // Filter to show only send and restore commands, with send first
+                    const sendRestoreItems = items.filter(it => {
+                        const text = typeof it === 'string' ? it : (it && it.cmd ? it.cmd : '');
+                        const lc = String(text || '').toLowerCase().trim();
+                        return /^שלח\s+/.test(lc) || /^שחזר\s+/.test(lc);
+                    });
+                    // Sort so send comes first
+                    sendRestoreItems.sort((a, b) => {
+                        const aText = typeof a === 'string' ? a : (a && a.cmd ? a.cmd : '');
+                        const bText = typeof b === 'string' ? b : (b && b.cmd ? b.cmd : '');
+                        const aIsSend = /^שלח\s+/.test(aText);
+                        const bIsSend = /^שלח\s+/.test(bText);
+                        if (aIsSend && !bIsSend) return -1;
+                        if (!aIsSend && bIsSend) return 1;
+                        return 0;
+                    });
+                    if (sendRestoreItems.length > 0) {
+                        items = sendRestoreItems;
+                    } else {
+                        // If no items found, inject both commands with send first
+                        items = [{ cmd: 'שלח מייל' }, { cmd: 'שחזר מיילים מ[שולח]' }];
+                    }
                 }
                 
                 // ENGLISH SEARCH INTENT FILTER: if typing "search" progressively, prioritize search commands
