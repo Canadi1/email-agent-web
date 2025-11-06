@@ -6632,6 +6632,64 @@ class GmailAIAgent:
         except HttpError as error:
             return {"status": "error", "message": f"Error labeling emails: {error}"}
 
+    def restore_emails_from_sender(self, sender_email, confirm=False):
+        """Restore archived emails from a specific sender back to Inbox (unarchive)."""
+        try:
+            # Query archived (not in inbox) messages from sender
+            sender_term = f'"{sender_email}"' if ' ' in str(sender_email).strip() else sender_email
+            query = f"from:{sender_term} -in:inbox -in:spam -in:trash -in:chats -in:sent -in:drafts"
+
+            results = self.api_list_messages(q=query, maxResults=500)
+            messages = results.get('messages', []) or []
+            page_token = results.get('nextPageToken')
+            all_messages = []
+            if messages:
+                all_messages.extend(messages)
+            while page_token:
+                results = self.api_list_messages(q=query, maxResults=500, pageToken=page_token)
+                messages = results.get('messages', []) or []
+                if messages:
+                    all_messages.extend(messages)
+                page_token = results.get('nextPageToken')
+
+            if not all_messages:
+                return {"status": "success", "message": _("No archived emails found from %(sender)s.") % {"sender": sender_email}}
+
+            if not confirm:
+                return {
+                    "status": "confirmation_required",
+                    "message": _("Found %(count)d archived emails from %(sender)s. Restore to Inbox?") % {"count": len(all_messages), "sender": sender_email},
+                    "count": len(all_messages),
+                    "total_estimated": len(all_messages),
+                    "preview": self._build_preview(all_messages),
+                    "action_details": {
+                        "action": "restore_by_sender",
+                        "sender": sender_email
+                    }
+                }
+
+            # Confirmed: add INBOX label in batches
+            total_restored = 0
+            batch_size = 100
+            for i in range(0, len(all_messages), batch_size):
+                batch = all_messages[i:i + batch_size]
+                ids = [m['id'] for m in batch]
+                try:
+                    self.api_batch_modify(ids, add_label_ids=['INBOX'])
+                    total_restored += len(batch)
+                except HttpError:
+                    for m in batch:
+                        try:
+                            self.api_modify(m['id'], add_label_ids=['INBOX'])
+                            total_restored += 1
+                        except HttpError:
+                            continue
+
+            return {"status": "success", "message": _("Restored %(count)d emails from %(sender)s to Inbox.") % {"count": total_restored, "sender": sender_email}, "restored_count": total_restored}
+
+        except HttpError as error:
+            return {"status": "error", "message": f"Error restoring emails: {error}"}
+
     def label_emails_by_domain(self, domain, label_name, confirm=False):
         """Label emails from a specific domain.
         Optionally filter by age using older_than_days.
