@@ -799,7 +799,7 @@
             max-height: 150px;
             overflow-y: auto;
             background-color: #fff;
-            position: absolute;
+            position: fixed; /* Fixed positioning so dropdown stays with input when page scrolls */
             width: calc(100% - 42px); /* Adjust based on form padding/border */
             z-index: 1000;
         }
@@ -16365,6 +16365,33 @@
         });
 
         window.addEventListener('resize', positionSuggestions);
+        
+        // Add scroll listener to reposition dropdown when page scrolls
+        // Use requestAnimationFrame for smooth, synchronized updates
+        let rafId = null;
+        window.addEventListener('scroll', function() {
+            // Only reposition if dropdown is visible
+            if (!suggestionsContainer || !suggestionsContainer.parentNode || !commandInput) {
+                return;
+            }
+            
+            // Cancel any pending animation frame
+            if (rafId !== null) {
+                cancelAnimationFrame(rafId);
+            }
+            
+            // Use requestAnimationFrame for smooth updates that sync with browser repaint
+            rafId = requestAnimationFrame(function() {
+                // Only reposition if input is actually visible in viewport
+                const inputRect = commandInput.getBoundingClientRect();
+                const isInputVisible = inputRect.top < window.innerHeight && inputRect.bottom > 0;
+                
+                if (isInputVisible) {
+                    positionSuggestions();
+                }
+                rafId = null;
+            });
+        }, true); // Use capture phase to catch all scroll events
 
         // Insert command into input
         window.insertCommand = function(cmd) {
