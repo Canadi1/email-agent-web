@@ -650,6 +650,10 @@ msgstr "לא נמצאו מיילים עם נושא: '%(subject)s'."
 msgid "Found %(count)d emails with subject '%(subject)s'."
 msgstr "נמצאו %(count)d מיילים עם הנושא '%(subject)s'."
 
+# Paginated search message with shown/total
+msgid "Found %(total)d emails with subject '%(subject)s'. Showing %(shown)d."
+msgstr "נמצאו %(total)d מיילים עם הנושא '%(subject)s'. מציג %(shown)d."
+
 #: .\agent\email_ai_agent.py:2091 .\agent\email_ai_agent.py:3638
 #, python-format
 msgid ""

@@ -490,6 +490,7 @@ def process_command_with_progress(agent, command, command_id, language_code=None
             update_progress(command_id, 95, get_progress_message('processing_results', language_code=language_code))
         elif action == 'search':
             update_progress(command_id, 25, get_progress_message('searching_emails', language_code=language_code))
+            # Use detailed/simulated progress for search (no X/Y progress bar)
             result = process_with_detailed_progress(agent, command, command_id, 25, 99, language_code)
             update_progress(command_id, 99, get_progress_message('processing_results', language_code=language_code))
         elif action == 'delete':
@@ -701,6 +702,13 @@ def index(request):
                     per_page = request.session.get('per_page', 50)
                     res = agent_instance.list_recent_emails(max_results=per_page, page_token=token)
                     return JsonResponse({"data": res.get('emails', []), "next_page_token": res.get('next_page_token')})
+                if mode == 'search_subject':
+                    subject = list_context.get('subject') or list_context.get('target')
+                    per_page = request.session.get('per_page', 50)
+                    res = agent_instance.search_emails_by_subject(subject, max_results=per_page, page_token=token)
+                    emails = res.get('emails', []) if isinstance(res, dict) else []
+                    next_token = res.get('next_page_token') if isinstance(res, dict) else None
+                    return JsonResponse({"data": emails, "next_page_token": next_token})
                 if mode == 'archived':
                     per_page = request.session.get('per_page', 50)
                     res = agent_instance.list_archived_emails(max_results=per_page, page_token=token)

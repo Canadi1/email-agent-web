@@ -2686,24 +2686,42 @@ class GmailAIAgent:
         action_id = self._record_undo('archive', message_ids)
         return {"status": "success", "message": _("Archived %(count)d emails from %(what)s.") % {"count": total_processed, "what": self._pretty_category_name(category_key)}, "archived_count": total_processed, "undo_action_id": action_id}
 
-    def search_emails_by_subject(self, search_term, max_results=50):
-        """Search for emails with a specific term in the subject."""
+    def search_emails_by_subject(self, search_term, max_results=None, page_token=None):
+        """Search for emails with a specific term in the subject, with pagination and progress (RSP)."""
         try:
             from datetime import datetime
-            query = f"subject:({search_term})"
-            results = self.api_list_messages(q=query, maxResults=max_results)
-            messages = results.get('messages', [])
+            if max_results is None:
+                max_results = getattr(self, 'default_max_results', 50)
 
-            if not messages:
-                return []
+            query = f"subject:({search_term})"
+            kwargs = {
+                'q': query,
+                'maxResults': max_results,
+                # Ask only for ids, next token and total estimate to reduce payload
+                'fields': 'messages/id,nextPageToken,resultSizeEstimate'
+            }
+            if page_token:
+                kwargs['pageToken'] = page_token
+
+            results = self.api_list_messages(**kwargs)
+            messages = results.get('messages', []) or []
+            next_token = results.get('nextPageToken')
+            total_estimate = results.get('resultSizeEstimate') if isinstance(results, dict) else None
+
+            # No real X/Y progress updates for search (keep normal simulated progress)
 
             email_list = []
-            for message in messages:
-                msg = self.api_get_message(message['id'], format='metadata', metadataHeaders=['From', 'Subject'], fields='id,internalDate,payload/headers')
+            for i, message in enumerate(messages):
+                msg = self.api_get_message(
+                    message['id'],
+                    format='metadata',
+                    metadataHeaders=['From', 'Subject'],
+                    fields='id,internalDate,payload/headers'
+                )
                 headers = msg['payload']['headers']
-                subject = next((h['value'] for h in headers if h['name'] == 'Subject'), 'No Subject')
-                sender = next((h['value'] for h in headers if h['name'] == 'From'), 'Unknown Sender')
-                
+                subject = next((h['value'] for h in headers if h.get('name') == 'Subject'), 'No Subject')
+                sender = next((h['value'] for h in headers if h.get('name') == 'From'), 'Unknown Sender')
+
                 # Add date information
                 date_str = ''
                 try:
@@ -2712,14 +2730,20 @@ class GmailAIAgent:
                         date_str = datetime.fromtimestamp(ts_ms/1000).strftime('%Y-%m-%d %H:%M')
                 except Exception:
                     date_str = ''
-                
+
                 email_list.append({'id': message['id'], 'sender': sender, 'subject': subject, 'date': date_str})
-                
-            return email_list
+
+                # Do not emit real progress updates here to keep the normal progress bar behavior
+
+            return {
+                'emails': email_list,
+                'next_page_token': next_token,
+                'total_count': total_estimate if isinstance(total_estimate, int) else len(email_list)
+            }
 
         except HttpError as error:
             print(f"❌ Error searching emails by subject: {error}")
-            return []
+            return {'emails': [], 'next_page_token': None, 'total_count': 0}
 
     def delete_emails_by_sender(self, sender_email, confirm=False, older_than_days=None):
         """Delete emails from a specific sender by moving them to Trash.
@@ -4365,16 +4389,29 @@ class GmailAIAgent:
             
             elif action == "search":
                 if target_type == "subject":
-                    emails = self.search_emails_by_subject(target)
-                    if not emails: 
+                    # Page size comes from agent.default_max_results (set by the view)
+                    res = self.search_emails_by_subject(target, max_results=getattr(self, 'default_max_results', 50))
+                    emails = res.get('emails', []) if isinstance(res, dict) else (res or [])
+                    if not emails:
                         msg = _("No emails found with subject: '%(subject)s'.") % {"subject": target}
                         print(f"[DEBUG] Search - no emails found, message: {msg}")
                         return {"status": "success", "message": msg}
-                    # Add message with count for snackbar
-                    count = len(emails)
-                    msg = _("Found %(count)d emails with subject '%(subject)s'.") % {"count": count, "subject": target}
-                    print(f"[DEBUG] Search - found {count} emails, message: {msg}")
-                    return {"status": "success", "data": emails, "type": "email_list", "message": msg}
+                    # Build message with total count only (no "Showing ...")
+                    total = res.get('total_count') if isinstance(res, dict) else len(emails)
+                    if not isinstance(total, int) or total <= 0:
+                        total = len(emails)
+                    msg = _("Found %(count)d emails with subject '%(subject)s'.") % {"count": int(total), "subject": target}
+                    print(f"[DEBUG] Search - found {len(emails)}/{total} emails, message: {msg}")
+                    payload = {
+                        "status": "success",
+                        "data": emails,
+                        "type": "email_list",
+                        "message": msg,
+                        "next_page_token": res.get('next_page_token') if isinstance(res, dict) else None,
+                        "list_context": {"mode": "search_subject", "subject": target},
+                        "total_count": total,
+                    }
+                    return payload
 
             elif action == "send":
                 to = parsed.get("to")
