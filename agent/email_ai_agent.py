@@ -4966,74 +4966,37 @@ class GmailAIAgent:
             # Debug logging
             print(f"DEBUG: archive_emails_by_sender_from_time called with sender='{sender_email}', time_period='{time_period}'")
             
-            max_retries = 5
-            retry_delay = 1
-            
-            for attempt in range(max_retries):
-                try:
-                    # Build search query with sender and time period
-                    query_parts = [f"from:{sender_email}"]
-                    
-                    # Compute precise calendar window using shared helper
-                    if not time_period:
-                        return {"error": "Time period is None or empty"}
-                    start_dt, end_dt = self._compute_precise_date_range_window(time_period)
-                    if not start_dt or not end_dt:
-                        return {"error": f"Invalid or unsupported time period: {time_period}"}
-                    start_date = start_dt.strftime("%Y/%m/%d")
-                    end_date = end_dt.strftime("%Y/%m/%d")
-                    
-                    query_parts.append(f"after:{start_date}")
-                    query_parts.append(f"before:{end_date}")
-                    
-                    query = " ".join(query_parts)
-                    print(f"DEBUG: Final Gmail query for {sender_email}: {query}")
+            # Build search query with sender and time period
+            query_parts = [f"from:{sender_email}"]
+            # Compute precise calendar window using shared helper
+            if not time_period:
+                return {"error": "Time period is None or empty"}
+            start_dt, end_dt = self._compute_precise_date_range_window(time_period)
+            if not start_dt or not end_dt:
+                return {"error": f"Invalid or unsupported time period: {time_period}"}
+            start_date = start_dt.strftime("%Y/%m/%d")
+            end_date = end_dt.strftime("%Y/%m/%d")
+            query_parts.append(f"after:{start_date}")
+            query_parts.append(f"before:{end_date}")
+            query = " ".join(query_parts)
+            print(f"DEBUG: Final Gmail query for {sender_email}: {query}")
 
-                    # Fetch all matching messages with pagination
-                    all_messages = []
-                    page_token = None
-                    results = None  # Initialize results to avoid UnboundLocalError
-                    while True:
-                        kwargs = {"userId": 'me', "q": query, "maxResults": 500}
-                        if page_token:
-                            kwargs["pageToken"] = page_token
-                        
-                        try:
-                            results = self.service.users().messages().list(**kwargs).execute()
-                            messages = results.get('messages', []) or []
-                            all_messages.extend(messages)
-                            
-                            page_token = results.get('nextPageToken')
-                            if not page_token:
-                                break
-                        except Exception as e:
-                            err_text = str(e)
-                            if (("SSL" in err_text or "WRONG_VERSION_NUMBER" in err_text or "DECRYPTION_FAILED_OR_BAD_RECORD_MAC" in err_text or
-                                 "timeout" in err_text.lower() or "connection" in err_text.lower() or
-                                 "WinError 10060" in err_text or "failed to respond" in err_text.lower())
-                                and attempt < max_retries - 1):
-                                print(f"Connection error in archive_emails_by_sender_from_time (attempt {attempt + 1}): {err_text}")
-                                time.sleep(retry_delay)
-                                retry_delay *= 2
-                                raise e  # Re-raise to trigger outer retry logic
-                            else:
-                                raise e
-                    
-                    # If we get here, the operation was successful
+            # Fetch all matching messages with pagination using retry-aware wrapper
+            all_messages = []
+            page_token = None
+            while True:
+                kwargs = {"userId": 'me', "q": query, "maxResults": 500, "fields": 'messages/id,nextPageToken'}
+                if page_token:
+                    kwargs["pageToken"] = page_token
+                try:
+                    results = self.api_list_messages(**kwargs)
+                except HttpError as e:
+                    return {"error": f"Error fetching messages: {e}"}
+                messages = results.get('messages', []) or []
+                all_messages.extend(messages)
+                page_token = results.get('nextPageToken')
+                if not page_token:
                     break
-                    
-                except Exception as e:
-                    error_msg = str(e)
-                    print(f"Error in archive_emails_by_sender_from_time (attempt {attempt + 1}): {error_msg}")
-                    if ("timeout" in error_msg.lower() or "connection" in error_msg.lower() or
-                        "WinError 10060" in error_msg or "failed to respond" in error_msg.lower() or
-                        "SSL" in error_msg or "WRONG_VERSION_NUMBER" in error_msg or "DECRYPTION_FAILED_OR_BAD_RECORD_MAC" in error_msg):
-                        if attempt < max_retries - 1:
-                            print(f"Retrying in {retry_delay} seconds...")
-                            time.sleep(retry_delay)
-                            retry_delay *= 2
-                            continue  # Continue to next attempt in outer for loop
-                    return {"error": f"Error archiving emails by sender from time: {error_msg}"}
             
             # If we get here, the message fetching was successful, now do the archiving
             print(f"DEBUG: Total messages found for {sender_email}: {len(all_messages)}")
@@ -5064,10 +5027,7 @@ class GmailAIAgent:
                 batch = all_messages[i:i+100]
                 batch_ids = [m['id'] for m in batch]
                 try:
-                    self.service.users().messages().batchModify(
-                    userId='me', 
-                        body={'ids': batch_ids, 'removeLabelIds': ['INBOX']}
-                ).execute()
+                    self.api_batch_modify(batch_ids, remove_label_ids=['INBOX'])
                     total_processed += len(batch)
                     
                     # Update progress
@@ -5077,7 +5037,7 @@ class GmailAIAgent:
                     # Fallback to single modify
                     for m in batch:
                         try:
-                            self.service.users().messages().modify(userId='me', id=m['id'], body={'removeLabelIds': ['INBOX']}).execute()
+                            self.api_modify(m['id'], remove_label_ids=['INBOX'])
                             total_processed += 1
                             
                             # Update progress
@@ -6671,21 +6631,32 @@ class GmailAIAgent:
             # Confirmed: add INBOX label in batches
             total_restored = 0
             batch_size = 100
+            restored_ids = []
             for i in range(0, len(all_messages), batch_size):
                 batch = all_messages[i:i + batch_size]
                 ids = [m['id'] for m in batch]
                 try:
                     self.api_batch_modify(ids, add_label_ids=['INBOX'])
                     total_restored += len(batch)
+                    restored_ids.extend(ids)
                 except HttpError:
                     for m in batch:
                         try:
                             self.api_modify(m['id'], add_label_ids=['INBOX'])
                             total_restored += 1
+                            restored_ids.append(m['id'])
                         except HttpError:
                             continue
 
-            return {"status": "success", "message": _("Restored %(count)d emails from %(sender)s to Inbox.") % {"count": total_restored, "sender": sender_email}, "restored_count": total_restored}
+            # Record undo entry so user can revert this restore
+            action_id = None
+            try:
+                if restored_ids:
+                    action_id = self._record_undo('restore', restored_ids)
+            except Exception:
+                action_id = None
+
+            return {"status": "success", "message": _("Restored %(count)d emails from %(sender)s to Inbox.") % {"count": total_restored, "sender": sender_email}, "restored_count": total_restored, "undo_action_id": action_id}
 
         except HttpError as error:
             return {"status": "error", "message": f"Error restoring emails: {error}"}
@@ -7039,6 +7010,22 @@ class GmailAIAgent:
                 msg = (f"הביטול הושלם. הוחזרו מהאשפה {restored} מיילים." if is_he
                        else _("Undo complete. Untrashed %(count)d emails.") % {"count": restored})
                 return {"status": "success", "message": msg, "undone_count": restored}
+            elif action_type == 'restore':
+                # Undo a restore by archiving again (remove INBOX)
+                for i in range(0, len(msg_ids), 100):
+                    batch_ids = msg_ids[i:i+100]
+                    try:
+                        self.api_batch_modify(batch_ids, remove_label_ids=['INBOX'])
+                    except HttpError:
+                        for mid in batch_ids:
+                            try:
+                                self.api_modify(mid, remove_label_ids=['INBOX'])
+                            except HttpError:
+                                continue
+                del self._undo_store[action_id]
+                msg = (f"הביטול הושלם. הועברו לארכיון {len(msg_ids)} מיילים." if is_he
+                       else _("Undo complete. Archived %(count)d emails.") % {"count": len(msg_ids)})
+                return {"status": "success", "message": msg, "undone_count": len(msg_ids)}
             elif action_type == 'label_add':
                 # Remove label that was added
                 label_id = entry['extra'].get('label_id')
@@ -7097,6 +7084,8 @@ class GmailAIAgent:
                 display = (f"הועברו לארכיון {count} מיילים" if is_he else _("Archived %(count)d emails") % {"count": count})
             elif action_type == 'trash':
                 display = (f"נמחקו {count} מיילים" if is_he else _("Deleted %(count)d emails") % {"count": count})
+            elif action_type == 'restore':
+                display = (f"שוחזרו לתיבת הנכנס {count} מיילים" if is_he else _("Restored %(count)d emails to Inbox") % {"count": count})
             elif action_type == 'label_add':
                 display = (f"התווספה תווית ל-{count} מיילים" if is_he else _("Added label to %(count)d emails") % {"count": count})
             elif action_type == 'label_delete':

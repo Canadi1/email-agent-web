@@ -1,3 +1,6 @@
+# Undo archived after restore
+msgid "Undo complete. Archived %(count)d emails."
+msgstr "הביטול הושלם. הועברו לארכיון %(count)d מיילים."
 msgid "list [category] emails"
 msgstr "רשום מיילי [קטגוריה]"
 
