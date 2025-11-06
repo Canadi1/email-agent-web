@@ -58,6 +58,14 @@ class GmailAIAgent:
         except Exception:
             pass
         
+        # Check error type name (catches wrapped SSL errors)
+        try:
+            error_type = type(error).__name__.lower()
+            if 'ssl' in error_type or 'tls' in error_type or 'certificate' in error_type:
+                return True
+        except Exception:
+            pass
+        
         # Check error message for retryable patterns
         try:
             message = str(error)
@@ -66,18 +74,25 @@ class GmailAIAgent:
         text = message.lower()
         retry_tokens = [
             "ssl",
+            "tls",
             "certificate",
             "wrong_version_number",
             "wrong version number",
             "wrong_version",
             "decryption_failed",
+            "decryption failed",
             "bad_record_mac",
+            "bad record mac",
+            "sslerror",
+            "ssl error",
+            "ssl:",
             "timed out",
             "timeout",
             "read timed out",
             "connection reset",
             "connection aborted",
             "connection refused",
+            "connection closed",
             "remote end closed connection",
             "max retries exceeded",
             "temporarily unavailable",
@@ -85,6 +100,17 @@ class GmailAIAgent:
             "gaierror",
             "dns",
             "proxy",
+            "broken pipe",
+            "errno 104",
+            "errno 110",
+            "errno 111",
+            "errno 113",
+            "errno 54",
+            "[errno 104]",
+            "[errno 110]",
+            "[errno 111]",
+            "[errno 113]",
+            "[errno 54]",
         ]
         return any(token in text for token in retry_tokens)
 
@@ -101,9 +127,19 @@ class GmailAIAgent:
                 last_exc = exc
                 if attempt < max_retries - 1 and self._is_retryable_network_error(exc):
                     delay = base_delay * (2 ** attempt)
+                    # Cap max delay at 10 seconds
+                    delay = min(delay, 10.0)
                     jitter = random.uniform(0, max(0.1, 0.25 * delay))
-                    time.sleep(delay + jitter)
+                    total_delay = delay + jitter
+                    # Log retry attempt for debugging
+                    try:
+                        error_msg = str(exc)[:100]  # Truncate long error messages
+                        print(f"[RETRY] Attempt {attempt + 1}/{max_retries} after {total_delay:.2f}s - Error: {error_msg}")
+                    except Exception:
+                        pass
+                    time.sleep(total_delay)
                     continue
+                # If not retryable or last attempt, raise the exception
                 raise
         if last_exc is not None:
             raise last_exc
@@ -116,7 +152,7 @@ class GmailAIAgent:
             user_id = kwargs.pop('userId') or user_id
         return self._execute_with_retries(
             self.service.users().messages().list(userId=user_id, **kwargs),
-            max_retries=5,
+            max_retries=7,  # Increased retries for better SSL error handling
             base_delay=1.0,
         )
 
@@ -126,7 +162,7 @@ class GmailAIAgent:
             user_id = kwargs.pop('userId') or user_id
         return self._execute_with_retries(
             self.service.users().messages().get(userId=user_id, id=message_id, **kwargs),
-            max_retries=4,
+            max_retries=6,  # Increased retries for better SSL error handling
             base_delay=0.8,
         )
 
@@ -140,7 +176,7 @@ class GmailAIAgent:
             body['removeLabelIds'] = list(remove_label_ids)
         return self._execute_with_retries(
             self.service.users().messages().batchModify(userId=user_id, body=body),
-            max_retries=5,
+            max_retries=6,  # Increased retries for better SSL error handling
             base_delay=1.0,
         )
 
@@ -152,7 +188,7 @@ class GmailAIAgent:
             body['removeLabelIds'] = list(remove_label_ids)
         return self._execute_with_retries(
             self.service.users().messages().modify(userId=user_id, id=message_id, body=body),
-            max_retries=5,
+            max_retries=6,  # Increased retries for better SSL error handling
             base_delay=1.0,
         )
 
@@ -4331,10 +4367,13 @@ class GmailAIAgent:
                 if target_type == "subject":
                     emails = self.search_emails_by_subject(target)
                     if not emails: 
-                        return {"status": "success", "message": _("No emails found with subject: '%(subject)s'.") % {"subject": target}}
+                        msg = _("No emails found with subject: '%(subject)s'.") % {"subject": target}
+                        print(f"[DEBUG] Search - no emails found, message: {msg}")
+                        return {"status": "success", "message": msg}
                     # Add message with count for snackbar
                     count = len(emails)
                     msg = _("Found %(count)d emails with subject '%(subject)s'.") % {"count": count, "subject": target}
+                    print(f"[DEBUG] Search - found {count} emails, message: {msg}")
                     return {"status": "success", "data": emails, "type": "email_list", "message": msg}
 
             elif action == "send":

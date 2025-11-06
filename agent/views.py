@@ -907,6 +907,10 @@ def index(request):
                 result['list_context_json'] = ''
 
         if result is not None:
+            # Debug: Log search command results
+            if isinstance(result, dict) and result.get('type') == 'email_list':
+                print(f"[DEBUG] Search result - status: {result.get('status')}, type: {result.get('type')}, message: {result.get('message')}, data count: {len(result.get('data', []))}")
+            
             # Ensure a snackbar-friendly message for label commands if backend omitted it
             try:
                 if isinstance(result, dict):

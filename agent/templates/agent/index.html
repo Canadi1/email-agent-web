@@ -2011,6 +2011,57 @@
             setTimeout(() => { snackbar.className = 'snackbar'; }, 5000);
         }
 
+        // Show snackbar on page load if there's a result message (for search results, etc.)
+        function showSnackbarOnLoad() {
+            try {
+                // Check if there's an email list (search results)
+                const emailList = document.querySelector('.email-list');
+                if (!emailList) {
+                    return; // No email list, don't show snackbar
+                }
+                
+                // Check if there's a success message in the results
+                // Try multiple selectors to find the message (works for both LTR and RTL)
+                const successMessage = document.querySelector('.success-message') || 
+                                      document.querySelector('.results .success-message') ||
+                                      document.querySelector('[class*="success-message"]');
+                
+                if (successMessage) {
+                    // Get text content - handle both textContent and innerText for better Hebrew support
+                    let messageText = '';
+                    if (successMessage.textContent) {
+                        messageText = successMessage.textContent.trim();
+                    } else if (successMessage.innerText) {
+                        messageText = successMessage.innerText.trim();
+                    } else if (successMessage.text) {
+                        messageText = successMessage.text.trim();
+                    }
+                    
+                    if (messageText) {
+                        // Show snackbar for search results (if email list exists, it's likely a search result)
+                        showSnackbar(messageText, 'success');
+                    }
+                }
+            } catch (e) {
+                // Log error for debugging
+                console.error('Error showing snackbar:', e);
+            }
+        }
+        
+        // Try multiple times to ensure DOM is ready
+        document.addEventListener('DOMContentLoaded', function() {
+            // Try immediately
+            showSnackbarOnLoad();
+            // Try again after a short delay in case DOM isn't fully ready
+            setTimeout(showSnackbarOnLoad, 100);
+            setTimeout(showSnackbarOnLoad, 500);
+        });
+        
+        // Also try on window load as a fallback
+        window.addEventListener('load', function() {
+            setTimeout(showSnackbarOnLoad, 100);
+        });
+
         // Helper: shorten a sender like 'Name <no-reply@info.yad2.co.il>' -> 'Name' (or 'yad2' from domain)
         function shortSenderName(s) {
             try {
