@@ -7684,6 +7684,54 @@
                     
                     try { console.log('[HE-LABEL-INTENT-FILTER] AFTER filtering, items.length:', items.length); } catch(e) {}
                 }
+
+                // ENGLISH RESTORE INTENT FILTER: prioritize restore commands when typing "restore"
+                // Only activate when enough context: "res" or more (not just "r" or "re" which could be other commands)
+                const isRestoreIntent = /^res(?:t(?:o(?:r(?:e(?:\s+e(?:m(?:a(?:i(?:l(?:s)?)?)?)?)?)?)?)?)?)?$/i.test(q) || /^restore\s+e(?:m(?:a(?:i(?:l(?:s)?)?)?)?)?$/i.test(q) || /^restore\s+emails\s+f(?:r(?:o(?:m(?:\s|$))?)?)?/i.test(q);
+                if (isRestoreIntent && Array.isArray(items)) {
+                    try { console.log('[EN-RESTORE-INTENT] BEFORE filtering, items.length:', items.length); } catch(e) {}
+                    const isTypingRestoreFrom = /^restore\s+emails\s+f(?:r(?:o(?:m(?:\s|$))?)?)?/i.test(q);
+                    if (isTypingRestoreFrom) {
+                        items = items.filter(it => {
+                            const text = typeof it === 'string' ? it : (it && it.cmd ? it.cmd : '');
+                            const lc = String(text || '').toLowerCase().trim();
+                            return /^restore\s+emails\s+from\s+\[sender\]$/i.test(lc) || /^restore\s+emails\s+from/.test(lc);
+                        });
+                        if (items.length === 0) {
+                            items = [{ cmd: 'restore emails from [sender]' }];
+                        }
+                    } else {
+                        items = items.filter(it => {
+                            const text = typeof it === 'string' ? it : (it && it.cmd ? it.cmd : '');
+                            const lc = String(text || '').toLowerCase().trim();
+                            return /^restore\s+/.test(lc);
+                        });
+                        if (items.length === 0) {
+                            items = [{ cmd: 'restore emails from [sender]' }];
+                        }
+                    }
+                    try { console.log('[EN-RESTORE-INTENT] AFTER filtering, items.length:', items.length); } catch(e) {}
+                }
+
+                // HEBREW RESTORE INTENT FILTER: prioritize restore commands when typing "שחזר"
+                const isHeRestoreIntent = isHeb && (/^ש(?:ח(?:ז(?:ר(?:\s+מייל(?:י(?:ם)?)?)?)?)?)?$/.test(q) || /^שחזר\s+מיילים\s+/.test(q));
+                if (isHeRestoreIntent && Array.isArray(items)) {
+                    try { console.log('[HE-RESTORE-INTENT] BEFORE filtering, items.length:', items.length); } catch(e) {}
+                    const isTypingHeRestoreFrom = /^שחזר\s+מיילים\s+מ\s*/i.test(q);
+                    if (isTypingHeRestoreFrom) {
+                        items = [{ cmd: 'שחזר מיילים מ[שולח]' }];
+                    } else {
+                        items = items.filter(it => {
+                            const text = typeof it === 'string' ? it : (it && it.cmd ? it.cmd : '');
+                            const lc = String(text || '').toLowerCase().trim();
+                            return /^שחזר\s+/.test(lc);
+                        });
+                        if (items.length === 0) {
+                            items = [{ cmd: 'שחזר מיילים מ[שולח]' }];
+                        }
+                    }
+                    try { console.log('[HE-RESTORE-INTENT] AFTER filtering, items.length:', items.length); } catch(e) {}
+                }
                 
                 // ENGLISH SEARCH INTENT FILTER: if typing "search" progressively, prioritize search commands
                 // Only activate when enough context: "sea" or more (not just "s" or "se" which could be other commands)
