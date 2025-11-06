@@ -1292,6 +1292,34 @@ msgstr "תייג מיילים עם [מילת מפתח] כ\"[תווית]\""
 msgid "Labels emails containing specific keywords in subject."
 msgstr "מתייג מיילים המכילים מילות מפתח ספציפיות בנושא."
 
+#: .\agent\email_ai_agent.py:6478
+msgid "No emails found with keywords: %(keywords)s."
+msgstr "לא נמצאו מיילים עם מילות מפתח: %(keywords)s."
+
+#: .\agent\email_ai_agent.py:6483
+msgid "Found %(count)d emails with keywords %(keywords)s. Do you want to label them as '%(label)s'?"
+msgstr "נמצאו %(count)d מיילים עם מילות מפתח %(keywords)s. האם ברצונך לתייג אותם כ-'%(label)s'?"
+
+#: .\agent\email_ai_agent.py:6519
+msgid "Labeled %(count)d emails with keywords %(keywords)s as '%(label)s'."
+msgstr "תויגו %(count)d מיילים עם מילות מפתח %(keywords)s כ-'%(label)s'."
+
+#: .\agent\email_ai_agent.py:6551
+msgid "Found %(count)d emails from %(sender)s. Do you want to label them as '%(label)s'?"
+msgstr "נמצאו %(count)d מיילים מ-%(sender)s. האם ברצונך לתייג אותם כ-'%(label)s'?"
+
+#: .\agent\email_ai_agent.py:6593
+msgid "Labeled %(count)d emails from %(sender)s as '%(label)s'."
+msgstr "תויגו %(count)d מיילים מ-%(sender)s כ-'%(label)s'."
+
+#: .\agent\email_ai_agent.py:6625
+msgid "Found %(count)d emails from domain %(domain)s. Do you want to label them as '%(label)s'?"
+msgstr "נמצאו %(count)d מיילים מהדומיין %(domain)s. האם ברצונך לתייג אותם כ-'%(label)s'?"
+
+#: .\agent\email_ai_agent.py:6667
+msgid "Labeled %(count)d emails from domain %(domain)s as '%(label)s'."
+msgstr "תויגו %(count)d מיילים מהדומיין %(domain)s כ-'%(label)s'."
+
 #: .\agent\templates\agent\index.html:652 .\agent\views.py:250
 msgid "list labels"
 msgstr "רשום תוויות"
