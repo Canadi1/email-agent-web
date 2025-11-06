@@ -192,6 +192,14 @@
             color: var(--primary-color);
         }
 
+        /* Undo Recent Actions spacing */
+        .undo-actions-list li {
+            display: flex;
+            align-items: center;
+            gap: 10px; /* space between the pill and text */
+            margin-bottom: 8px; /* vertical space between rows */
+        }
+
         /* Loading Screen Styles */
         .loading-overlay {
             position: fixed;
@@ -1577,7 +1585,7 @@
                 <div class="stat-card undo-card" style="margin-top:20px;">
                     <h3>{% trans 'Undo Recent Actions' %}</h3>
                     {% if recent_actions %}
-                        <ul class="stat-list">
+                        <ul class="stat-list undo-actions-list">
                             {% for act in recent_actions %}
                             <li>
                                 <form method="post" class="undo-form" style="display:inline-block; margin-right:10px;">
