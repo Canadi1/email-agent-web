@@ -16308,7 +16308,10 @@
             if (el) {
                 el.classList.add('active');
                 el.setAttribute('aria-selected','true');
-                el.scrollIntoView({block:'nearest'});
+                // Only scroll when navigating with keyboard, not when hovering with mouse
+                if (activeByKeyboard) {
+                    el.scrollIntoView({block:'nearest'});
+                }
             }
         }
 
@@ -16338,12 +16341,12 @@
             }
             if (e.key === 'ArrowDown') {
                 e.preventDefault();
+                activeByKeyboard = true; // Set before setActive so scroll happens
                 setActive(activeIndex + 1);
-                activeByKeyboard = true;
             } else if (e.key === 'ArrowUp') {
                 e.preventDefault();
+                activeByKeyboard = true; // Set before setActive so scroll happens
                 setActive(activeIndex - 1);
-                activeByKeyboard = true;
             } else if (e.key === 'Enter') {
                 if (suggestionItems.length && activeIndex >= 0 && activeByKeyboard) {
                     e.preventDefault();
