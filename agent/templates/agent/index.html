@@ -17121,15 +17121,6 @@
             }
         }
         
-        // Add a close button for testing
-        const closeBtn = document.createElement('button');
-        closeBtn.textContent = 'Close';
-        closeBtn.style.cssText = 'position: absolute; top: 10px; right: 10px; background: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer;';
-        closeBtn.onclick = function() {
-            hideLoadingScreen();
-            closeBtn.remove();
-        };
-        document.getElementById('loadingScreen').appendChild(closeBtn);
     };
 
     window.hideLoadingScreen = function() {
