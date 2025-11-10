@@ -7685,6 +7685,22 @@
                     try { console.log('[HE-LABEL-INTENT-FILTER] AFTER filtering, items.length:', items.length); } catch(e) {}
                 }
 
+                // ENGLISH SEND INTENT FILTER: prioritize send commands when typing "send"
+                // Only activate when enough context: "sen" or more (not just "s" or "se" which could be other commands)
+                const isSendIntent = /^sen(?:d(?:\s+e(?:m(?:a(?:i(?:l(?:s?)?)?)?)?)?)?)?$/i.test(q) || /^send\s+e(?:m(?:a(?:i(?:l(?:s?)?)?)?)?)?$/i.test(q);
+                if (isSendIntent && Array.isArray(items)) {
+                    try { console.log('[EN-SEND-INTENT] BEFORE filtering, items.length:', items.length); } catch(e) {}
+                    items = items.filter(it => {
+                        const text = typeof it === 'string' ? it : (it && it.cmd ? it.cmd : '');
+                        const lc = String(text || '').toLowerCase().trim();
+                        return /^send\s+/.test(lc);
+                    });
+                    if (items.length === 0) {
+                        items = [{ cmd: 'send email' }];
+                    }
+                    try { console.log('[EN-SEND-INTENT] AFTER filtering, items.length:', items.length); } catch(e) {}
+                }
+                
                 // ENGLISH RESTORE INTENT FILTER: prioritize restore commands when typing "restore"
                 // Only activate when enough context: "res" or more (not just "r" or "re" which could be other commands)
                 const isRestoreIntent = /^res(?:t(?:o(?:r(?:e(?:\s+e(?:m(?:a(?:i(?:l(?:s)?)?)?)?)?)?)?)?)?)?$/i.test(q) || /^restore\s+e(?:m(?:a(?:i(?:l(?:s)?)?)?)?)?$/i.test(q) || /^restore\s+emails\s+f(?:r(?:o(?:m(?:\s|$))?)?)?/i.test(q);
