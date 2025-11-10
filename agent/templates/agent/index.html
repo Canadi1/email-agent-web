@@ -1290,7 +1290,7 @@
                                 {% endif %}
                             {% else %}
                                 {% if result.message %}
-                                    <div class="success-message">{{ result.message }}</div>
+                                <div class="success-message">{{ result.message }}</div>
                                 {% endif %}
                             {% endif %}
                             {% if result.type == 'email_list' and result.data %}
@@ -16331,7 +16331,7 @@
                 el.setAttribute('aria-selected','true');
                 // Only scroll when navigating with keyboard, not when hovering with mouse
                 if (activeByKeyboard) {
-                    el.scrollIntoView({block:'nearest'});
+                el.scrollIntoView({block:'nearest'});
                 }
             }
         }
