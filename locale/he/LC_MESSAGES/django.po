@@ -1061,6 +1061,14 @@ msgstr "מציג את 10 ההודעות האחרונות."
 msgid "list archived emails"
 msgstr "רשום מיילים בארכיון"
 
+#: agent/templates/agent/index.html
+msgid "list archived emails from [sender]"
+msgstr "רשום מיילים מארכיון מ[שולח]"
+
+#: agent/templates/agent/index.html
+msgid "Emails in All Mail from a specific sender (excluding Inbox)."
+msgstr "מיילים בתיבת כל הדואר (All Mail) משולח מסוים, בלי תיבת הנכנס."
+
 #: .\agent\templates\agent\index.html:623
 msgid "Emails not in Inbox."
 msgstr "הודעות שאינן בתיבת הדואר הנכנס."

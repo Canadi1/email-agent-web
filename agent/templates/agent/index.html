@@ -1534,6 +1534,10 @@
                         <!-- This list can be populated from the view if we want it to be dynamic -->
                         <li><b>{% trans 'list recent emails' %}</b> - {% trans 'Shows the 10 most recent emails.' %}</li>
                         <li><b>{% trans 'list archived emails' %}</b> - {% trans 'Emails not in Inbox.' %}</li>
+                        <li>
+                            <b>{% if LANGUAGE_BIDI %}רשום מיילים מארכיון מ[שולח]{% else %}{% trans 'list archived emails from [sender]' %}{% endif %}</b>
+                             - {% if LANGUAGE_BIDI %}מיילים בתיבת כל הדואר (All Mail) משולח מסוים, בלי תיבת הנכנס.{% else %}{% trans 'Emails in All Mail from a specific sender (excluding Inbox).' %}{% endif %}
+                        </li>
                         <li><b>{% trans 'list all mail' %}</b> - {% trans 'Everything in All Mail (excludes Spam/Trash).' %}</li>
                         <li><b>{% trans 'list emails from [sender/domain]' %}</b> - {% trans "e.g., 'list emails from [domain]'" %}</li>
                         <li><b>{% trans 'list emails from [timeframe]' %}</b> - {% trans "e.g., 'last week', 'yesterday', '2 days ago'" %}</li>
@@ -2326,6 +2330,7 @@
                     'list emails from yesterday',
                     'list emails from [duration] ago',
                     'list emails older than [duration]',
+                    'list archived emails from [sender]',
                     'list archived emails from [duration] ago',
                     'list archived emails older than [duration]',
                     'search emails with subject "[keyword]"',
