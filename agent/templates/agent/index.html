@@ -16304,8 +16304,97 @@
                     setActive(idx);
                     activeByKeyboard = false;
                 });
+                // Helper: extract sender and duration (basic EN/HE) from current input
+                function extractSlots(input) {
+                    const out = { sender: '', duration: '', hadOlderThan: false, timeframe: '' };
+                    const q = (input || '').trim();
+                    const isHebrew = document.documentElement.dir === 'rtl' || document.documentElement.lang === 'he';
+                    try {
+                        // Sender
+                        if (isHebrew) {
+                            const mSenderHe = q.match(/מ-?\s*([^\s]+)(?=\s|$)/i);
+                            if (mSenderHe && mSenderHe[1]) out.sender = mSenderHe[1];
+                        } else {
+                            const mSender = q.match(/\bfrom\s+([^]+?)(?=\s+(older than|from|with|as|ago|yesterday|today|last|this)\b|$)/i);
+                            if (mSender && mSender[1]) out.sender = mSender[1].trim();
+                        }
+                        // Duration / timeframe (EN)
+                        const mFromAgo = q.match(/\bfrom\s+(\d+\s+(?:day|days|week|weeks|month|months|year|years))\s+ago\b/i);
+                        const mOlderThan = q.match(/\bolder\s+than\s+(\d+\s+(?:day|days|week|weeks|month|months|year|years))\b/i);
+                        if (mOlderThan) { out.duration = mOlderThan[1]; out.hadOlderThan = true; }
+                        else if (mFromAgo) { out.duration = mFromAgo[1]; }
+                        // Fixed timeframe (EN)
+                        const mFixed = q.match(/\bfrom\s+(today|yesterday|last\s+week|last\s+month|last\s+year|this\s+week|this\s+month|this\s+year)\b/i);
+                        if (mFixed) out.timeframe = mFixed[1];
+                        // Hebrew fixed timeframe
+                        if (isHebrew && !out.timeframe) {
+                            if (/מהיום/.test(q)) out.timeframe = 'today';
+                            else if (/מאתמול/.test(q)) out.timeframe = 'yesterday';
+                            else if (/מהשבוע\s+שעבר/.test(q)) out.timeframe = 'last week';
+                            else if (/מהחודש\s+שעבר/.test(q)) out.timeframe = 'last month';
+                            else if (/מהשנה\s+שעברה/.test(q)) out.timeframe = 'last year';
+                            else if (/מהשבוע/.test(q)) out.timeframe = 'this week';
+                            else if (/מהחודש/.test(q)) out.timeframe = 'this month';
+                            else if (/מהשנה/.test(q)) out.timeframe = 'this year';
+                        }
+                        // Hebrew numeric duration: מלפני N יחידה
+                        if (isHebrew && !out.duration) {
+                            const mHe = q.match(/מלפני\s*(\d+)\s*(יום(?:ים)?|שבוע(?:ות)?|חודש(?:ים)?|שנה(?:ים)?)/);
+                            if (mHe) {
+                                const n = mHe[1];
+                                const u = mHe[2];
+                                const unitMap = [
+                                    [/^יום/, n === '1' ? 'day' : 'days'],
+                                    [/^שבוע/, n === '1' ? 'week' : 'weeks'],
+                                    [/^חודש/, n === '1' ? 'month' : 'months'],
+                                    [/^שנה|^שנים/, n === '1' ? 'year' : 'years'],
+                                ];
+                                for (const [re, en] of unitMap) { if (re.test(u)) { out.duration = `${n} ${en}`; break; } }
+                            }
+                        }
+                    } catch (e) {}
+                    return out;
+                }
+                // Helper: fill template with detected slots, preserving 'older than' if present
+                function fillTemplateWithSlots(templateCmd, currentInput) {
+                    const slots = extractSlots(currentInput);
+                    let out = templateCmd;
+                    // Sender placeholders (EN/HE)
+                    if (slots.sender) {
+                        out = out.replace(/\[sender\]/gi, slots.sender).replace(/\[שולח\]/g, slots.sender);
+                    }
+                    // Timeframe placeholder
+                    if (slots.timeframe) {
+                        out = out.replace(/\[timeframe\]|\[time period\]/gi, slots.timeframe);
+                    }
+                    // Duration placeholders
+                    if (slots.duration) {
+                        if (slots.hadOlderThan) {
+                            // Prefer 'older than <duration>' if user typed it
+                            out = out.replace(/from\s+\[duration\]\s+ago/gi, `older than ${slots.duration}`)
+                                     .replace(/\[duration\]\s+ago/gi, `${slots.duration}`) // secondary
+                                     .replace(/\[duration\]/gi, slots.duration)
+                                     .replace(/\[משך\]/g, slots.duration);
+                            if (!/older\s+than\s+/i.test(out) && /\[duration\]/.test(templateCmd)) {
+                                out = out.replace(/\[duration\]/gi, slots.duration);
+                                // If template lacks 'older than', but user had it, inject it sensibly
+                                out = out.replace(/\bfrom\s+(\d+\s+\w+)\s+ago\b/i, `older than $1`);
+                            }
+                        } else {
+                            // Default to 'from <duration> ago'
+                            out = out.replace(/\[duration\]/gi, slots.duration)
+                                     .replace(/\[משך\]/g, slots.duration)
+                                     .replace(/older\s+than\s+\[duration\]/gi, `from ${slots.duration} ago`);
+                            if (!/from\s+\d+/.test(out)) {
+                                out = out.replace(/\[time\s*period\]/gi, `${slots.duration} ago`);
+                            }
+                        }
+                    }
+                    return out.replace(/\s{2,}/g, ' ').trim();
+                }
                 div.addEventListener('click', () => {
-                    commandInput.value = cmd;
+                    const filled = fillTemplateWithSlots(cmd, commandInput.value || '');
+                    commandInput.value = filled;
                     closeAllLists();
                     commandInput.focus();
                 });
@@ -16373,14 +16462,155 @@
                     e.preventDefault();
                     const el = suggestionItems[activeIndex];
                     const text = el ? el.textContent : '';
-                    if (text) commandInput.value = text;
+                    if (text) {
+                        commandInput.value = (function(t){ 
+                            // same slot fill as click
+                            return (function fill(templateCmd, currentInput){
+                                const slots = (function(input){
+                                    const out = { sender: '', duration: '', hadOlderThan: false, timeframe: '' };
+                                    const q = (input || '').trim();
+                                    const isHebrew = document.documentElement.dir === 'rtl' || document.documentElement.lang === 'he';
+                                    try {
+                                        if (isHebrew) {
+                                            const mSenderHe = q.match(/מ-?\s*([^\s]+)(?=\s|$)/i);
+                                            if (mSenderHe && mSenderHe[1]) out.sender = mSenderHe[1];
+                                        } else {
+                                            const mSender = q.match(/\bfrom\s+([^]+?)(?=\s+(older than|from|with|as|ago|yesterday|today|last|this)\b|$)/i);
+                                            if (mSender && mSender[1]) out.sender = mSender[1].trim();
+                                        }
+                                        const mFromAgo = q.match(/\bfrom\s+(\d+\s+(?:day|days|week|weeks|month|months|year|years))\s+ago\b/i);
+                                        const mOlderThan = q.match(/\bolder\s+than\s+(\d+\s+(?:day|days|week|weeks|month|months|year|years))\b/i);
+                                        if (mOlderThan) { out.duration = mOlderThan[1]; out.hadOlderThan = true; }
+                                        else if (mFromAgo) { out.duration = mFromAgo[1]; }
+                                        const mFixed = q.match(/\bfrom\s+(today|yesterday|last\s+week|last\s+month|last\s+year|this\s+week|this\s+month|this\s+year)\b/i);
+                                        if (mFixed) out.timeframe = mFixed[1];
+                                        if (isHebrew && !out.timeframe) {
+                                            if (/מהיום/.test(q)) out.timeframe = 'today';
+                                            else if (/מאתמול/.test(q)) out.timeframe = 'yesterday';
+                                            else if (/מהשבוע\s+שעבר/.test(q)) out.timeframe = 'last week';
+                                            else if (/מהחודש\s+שעבר/.test(q)) out.timeframe = 'last month';
+                                            else if (/מהשנה\s+שעברה/.test(q)) out.timeframe = 'last year';
+                                            else if (/מהשבוע/.test(q)) out.timeframe = 'this week';
+                                            else if (/מהחודש/.test(q)) out.timeframe = 'this month';
+                                            else if (/מהשנה/.test(q)) out.timeframe = 'this year';
+                                        }
+                                        if (isHebrew && !out.duration) {
+                                            const mHe = q.match(/מלפני\s*(\d+)\s*(יום(?:ים)?|שבוע(?:ות)?|חודש(?:ים)?|שנה(?:ים)?)/);
+                                            if (mHe) {
+                                                const n = mHe[1];
+                                                const u = mHe[2];
+                                                const unitMap = [
+                                                    [/^יום/, n === '1' ? 'day' : 'days'],
+                                                    [/^שבוע/, n === '1' ? 'week' : 'weeks'],
+                                                    [/^חודש/, n === '1' ? 'month' : 'months'],
+                                                    [/^שנה|^שנים/, n === '1' ? 'year' : 'years'],
+                                                ];
+                                                for (const [re, en] of unitMap) { if (re.test(u)) { out.duration = `${n} ${en}`; break; } }
+                                            }
+                                        }
+                                    } catch (e) {}
+                                    return out;
+                                })(currentInput);
+                                let out = templateCmd;
+                                if (slots.sender) out = out.replace(/\[sender\]/gi, slots.sender).replace(/\[שולח\]/g, slots.sender);
+                                if (slots.timeframe) out = out.replace(/\[timeframe\]|\[time period\]/gi, slots.timeframe);
+                                if (slots.duration) {
+                                    if (slots.hadOlderThan) {
+                                        out = out.replace(/from\s+\[duration\]\s+ago/gi, `older than ${slots.duration}`)
+                                                 .replace(/\[duration\]\s+ago/gi, `${slots.duration}`)
+                                                 .replace(/\[duration\]/gi, slots.duration)
+                                                 .replace(/\[משך\]/g, slots.duration);
+                                        if (!/older\s+than\s+/i.test(out) && /\[duration\]/.test(templateCmd)) {
+                                            out = out.replace(/\bfrom\s+(\d+\s+\w+)\s+ago\b/i, `older than $1`);
+                                        }
+                                    } else {
+                                        out = out.replace(/\[duration\]/gi, slots.duration)
+                                                 .replace(/\[משך\]/g, slots.duration)
+                                                 .replace(/older\s+than\s+\[duration\]/gi, `from ${slots.duration} ago`);
+                                        if (!/from\s+\d+/.test(out)) out = out.replace(/\[time\s*period\]/gi, `${slots.duration} ago`);
+                                    }
+                                }
+                                return out.replace(/\s{2,}/g, ' ').trim();
+                            })(t, commandInput.value || '');
+                        });
+                    }
                     closeAllLists();
                 }
             } else if (e.key === 'Tab') {
                 if (suggestionItems.length) {
                     const first = suggestionItems[0];
                     const text = first ? first.textContent : '';
-                    if (text) commandInput.value = text;
+                    if (text) {
+                        // Use slot fill on TAB accept too
+                        const filled = (function(templateCmd, currentInput){
+                            const slots = (function(input){
+                                const out = { sender: '', duration: '', hadOlderThan: false, timeframe: '' };
+                                const q = (input || '').trim();
+                                const isHebrew = document.documentElement.dir === 'rtl' || document.documentElement.lang === 'he';
+                                try {
+                                    if (isHebrew) {
+                                        const mSenderHe = q.match(/מ-?\s*([^\s]+)(?=\s|$)/i);
+                                        if (mSenderHe && mSenderHe[1]) out.sender = mSenderHe[1];
+                                    } else {
+                                        const mSender = q.match(/\bfrom\s+([^]+?)(?=\s+(older than|from|with|as|ago|yesterday|today|last|this)\b|$)/i);
+                                        if (mSender && mSender[1]) out.sender = mSender[1].trim();
+                                    }
+                                    const mFromAgo = q.match(/\bfrom\s+(\d+\s+(?:day|days|week|weeks|month|months|year|years))\s+ago\b/i);
+                                    const mOlderThan = q.match(/\bolder\s+than\s+(\d+\s+(?:day|days|week|weeks|month|months|year|years))\b/i);
+                                    if (mOlderThan) { out.duration = mOlderThan[1]; out.hadOlderThan = true; }
+                                    else if (mFromAgo) { out.duration = mFromAgo[1]; }
+                                    const mFixed = q.match(/\bfrom\s+(today|yesterday|last\s+week|last\s+month|last\s+year|this\s+week|this\s+month|this\s+year)\b/i);
+                                    if (mFixed) out.timeframe = mFixed[1];
+                                    if (isHebrew && !out.timeframe) {
+                                        if (/מהיום/.test(q)) out.timeframe = 'today';
+                                        else if (/מאתמול/.test(q)) out.timeframe = 'yesterday';
+                                        else if (/מהשבוע\s+שעבר/.test(q)) out.timeframe = 'last week';
+                                        else if (/מהחודש\s+שעבר/.test(q)) out.timeframe = 'last month';
+                                        else if (/מהשנה\s+שעברה/.test(q)) out.timeframe = 'last year';
+                                        else if (/מהשבוע/.test(q)) out.timeframe = 'this week';
+                                        else if (/מהחודש/.test(q)) out.timeframe = 'this month';
+                                        else if (/מהשנה/.test(q)) out.timeframe = 'this year';
+                                    }
+                                    if (isHebrew && !out.duration) {
+                                        const mHe = q.match(/מלפני\s*(\d+)\s*(יום(?:ים)?|שבוע(?:ות)?|חודש(?:ים)?|שנה(?:ים)?)/);
+                                        if (mHe) {
+                                            const n = mHe[1];
+                                            const u = mHe[2];
+                                            const unitMap = [
+                                                [/^יום/, n === '1' ? 'day' : 'days'],
+                                                [/^שבוע/, n === '1' ? 'week' : 'weeks'],
+                                                [/^חודש/, n === '1' ? 'month' : 'months'],
+                                                [/^שנה|^שנים/, n === '1' ? 'year' : 'years'],
+                                            ];
+                                            for (const [re, en] of unitMap) { if (re.test(u)) { out.duration = `${n} ${en}`; break; } }
+                                        }
+                                    }
+                                } catch (e) {}
+                                return out;
+                            })(currentInput);
+                            let out = templateCmd;
+                            if (slots.sender) out = out.replace(/\[sender\]/gi, slots.sender).replace(/\[שולח\]/g, slots.sender);
+                            if (slots.timeframe) out = out.replace(/\[timeframe\]|\[time period\]/gi, slots.timeframe);
+                            if (slots.duration) {
+                                if (slots.hadOlderThan) {
+                                    out = out.replace(/from\s+\[duration\]\s+ago/gi, `older than ${slots.duration}`)
+                                             .replace(/\[duration\]\s+ago/gi, `${slots.duration}`)
+                                             .replace(/\[duration\]/gi, slots.duration)
+                                             .replace(/\[משך\]/g, slots.duration);
+                                    if (!/older\s+than\s+/i.test(out) && /\[duration\]/.test(templateCmd)) {
+                                        out = out.replace(/\bfrom\s+(\d+\s+\w+)\s+ago\b/i, `older than $1`);
+                                    }
+                                } else {
+                                    out = out.replace(/\[duration\]/gi, slots.duration)
+                                             .replace(/\[משך\]/g, slots.duration)
+                                             .replace(/older\s+than\s+\[duration\]/gi, `from ${slots.duration} ago`);
+                                    if (!/from\s+\d+/.test(out)) out = out.replace(/\[time\s*period\]/gi, `${slots.duration} ago`);
+                                }
+                            }
+                            return out.replace(/\s{2,}/g, ' ').trim();
+                        })(text, commandInput.value || '');
+                        commandInput.value = filled;
+                    }
                     closeAllLists();
                 }
             } else if (e.key === 'Escape') {
