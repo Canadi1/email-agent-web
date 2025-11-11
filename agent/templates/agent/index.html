@@ -16323,6 +16323,15 @@
                         const mOlderThan = q.match(/\bolder\s+than\s+(\d+\s+(?:day|days|week|weeks|month|months|year|years))\b/i);
                         if (mOlderThan) { out.duration = mOlderThan[1]; out.hadOlderThan = true; }
                         else if (mFromAgo) { out.duration = mFromAgo[1]; }
+                        // Raw EN fallback: accept whatever was typed after 'from' or 'older than'
+                        if (!out.duration) {
+                            const mAnyFrom = q.match(/\bfrom\s+(.+?)(?:\s+ago\b|$)/i);
+                            if (mAnyFrom && mAnyFrom[1]) out.duration = mAnyFrom[1].trim();
+                        }
+                        if (!out.duration) {
+                            const mAnyOlder = q.match(/\bolder\s+than\s+(.+?)(?:\s+(from|with|as|yesterday|today|last|this|ago)\b|$)/i);
+                            if (mAnyOlder && mAnyOlder[1]) { out.duration = mAnyOlder[1].trim(); out.hadOlderThan = true; }
+                        }
                         // Fixed timeframe (EN)
                         const mFixed = q.match(/\bfrom\s+(today|yesterday|last\s+week|last\s+month|last\s+year|this\s+week|this\s+month|this\s+year)\b/i);
                         if (mFixed) out.timeframe = mFixed[1];
@@ -16350,6 +16359,11 @@
                                     [/^שנה|^שנים/, n === '1' ? 'year' : 'years'],
                                 ];
                                 for (const [re, en] of unitMap) { if (re.test(u)) { out.duration = `${n} ${en}`; break; } }
+                            }
+                            // Hebrew raw fallback: any text after 'מלפני'
+                            if (!out.duration) {
+                                const mHeAny = q.match(/מלפני\s+(.+?)(?:\s|$)/);
+                                if (mHeAny && mHeAny[1]) out.duration = mHeAny[1].trim();
                             }
                         }
                     } catch (e) {}
