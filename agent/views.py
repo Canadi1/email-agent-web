@@ -1463,6 +1463,11 @@ def _translate_hebrew_command_to_english(command: str) -> str:
         (r"^[\s]*רש(?:ו)?ם\s+מיילים\s+מ(?:ה)?ארכיון\b", "list archived emails"),
         (r"^[\s]*מ(?:ה)?ארכיון\b", "list archived emails"),
         (r"^[\s]*ארכיון\b", "list archived emails"),
+        # All mail (handle before generic 'list' and 'כ' mapping to avoid 'as ל')
+        (r"^[\s]*רש(?:ו)?ם\s+כל\s+(?:ה)?דואר\b", "list all mail"),
+        (r"^[\s]*רש(?:ו)?ם\s+כל\s+המיילים\b", "list all mail"),
+        (r"^[\s]*כל\s+(?:ה)?דואר\s*$", "list all mail"),
+        (r"^[\s]*כל\s+המיילים\s*$", "list all mail"),
         (r"^[\s]*הצג\s+סטטיסטיק(?:ה|ות|ת)(?:\s+דוא[\"']?ל)?", "show email stats"),
         (r"^[\s]*הראה\s+סטטיסטיק(?:ה|ות|ת)(?:\s+דוא[\"']?ל)?", "show email stats"),
         (r"^[\s]*סטטיסטיק(?:ה|ות|ת)(?:\s+דוא[\"']?ל)?$", "show email stats"),
@@ -1484,12 +1489,11 @@ def _translate_hebrew_command_to_english(command: str) -> str:
         (r"\bמיילים\b", "emails"),
         # Translate Hebrew 'עם נושא' (with subject) to English 'with subject' - MUST come before generic 'עם'
         (r"עם\s+נושא", "with subject"),
-        # Translate Hebrew 'עם' (with) to English 'with' for label commands
+        # Translate Hebrew 'עם' (with) to English 'with' (labels and general)
         # Match 'עם' with optional space before and after, ensure proper spacing in replacement
         (r"\s*עם\s*", " with "),
-        # Translate Hebrew 'כ' (as) to English 'as' for label commands
-        # Match 'כ' with optional space before and after, ensure proper spacing in replacement
-        (r"\s*כ\s*", " as "),
+        # Translate Hebrew standalone 'כ' (as) ONLY when it's a separate token (avoid breaking 'כל')
+        (r"(^|\s)כ(\s)", lambda m: f"{m.group(1)}as{m.group(2)}"),
         (r"^[\s]*שחזר", "restore "),
         (r"^[\s]*חפש", "search "),
 
