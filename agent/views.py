@@ -219,7 +219,7 @@ def get_random_fun_fact(language_code=None):
 # to manage the agent's lifecycle.
 gemini_api_key = os.getenv('GEMINI_API_KEY')
 if not gemini_api_key:
-    gemini_api_key = "AIzaSyCLldSk-Pv0X6-nPOOjjYMEbB0AsuatmJc"
+    print("[Gemini] No GEMINI_API_KEY set; Gemini fallback disabled.")
 agent_instance = GmailAIAgent(gemini_api_key=gemini_api_key)
 
 def process_with_detailed_progress(agent, command, command_id, start_progress, end_progress, language_code=None):

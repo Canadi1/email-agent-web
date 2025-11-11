@@ -46,6 +46,8 @@ class GmailAIAgent:
         # Cache for recent contacts suggestions (to avoid frequent Gmail API calls)
         self._contacts_cache = None
         self._contacts_cache_ts = 0
+        self._gmail_transport_strategy = 'uninitialized'
+        self._logged_retry_wrapper = False
         self.setup_gemini_api(gemini_api_key)
     
     def _is_retryable_network_error(self, error):
@@ -118,6 +120,13 @@ class GmailAIAgent:
         """Execute a googleapiclient request with retries on SSL/connection failures.
         Uses exponential backoff with jitter.
         """
+        if not getattr(self, "_logged_retry_wrapper", False):
+            method = getattr(request, 'method', 'UNKNOWN')
+            uri = getattr(request, 'uri', 'UNKNOWN')
+            if isinstance(uri, str):
+                uri = uri[:120]
+            print(f"[HTTP] Executing Gmail request with unified retry wrapper (method={method}, uri={uri})")
+            self._logged_retry_wrapper = True
         last_exc = None
         for attempt in range(max_retries):
             try:
@@ -230,6 +239,7 @@ class GmailAIAgent:
     def setup_gmail_api(self):
         """Setup Gmail API authentication"""
         try:
+            print("[HTTP] Starting Gmail API setup (hardened transport path).")
             creds = None
             # Load existing credentials if available
             if os.path.exists('token.pickle'):
@@ -294,20 +304,32 @@ class GmailAIAgent:
                     pass
 
                 self.service = build('gmail', 'v1', credentials=creds)
-            except Exception:
+                self._gmail_transport_strategy = 'discovery_standard'
+                print("[HTTP] Gmail service build succeeded (strategy=discovery_standard).")
+            except Exception as build_exc:
+                self._gmail_transport_strategy = 'build_failed'
+                print(f"[HTTP] Gmail service build failed: {build_exc}")
                 return False
             return True
-        except Exception:
+        except Exception as setup_exc:
+            self._gmail_transport_strategy = 'setup_failed'
+            print(f"[HTTP] Gmail API setup encountered an error: {setup_exc}")
             return False
     
     def setup_gemini_api(self, api_key):
         """Setup Gemini AI for natural language processing"""
-        if api_key:
+        if not api_key:
+            print("[Gemini] API key not provided; using deterministic parser only.")
+            return False
+
+        try:
             genai.configure(api_key=api_key)
             self.gemini_model = genai.GenerativeModel('models/gemini-2.0-flash')
+            print("[Gemini] Gemini model configured successfully.")
             return True
-        else:
-            # Using enhanced command parsing is the fallback.
+        except Exception as exc:
+            self.gemini_model = None
+            print(f"[Gemini] Failed to configure Gemini model: {exc}")
             return False
     
     def list_recent_emails(self, max_results=None, page_token=None):
