@@ -7,6 +7,7 @@ import json
 import re
 import time
 import random
+import threading
 from datetime import datetime, timedelta
 import re
 try:
@@ -24,6 +25,8 @@ from googleapiclient.errors import HttpError
 import google.generativeai as genai
 from thefuzz import fuzz
 from django.utils.translation import gettext as _
+import httplib2
+from google_auth_httplib2 import AuthorizedHttp
 
 # Gmail API setup
 # We need the .compose scope to send emails
@@ -48,6 +51,11 @@ class GmailAIAgent:
         self._contacts_cache_ts = 0
         self._gmail_transport_strategy = 'uninitialized'
         self._logged_retry_wrapper = False
+        self._authorized_http = None
+        self._http_lock = threading.RLock()
+        self._http_rebuilds = 0
+        self.credentials = None
+        self._logged_transport_reuse = False
         self.setup_gemini_api(gemini_api_key)
     
     def _is_retryable_network_error(self, error):
@@ -116,33 +124,55 @@ class GmailAIAgent:
         ]
         return any(token in text for token in retry_tokens)
 
-    def _execute_with_retries(self, request, max_retries=5, base_delay=1.0):
+    def _execute_with_retries(self, request_or_factory, max_retries=5, base_delay=1.0):
         """Execute a googleapiclient request with retries on SSL/connection failures.
-        Uses exponential backoff with jitter.
+        Accepts either a prepared request or a factory (callable) that creates a new request per attempt.
+        Uses exponential backoff with jitter and can rebuild transport on repeated TLS failures.
         """
+        is_factory = callable(request_or_factory)
+        # Log only once per process lifetime
         if not getattr(self, "_logged_retry_wrapper", False):
-            method = getattr(request, 'method', 'UNKNOWN')
-            uri = getattr(request, 'uri', 'UNKNOWN')
-            if isinstance(uri, str):
-                uri = uri[:120]
-            print(f"[HTTP] Executing Gmail request with unified retry wrapper (method={method}, uri={uri})")
+            try:
+                sample_req = request_or_factory() if is_factory else request_or_factory
+                method = getattr(sample_req, 'method', 'UNKNOWN')
+                uri = getattr(sample_req, 'uri', 'UNKNOWN')
+                if isinstance(uri, str):
+                    uri = uri[:120]
+                print(f"[HTTP] Executing Gmail request with unified retry wrapper (method={method}, uri={uri})")
+            except Exception:
+                print("[HTTP] Executing Gmail request with unified retry wrapper (method=UNKNOWN, uri=UNKNOWN)")
             self._logged_retry_wrapper = True
+
         last_exc = None
         for attempt in range(max_retries):
+            # Build a fresh request each attempt so a rebuilt transport is picked up
+            req = None
             try:
-                # Avoid library-internal retries to keep control here
-                return request.execute(num_retries=0)
+                req = request_or_factory() if is_factory else request_or_factory
+                return req.execute(num_retries=0)
             except Exception as exc:
                 last_exc = exc
-                if attempt < max_retries - 1 and self._is_retryable_network_error(exc):
+                retryable = self._is_retryable_network_error(exc)
+                if attempt < max_retries - 1 and retryable:
+                    # On first retry attempt, rebuild the transport to shed bad sockets
+                    try:
+                        if attempt == 0 and self.credentials is not None:
+                            print("[HTTP] TLS error detected; rebuilding transport before retry...")
+                            new_http = self._create_authorized_http(self.credentials, timeout=45.0, force=True)
+                            # Try to update the discovery resource to use the new transport
+                            try:
+                                setattr(self.service, 'http', new_http)
+                                setattr(self.service, '_http', new_http)
+                            except Exception:
+                                pass
+                    except Exception:
+                        pass
                     delay = base_delay * (2 ** attempt)
-                    # Cap max delay at 10 seconds
-                    delay = min(delay, 10.0)
+                    delay = min(delay, 10.0)  # Cap max delay at 10 seconds
                     jitter = random.uniform(0, max(0.1, 0.25 * delay))
                     total_delay = delay + jitter
-                    # Log retry attempt for debugging
                     try:
-                        error_msg = str(exc)[:100]  # Truncate long error messages
+                        error_msg = str(exc)[:100]
                         print(f"[RETRY] Attempt {attempt + 1}/{max_retries} after {total_delay:.2f}s - Error: {error_msg}")
                     except Exception:
                         pass
@@ -154,13 +184,46 @@ class GmailAIAgent:
             raise last_exc
         raise RuntimeError("Unknown error executing Gmail request with retries")
 
+    def _create_authorized_http(self, creds, timeout=30.0, force=False):
+        """Create (or reuse) an AuthorizedHttp transport with sane TLS defaults."""
+        with self._http_lock:
+            if self._authorized_http is not None and not force:
+                return self._authorized_http
+
+            ca_certs = None
+            try:
+                import certifi
+                ca_certs = certifi.where()
+            except Exception:
+                pass
+
+            base_http = httplib2.Http(
+                timeout=timeout,
+                ca_certs=ca_certs,
+                disable_ssl_certificate_validation=False
+            )
+            base_http.follow_redirects = True
+            base_http.force_exception_to_status_code = False
+
+            # Enable connection reuse (keep-alive) aggressively
+            base_http.connections.clear()
+
+            authed_http = AuthorizedHttp(creds, http=base_http)
+            authed_http.cache = None
+            authed_http.follow_redirects = True
+
+            self._authorized_http = authed_http
+            self._http_rebuilds += 1
+            print(f"[HTTP] Created AuthorizedHttp transport (timeout={timeout}s, rebuilds={self._http_rebuilds}).")
+            return authed_http
+
     # Centralized Gmail API wrappers (use retries consistently)
     def api_list_messages(self, user_id='me', **kwargs):
         # Avoid passing userId twice if provided in kwargs
         if 'userId' in kwargs:
             user_id = kwargs.pop('userId') or user_id
         return self._execute_with_retries(
-            self.service.users().messages().list(userId=user_id, **kwargs),
+            lambda: self.service.users().messages().list(userId=user_id, **kwargs),
             max_retries=7,  # Increased retries for better SSL error handling
             base_delay=1.0,
         )
@@ -170,7 +233,7 @@ class GmailAIAgent:
         if 'userId' in kwargs:
             user_id = kwargs.pop('userId') or user_id
         return self._execute_with_retries(
-            self.service.users().messages().get(userId=user_id, id=message_id, **kwargs),
+            lambda: self.service.users().messages().get(userId=user_id, id=message_id, **kwargs),
             max_retries=6,  # Increased retries for better SSL error handling
             base_delay=0.8,
         )
@@ -184,7 +247,7 @@ class GmailAIAgent:
         if remove_label_ids:
             body['removeLabelIds'] = list(remove_label_ids)
         return self._execute_with_retries(
-            self.service.users().messages().batchModify(userId=user_id, body=body),
+            lambda: self.service.users().messages().batchModify(userId=user_id, body=body),
             max_retries=6,  # Increased retries for better SSL error handling
             base_delay=1.0,
         )
@@ -196,90 +259,82 @@ class GmailAIAgent:
         if remove_label_ids:
             body['removeLabelIds'] = list(remove_label_ids)
         return self._execute_with_retries(
-            self.service.users().messages().modify(userId=user_id, id=message_id, body=body),
+            lambda: self.service.users().messages().modify(userId=user_id, id=message_id, body=body),
             max_retries=6,  # Increased retries for better SSL error handling
             base_delay=1.0,
         )
 
     def api_trash(self, message_id, user_id='me'):
-        return self._execute_with_retries(
-            self.service.users().messages().trash(userId=user_id, id=message_id),
-            max_retries=5,
-            base_delay=1.0,
-        )
+        return self._execute_with_retries(lambda: self.service.users().messages().trash(userId=user_id, id=message_id), max_retries=5, base_delay=1.0)
 
     def api_untrash(self, message_id, user_id='me'):
-        return self._execute_with_retries(
-            self.service.users().messages().untrash(userId=user_id, id=message_id),
-            max_retries=5,
-            base_delay=1.0,
-        )
+        return self._execute_with_retries(lambda: self.service.users().messages().untrash(userId=user_id, id=message_id), max_retries=5, base_delay=1.0)
 
     def api_list_labels(self, user_id='me'):
-        return self._execute_with_retries(
-            self.service.users().labels().list(userId=user_id),
-            max_retries=5,
-            base_delay=1.0,
-        )
+        return self._execute_with_retries(lambda: self.service.users().labels().list(userId=user_id), max_retries=5, base_delay=1.0)
 
     def api_create_label(self, label_object, user_id='me'):
-        return self._execute_with_retries(
-            self.service.users().labels().create(userId=user_id, body=label_object),
-            max_retries=5,
-            base_delay=1.0,
-        )
+        return self._execute_with_retries(lambda: self.service.users().labels().create(userId=user_id, body=label_object), max_retries=5, base_delay=1.0)
 
     def api_send_message(self, body, user_id='me'):
-        return self._execute_with_retries(
-            self.service.users().messages().send(userId=user_id, body=body),
-            max_retries=5,
-            base_delay=1.0,
-        )
+        return self._execute_with_retries(lambda: self.service.users().messages().send(userId=user_id, body=body), max_retries=5, base_delay=1.0)
     
     def setup_gmail_api(self):
         """Setup Gmail API authentication"""
-        try:
-            print("[HTTP] Starting Gmail API setup (hardened transport path).")
-            creds = None
-            # Load existing credentials if available
-            if os.path.exists('token.pickle'):
-                try:
-                    with open('token.pickle', 'rb') as token:
-                        creds = pickle.load(token)
-                except Exception:
-                    creds = None
-            
-            # If no valid credentials, get new ones
-            if not creds or not getattr(creds, 'valid', False):
-                if creds and getattr(creds, 'expired', False) and getattr(creds, 'refresh_token', None):
+        if self.service is not None and self._authorized_http is not None:
+            if not self._logged_transport_reuse:
+                print("[HTTP] Gmail transport already initialized; reusing existing client.")
+                self._logged_transport_reuse = True
+            return True
+
+        with self._http_lock:
+            if self.service is not None and self._authorized_http is not None:
+                if not self._logged_transport_reuse:
+                    print("[HTTP] Gmail transport already initialized; reusing existing client.")
+                    self._logged_transport_reuse = True
+                return True
+
+            try:
+                print("[HTTP] Starting Gmail API setup (hardened transport path).")
+                creds = None
+
+                # Load existing credentials if available
+                if os.path.exists('token.pickle'):
                     try:
-                        creds.refresh(Request())
+                        with open('token.pickle', 'rb') as token:
+                            creds = pickle.load(token)
                     except Exception:
-                        # Refresh failed (expired/revoked). Remove token and fail gracefully.
+                        creds = None
+
+                # If no valid credentials, get new ones
+                if not creds or not getattr(creds, 'valid', False):
+                    if creds and getattr(creds, 'expired', False) and getattr(creds, 'refresh_token', None):
                         try:
-                            os.remove('token.pickle')
+                            creds.refresh(Request())
                         except Exception:
-                            pass
-                        return False
-                else:
-                    # Only attempt interactive auth if credentials.json exists
-                    if not os.path.exists('credentials.json'):
-                        return False
-                    try:
-                        flow = InstalledAppFlow.from_client_secrets_file('credentials.json', SCOPES)
-                        creds = flow.run_local_server(port=0)
-                    except Exception:
-                        return False
-            
-            # Save credentials for next run
-            try:
-                with open('token.pickle', 'wb') as token:
-                    pickle.dump(creds, token)
-            except Exception:
-                pass
-            
-            # Build service
-            try:
+                            # Refresh failed (expired/revoked). Remove token and fail gracefully.
+                            try:
+                                os.remove('token.pickle')
+                            except Exception:
+                                pass
+                            return False
+                    else:
+                        # Only attempt interactive auth if credentials.json exists
+                        if not os.path.exists('credentials.json'):
+                            return False
+                        try:
+                            flow = InstalledAppFlow.from_client_secrets_file('credentials.json', SCOPES)
+                            creds = flow.run_local_server(port=0)
+                        except Exception:
+                            return False
+
+                # Save credentials for next run
+                try:
+                    with open('token.pickle', 'wb') as token:
+                        pickle.dump(creds, token)
+                except Exception:
+                    pass
+
                 # Mitigate intermittent SSL/proxy issues by disabling proxy/env SSL overrides
                 for var in [
                     'HTTP_PROXY','HTTPS_PROXY','http_proxy','https_proxy',
@@ -303,18 +358,18 @@ class GmailAIAgent:
                 except Exception:
                     pass
 
-                self.service = build('gmail', 'v1', credentials=creds)
-                self._gmail_transport_strategy = 'discovery_standard'
-                print("[HTTP] Gmail service build succeeded (strategy=discovery_standard).")
-            except Exception as build_exc:
-                self._gmail_transport_strategy = 'build_failed'
-                print(f"[HTTP] Gmail service build failed: {build_exc}")
+                self.credentials = creds
+                authed_http = self._create_authorized_http(creds, timeout=45.0, force=True)
+                self.service = build('gmail', 'v1', http=authed_http, cache_discovery=False)
+                self._gmail_transport_strategy = 'authorized_http'
+                print("[HTTP] Gmail service build succeeded (strategy=authorized_http).")
+                return True
+            except Exception as setup_exc:
+                self._gmail_transport_strategy = 'setup_failed'
+                self._authorized_http = None
+                self.service = None
+                print(f"[HTTP] Gmail API setup encountered an error: {setup_exc}")
                 return False
-            return True
-        except Exception as setup_exc:
-            self._gmail_transport_strategy = 'setup_failed'
-            print(f"[HTTP] Gmail API setup encountered an error: {setup_exc}")
-            return False
     
     def setup_gemini_api(self, api_key):
         """Setup Gemini AI for natural language processing"""
@@ -783,7 +838,7 @@ class GmailAIAgent:
                         kwargs = {"userId": 'me', "q": query, "maxResults": 500}
                         if next_page_token:
                             kwargs["pageToken"] = next_page_token
-                        results = self.service.users().messages().list(**kwargs).execute()
+                        results = self.api_list_messages(**kwargs)
                         msgs = results.get('messages', []) or []
                         all_messages.extend(msgs)
                         next_page_token = results.get('nextPageToken')
@@ -6246,7 +6301,7 @@ class GmailAIAgent:
                 # Retry logic for the Gmail API call
                 while True:
                     try:
-                        results = self.service.users().messages().list(**kwargs).execute()
+                        results = self.api_list_messages(**kwargs)
                         break  # Success, break out of inner while loop
                     except Exception as e:
                         err_text = str(e)
@@ -6284,9 +6339,9 @@ class GmailAIAgent:
             # Try one more time with a simple query to get at least some emails
             try:
                 simple_query = "in:inbox"  # Simple query that's more likely to work
-                results = self.service.users().messages().list(
+                results = self.api_list_messages(
                     userId='me', q=simple_query, maxResults=25, fields='messages/id,nextPageToken'
-                ).execute()
+                )
             except Exception as e:
                 return {"error": "Failed to retrieve emails after all retry attempts"}
         
@@ -6380,10 +6435,10 @@ class GmailAIAgent:
                         # Fallback to individual requests for this batch
                         for k, message in enumerate(batch_messages):
                             try:
-                                msg = self.service.users().messages().get(
-                                    userId='me', id=message['id'], format='metadata', metadataHeaders=['From','Subject'],
+                                msg = self.api_get_message(
+                                    message['id'], user_id='me', format='metadata', metadataHeaders=['From','Subject'],
                                     fields='payload/headers,id,internalDate'
-                                ).execute()
+                                )
                                 
                                 # Check if msg is valid
                                 if not msg or not isinstance(msg, dict):
@@ -6438,9 +6493,9 @@ class GmailAIAgent:
             
             for i, message in enumerate(messages):
                 try:
-                    msg = self.service.users().messages().get(
-                        userId='me', id=message['id'], format='metadata', metadataHeaders=['From','Subject'],
-                        fields='payload/headers,id,internalDate').execute()
+                    msg = self.api_get_message(
+                        message['id'], user_id='me', format='metadata', metadataHeaders=['From','Subject'],
+                        fields='payload/headers,id,internalDate')
                     
                     # Check if msg is None or doesn't have expected structure
                     if not msg or not isinstance(msg, dict):
