@@ -12970,6 +12970,47 @@
                 }
             } catch (e) {}
 
+            // FINAL EN LIST-FROM NUDGE: If typing 'list emails f*', inject 'from [duration] ago' as first, timeframes follow
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isListEmailsFromPrefix = /^list\s+emails\s+f(r(o(m)?)?)?$/i.test(qlc);
+                if (isListEmailsFromPrefix && Array.isArray(items)) {
+                    const durationAgoCmd = 'list emails from [duration] ago';
+                    // Ensure duration placeholder exists and is first
+                    let durIdx = -1;
+                    for (let i = 0; i < items.length; i++) {
+                        const s = (items[i] && items[i].cmd) ? String(items[i].cmd) : String(items[i]);
+                        if (s.toLowerCase() === durationAgoCmd) { durIdx = i; break; }
+                    }
+                    if (durIdx === -1) {
+                        items.unshift({ cmd: durationAgoCmd, score: 2000, type: 'en_list_from_duration_force' });
+                    } else if (durIdx > 0) {
+                        const it = items.splice(durIdx, 1)[0];
+                        items.unshift(it);
+                    }
+                }
+            } catch (e) {}
+
+            // FINAL EN LIST-SENDER-FROM NUDGE: If typing 'list emails from <sender> from', inject sender-duration at top
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isListSenderFrom = /^list\s+emails\s+from\s+[^].+?\s+f(r(o(m)?)?)?$/i.test(qlc) || /^list\s+emails\s+from\s+[^].+?\s+from\s*$/i.test(qlc);
+                if (isListSenderFrom && Array.isArray(items)) {
+                    const senderDurCmd = 'list emails from [sender] from [duration] ago';
+                    let idx = -1;
+                    for (let i = 0; i < items.length; i++) {
+                        const s = (items[i] && items[i].cmd) ? String(items[i].cmd) : String(items[i]);
+                        if (s.toLowerCase() === senderDurCmd) { idx = i; break; }
+                    }
+                    if (idx === -1) {
+                        items.unshift({ cmd: senderDurCmd, score: 2001, type: 'en_list_sender_from_duration_force' });
+                    } else if (idx > 0) {
+                        const it = items.splice(idx, 1)[0];
+                        items.unshift(it);
+                    }
+                }
+            } catch (e) {}
+
             // FINAL EN LIST-ARCHIVED-FROM NUDGE: If typing 'list archived emails from [number]', prioritize duration ago command
             try {
                 const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
