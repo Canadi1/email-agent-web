@@ -16670,8 +16670,8 @@
                 }
             } else if (e.key === 'Tab') {
                 if (suggestionItems.length) {
-                    const first = suggestionItems[0];
-                    const text = first ? first.textContent : '';
+                    const el = (activeIndex >= 0 && suggestionItems[activeIndex]) ? suggestionItems[activeIndex] : suggestionItems[0];
+                    const text = el ? el.textContent : '';
                     if (text) {
                         // Use slot fill on TAB accept too
                         const filled = (function(templateCmd, currentInput){
@@ -16703,6 +16703,27 @@
                                     const mOlderThan = q.match(/\bolder\s+than\s+(\d+\s+(?:day|days|week|weeks|month|months|year|years))\b/i);
                                     if (mOlderThan) { out.duration = mOlderThan[1]; out.hadOlderThan = true; }
                                     else if (mFromAgo) { out.duration = mFromAgo[1]; }
+                                    // Free-form 'older than ...' fallback
+                                    if (!out.duration) {
+                                        const mAnyOlder = q.match(/\bolder\s+than\s+(.+?)(?:\s+(from|with|as|yesterday|today|last|this|ago)\b|$)/i);
+                                        if (mAnyOlder && mAnyOlder[1]) { out.duration = mAnyOlder[1].trim(); out.hadOlderThan = true; }
+                                    }
+                                    // Free-form numeric+unit fallback anywhere (EN)
+                                    if (!out.duration) {
+                                        const mLoose = q.match(/\b(\d+)\s*([a-zA-Z]+)\b/);
+                                        if (mLoose) {
+                                            const n = parseInt(mLoose[1], 10);
+                                            const rawUnit = (mLoose[2] || '').toLowerCase();
+                                            const unitNorm = (function(u){
+                                                if (u.startsWith('d')) return n === 1 ? 'day' : 'days';
+                                                if (u.startsWith('w')) return n === 1 ? 'week' : 'weeks';
+                                                if (u.startsWith('m')) return n === 1 ? 'month' : 'months';
+                                                if (u.startsWith('y')) return n === 1 ? 'year' : 'years';
+                                                return u;
+                                            })(rawUnit);
+                                            out.duration = `${isNaN(n) ? 0 : n} ${unitNorm}`;
+                                        }
+                                    }
                                     const mFixed = q.match(/\bfrom\s+(today|yesterday|last\s+week|last\s+month|last\s+year|this\s+week|this\s+month|this\s+year)\b/i);
                                     if (mFixed) out.timeframe = mFixed[1];
                                     if (isHebrew && !out.timeframe) {
@@ -16756,6 +16777,7 @@
                         })(text, commandInput.value || '');
                         commandInput.value = filled;
                     }
+                    e.preventDefault();
                     closeAllLists();
                 }
             } else if (e.key === 'Escape') {
