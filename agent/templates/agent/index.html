@@ -16316,16 +16316,29 @@
                             if (mSenderHe && mSenderHe[1]) out.sender = mSenderHe[1];
                         } else {
                             const mSender = q.match(/\bfrom\s+([^]+?)(?=\s+(older than|from|with|as|ago|yesterday|today|last|this)\b|$)/i);
-                            if (mSender && mSender[1]) out.sender = mSender[1].trim();
+                            if (mSender && mSender[1]) {
+                                out.sender = mSender[1].trim();
+                                // Remove trailing partial boundary tokens (e.g., "ol" from a partial "older than")
+                                if (out.sender) {
+                                    const parts = out.sender.split(/\s+/);
+                                    const last = (parts[parts.length - 1] || '').toLowerCase();
+                                    const boundaryWords = ['older', 'older than', 'from', 'with', 'as', 'ago', 'yesterday', 'today', 'last', 'this'];
+                                    if (boundaryWords.some(w => w.startsWith(last))) {
+                                        parts.pop();
+                                        out.sender = parts.join(' ').trim();
+                                    }
+                                }
+                            }
                         }
                         // Duration / timeframe (EN)
                         const mFromAgo = q.match(/\bfrom\s+(\d+\s+(?:day|days|week|weeks|month|months|year|years))\s+ago\b/i);
                         const mOlderThan = q.match(/\bolder\s+than\s+(\d+\s+(?:day|days|week|weeks|month|months|year|years))\b/i);
                         if (mOlderThan) { out.duration = mOlderThan[1]; out.hadOlderThan = true; }
                         else if (mFromAgo) { out.duration = mFromAgo[1]; }
-                        // Raw EN fallback: accept whatever was typed after 'from' or 'older than'
+                        // Raw EN fallback: accept whatever was typed after 'older than'
                         if (!out.duration) {
-                            const mAnyFrom = q.match(/\bfrom\s+(.+?)(?:\s+ago\b|$)/i);
+                            // Only treat 'from <duration>' as duration when it explicitly has 'ago'
+                            const mAnyFrom = q.match(/\bfrom\s+(.+?)\s+ago\b/i);
                             if (mAnyFrom && mAnyFrom[1]) out.duration = mAnyFrom[1].trim();
                         }
                         if (!out.duration) {
@@ -16488,7 +16501,19 @@
                                         if (mSenderHe && mSenderHe[1]) out.sender = mSenderHe[1];
                                     } else {
                                         const mSender = q.match(/\bfrom\s+([^]+?)(?=\s+(older than|from|with|as|ago|yesterday|today|last|this)\b|$)/i);
-                                        if (mSender && mSender[1]) out.sender = mSender[1].trim();
+                                        if (mSender && mSender[1]) {
+                                            out.sender = mSender[1].trim();
+                                            // Trim trailing partial boundary tokens (e.g., "ol" from "older than")
+                                            if (out.sender) {
+                                                const parts = out.sender.split(/\s+/);
+                                                const last = (parts[parts.length - 1] || '').toLowerCase();
+                                                const boundaryWords = ['older', 'older than', 'from', 'with', 'as', 'ago', 'yesterday', 'today', 'last', 'this'];
+                                                if (boundaryWords.some(w => w.startsWith(last))) {
+                                                    parts.pop();
+                                                    out.sender = parts.join(' ').trim();
+                                                }
+                                            }
+                                        }
                                     }
                                     const mFromAgo = q.match(/\bfrom\s+(\d+\s+(?:day|days|week|weeks|month|months|year|years))\s+ago\b/i);
                                     const mOlderThan = q.match(/\bolder\s+than\s+(\d+\s+(?:day|days|week|weeks|month|months|year|years))\b/i);
@@ -16565,7 +16590,19 @@
                                         if (mSenderHe && mSenderHe[1]) out.sender = mSenderHe[1];
                                     } else {
                                         const mSender = q.match(/\bfrom\s+([^]+?)(?=\s+(older than|from|with|as|ago|yesterday|today|last|this)\b|$)/i);
-                                        if (mSender && mSender[1]) out.sender = mSender[1].trim();
+                                        if (mSender && mSender[1]) {
+                                            out.sender = mSender[1].trim();
+                                            // Trim trailing partial boundary tokens (e.g., "ol" from "older than")
+                                            if (out.sender) {
+                                                const parts = out.sender.split(/\s+/);
+                                                const last = (parts[parts.length - 1] || '').toLowerCase();
+                                                const boundaryWords = ['older', 'older than', 'from', 'with', 'as', 'ago', 'yesterday', 'today', 'last', 'this'];
+                                                if (boundaryWords.some(w => w.startsWith(last))) {
+                                                    parts.pop();
+                                                    out.sender = parts.join(' ').trim();
+                                                }
+                                            }
+                                        }
                                     }
                                     const mFromAgo = q.match(/\bfrom\s+(\d+\s+(?:day|days|week|weeks|month|months|year|years))\s+ago\b/i);
                                     const mOlderThan = q.match(/\bolder\s+than\s+(\d+\s+(?:day|days|week|weeks|month|months|year|years))\b/i);
