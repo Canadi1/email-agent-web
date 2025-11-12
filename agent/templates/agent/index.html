@@ -16345,6 +16345,22 @@
                             const mAnyOlder = q.match(/\bolder\s+than\s+(.+?)(?:\s+(from|with|as|yesterday|today|last|this|ago)\b|$)/i);
                             if (mAnyOlder && mAnyOlder[1]) { out.duration = mAnyOlder[1].trim(); out.hadOlderThan = true; }
                         }
+                        // Free-form numeric+unit fallback anywhere (EN)
+                        if (!out.duration) {
+                            const mLoose = q.match(/\b(\d+)\s*([a-zA-Z]+)\b/);
+                            if (mLoose) {
+                                const n = parseInt(mLoose[1], 10);
+                                const rawUnit = (mLoose[2] || '').toLowerCase();
+                                const unitNorm = (function(u){
+                                    if (u.startsWith('d')) return n === 1 ? 'day' : 'days';
+                                    if (u.startsWith('w')) return n === 1 ? 'week' : 'weeks';
+                                    if (u.startsWith('m')) return n === 1 ? 'month' : 'months'; // handles 'monts', 'mnths', etc.
+                                    if (u.startsWith('y')) return n === 1 ? 'year' : 'years';
+                                    return u;
+                                })(rawUnit);
+                                out.duration = `${isNaN(n) ? 0 : n} ${unitNorm}`;
+                            }
+                        }
                         // Fixed timeframe (EN)
                         const mFixed = q.match(/\bfrom\s+(today|yesterday|last\s+week|last\s+month|last\s+year|this\s+week|this\s+month|this\s+year)\b/i);
                         if (mFixed) out.timeframe = mFixed[1];
@@ -16385,6 +16401,10 @@
                 // Helper: fill template with detected slots, preserving 'older than' if present
                 function fillTemplateWithSlots(templateCmd, currentInput) {
                     const slots = extractSlots(currentInput);
+                    // Align form with the suggestion template itself
+                    if (!slots.hadOlderThan && /older\s+than/i.test(templateCmd)) {
+                        slots.hadOlderThan = true;
+                    }
                     let out = templateCmd;
                     // Sender placeholders (EN/HE)
                     if (slots.sender) {
@@ -16519,6 +16539,64 @@
                                     const mOlderThan = q.match(/\bolder\s+than\s+(\d+\s+(?:day|days|week|weeks|month|months|year|years))\b/i);
                                     if (mOlderThan) { out.duration = mOlderThan[1]; out.hadOlderThan = true; }
                                     else if (mFromAgo) { out.duration = mFromAgo[1]; }
+                                    // Free-form 'older than ...' fallback
+                                    if (!out.duration) {
+                                        const mAnyOlder = q.match(/\bolder\s+than\s+(.+?)(?:\s+(from|with|as|yesterday|today|last|this|ago)\b|$)/i);
+                                        if (mAnyOlder && mAnyOlder[1]) { out.duration = mAnyOlder[1].trim(); out.hadOlderThan = true; }
+                                    }
+                                    // Free-form numeric+unit fallback anywhere (EN)
+                                    if (!out.duration) {
+                                        const mLoose = q.match(/\b(\d+)\s*([a-zA-Z]+)\b/);
+                                        if (mLoose) {
+                                            const n = parseInt(mLoose[1], 10);
+                                            const rawUnit = (mLoose[2] || '').toLowerCase();
+                                            const unitNorm = (function(u){
+                                                if (u.startsWith('d')) return n === 1 ? 'day' : 'days';
+                                                if (u.startsWith('w')) return n === 1 ? 'week' : 'weeks';
+                                                if (u.startsWith('m')) return n === 1 ? 'month' : 'months';
+                                                if (u.startsWith('y')) return n === 1 ? 'year' : 'years';
+                                                return u;
+                                            })(rawUnit);
+                                            out.duration = `${isNaN(n) ? 0 : n} ${unitNorm}`;
+                                        }
+                                    }
+                                    // Free-form 'older than ...' fallback
+                                    if (!out.duration) {
+                                        const mAnyOlder = q.match(/\bolder\s+than\s+(.+?)(?:\s+(from|with|as|yesterday|today|last|this|ago)\b|$)/i);
+                                        if (mAnyOlder && mAnyOlder[1]) { out.duration = mAnyOlder[1].trim(); out.hadOlderThan = true; }
+                                    }
+                                    // Free-form numeric+unit fallback anywhere (EN)
+                                    if (!out.duration) {
+                                        const mLoose = q.match(/\b(\d+)\s*([a-zA-Z]+)\b/);
+                                        if (mLoose) {
+                                            const n = parseInt(mLoose[1], 10);
+                                            const rawUnit = (mLoose[2] || '').toLowerCase();
+                                            const unitNorm = (function(u){
+                                                if (u.startsWith('d')) return n === 1 ? 'day' : 'days';
+                                                if (u.startsWith('w')) return n === 1 ? 'week' : 'weeks';
+                                                if (u.startsWith('m')) return n === 1 ? 'month' : 'months';
+                                                if (u.startsWith('y')) return n === 1 ? 'year' : 'years';
+                                                return u;
+                                            })(rawUnit);
+                                            out.duration = `${isNaN(n) ? 0 : n} ${unitNorm}`;
+                                        }
+                                    }
+                                    // Free-form numeric+unit fallback anywhere (EN)
+                                    if (!out.duration) {
+                                        const mLoose = q.match(/\b(\d+)\s*([a-zA-Z]+)\b/);
+                                        if (mLoose) {
+                                            const n = parseInt(mLoose[1], 10);
+                                            const rawUnit = (mLoose[2] || '').toLowerCase();
+                                            const unitNorm = (function(u){
+                                                if (u.startsWith('d')) return n === 1 ? 'day' : 'days';
+                                                if (u.startsWith('w')) return n === 1 ? 'week' : 'weeks';
+                                                if (u.startsWith('m')) return n === 1 ? 'month' : 'months';
+                                                if (u.startsWith('y')) return n === 1 ? 'year' : 'years';
+                                                return u;
+                                            })(rawUnit);
+                                            out.duration = `${isNaN(n) ? 0 : n} ${unitNorm}`;
+                                        }
+                                    }
                                     const mFixed = q.match(/\bfrom\s+(today|yesterday|last\s+week|last\s+month|last\s+year|this\s+week|this\s+month|this\s+year)\b/i);
                                     if (mFixed) out.timeframe = mFixed[1];
                                     if (isHebrew && !out.timeframe) {
@@ -16548,6 +16626,22 @@
                                 } catch (e) {}
                                 return out;
                             })(currentInput);
+                            // Align to template wording if it uses "older than"
+                            if (!slots.hadOlderThan && /older\s+than/i.test(templateCmd)) {
+                                slots.hadOlderThan = true;
+                            }
+                            // Align to template wording if it uses "older than"
+                            if (!slots.hadOlderThan && /older\s+than/i.test(templateCmd)) {
+                                slots.hadOlderThan = true;
+                            }
+                            // If template uses "older than", align slot form
+                            if (!slots.hadOlderThan && /older\s+than/i.test(templateCmd)) {
+                                slots.hadOlderThan = true;
+                            }
+                            // If template uses "older than", align slot form
+                            if (!slots.hadOlderThan && /older\s+than/i.test(templateCmd)) {
+                                slots.hadOlderThan = true;
+                            }
                             let out = templateCmd;
                             if (slots.sender) out = out.replace(/\[sender\]/gi, slots.sender).replace(/\[שולח\]/g, slots.sender);
                             if (slots.timeframe) out = out.replace(/\[timeframe\]|\[time period\]/gi, slots.timeframe);
@@ -16556,6 +16650,7 @@
                                     out = out.replace(/from\s+\[duration\]\s+ago/gi, `older than ${slots.duration}`)
                                              .replace(/\[duration\]\s+ago/gi, `${slots.duration}`)
                                              .replace(/\[duration\]/gi, slots.duration)
+                                             .replace(/\[time\s*period\]/gi, slots.duration)
                                              .replace(/\[משך\]/g, slots.duration);
                                     if (!/older\s+than\s+/i.test(out) && /\[duration\]/.test(templateCmd)) {
                                         out = out.replace(/\bfrom\s+(\d+\s+\w+)\s+ago\b/i, `older than $1`);
@@ -16645,6 +16740,7 @@
                                     out = out.replace(/from\s+\[duration\]\s+ago/gi, `older than ${slots.duration}`)
                                              .replace(/\[duration\]\s+ago/gi, `${slots.duration}`)
                                              .replace(/\[duration\]/gi, slots.duration)
+                                             .replace(/\[time\s*period\]/gi, slots.duration)
                                              .replace(/\[משך\]/g, slots.duration);
                                     if (!/older\s+than\s+/i.test(out) && /\[duration\]/.test(templateCmd)) {
                                         out = out.replace(/\bfrom\s+(\d+\s+\w+)\s+ago\b/i, `older than $1`);
