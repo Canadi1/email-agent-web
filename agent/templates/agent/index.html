@@ -16430,6 +16430,46 @@
                         const mOlderThan = q.match(/\bolder\s+than\s+(\d+\s+(?:day|days|week|weeks|month|months|year|years))\b/i);
                         if (mOlderThan) { out.duration = mOlderThan[1]; out.hadOlderThan = true; }
                         else if (mFromAgo) { out.duration = mFromAgo[1]; }
+                        // EN: 'from a/an <unit> ago'
+                        if (!out.duration) {
+                            const mFromA = q.match(/\bfrom\s+(a|an)\s+([a-zA-Z]+)\s+ago\b/i);
+                            if (mFromA) {
+                                const unit = (mFromA[2] || '').toLowerCase();
+                                const unitNorm = unit.startsWith('d') ? 'day'
+                                    : unit.startsWith('w') ? 'week'
+                                    : unit.startsWith('m') ? 'month'
+                                    : unit.startsWith('y') ? 'year'
+                                    : unit;
+                                out.duration = `a ${unitNorm}`;
+                            }
+                        }
+                        // EN: 'from a/an <unit>' (no 'ago' yet)
+                        if (!out.duration) {
+                            const mFromANoAgo = q.match(/\bfrom\s+(a|an)\s+([a-zA-Z]+)\b/i);
+                            if (mFromANoAgo) {
+                                const unit = (mFromANoAgo[2] || '').toLowerCase();
+                                const unitNorm = unit.startsWith('d') ? 'day'
+                                    : unit.startsWith('w') ? 'week'
+                                    : unit.startsWith('m') ? 'month'
+                                    : unit.startsWith('y') ? 'year'
+                                    : unit;
+                                out.duration = `a ${unitNorm}`;
+                            }
+                        }
+                        // EN: 'older than a/an <unit>'
+                        if (!out.duration) {
+                            const mOlderA = q.match(/\bolder\s+than\s+(a|an)\s+([a-zA-Z]+)\b/i);
+                            if (mOlderA) {
+                                const unit = (mOlderA[2] || '').toLowerCase();
+                                const unitNorm = unit.startsWith('d') ? 'day'
+                                    : unit.startsWith('w') ? 'week'
+                                    : unit.startsWith('m') ? 'month'
+                                    : unit.startsWith('y') ? 'year'
+                                    : unit;
+                                out.duration = `a ${unitNorm}`;
+                                out.hadOlderThan = true;
+                            }
+                        }
                         // Raw EN fallback: accept whatever was typed after 'older than'
                         if (!out.duration) {
                             // Only treat 'from <duration>' as duration when it explicitly has 'ago'
@@ -16634,6 +16674,46 @@
                                     const mOlderThan = q.match(/\bolder\s+than\s+(\d+\s+(?:day|days|week|weeks|month|months|year|years))\b/i);
                                     if (mOlderThan) { out.duration = mOlderThan[1]; out.hadOlderThan = true; }
                                     else if (mFromAgo) { out.duration = mFromAgo[1]; }
+                                    // EN: 'from a/an <unit>' (no 'ago' yet)
+                                    if (!out.duration) {
+                                        const mFromANoAgo = q.match(/\bfrom\s+(a|an)\s+([a-zA-Z]+)\b/i);
+                                        if (mFromANoAgo) {
+                                            const unit = (mFromANoAgo[2] || '').toLowerCase();
+                                            const unitNorm = unit.startsWith('d') ? 'day'
+                                                : unit.startsWith('w') ? 'week'
+                                                : unit.startsWith('m') ? 'month'
+                                                : unit.startsWith('y') ? 'year'
+                                                : unit;
+                                            out.duration = `a ${unitNorm}`;
+                                        }
+                                    }
+                                    // EN: 'from a/an <unit> ago'
+                                    if (!out.duration) {
+                                        const mFromA = q.match(/\bfrom\s+(a|an)\s+([a-zA-Z]+)\s+ago\b/i);
+                                        if (mFromA) {
+                                            const unit = (mFromA[2] || '').toLowerCase();
+                                            const unitNorm = unit.startsWith('d') ? 'day'
+                                                : unit.startsWith('w') ? 'week'
+                                                : unit.startsWith('m') ? 'month'
+                                                : unit.startsWith('y') ? 'year'
+                                                : unit;
+                                            out.duration = `a ${unitNorm}`;
+                                        }
+                                    }
+                                    // EN: 'older than a/an <unit>'
+                                    if (!out.duration) {
+                                        const mOlderA = q.match(/\bolder\s+than\s+(a|an)\s+([a-zA-Z]+)\b/i);
+                                        if (mOlderA) {
+                                            const unit = (mOlderA[2] || '').toLowerCase();
+                                            const unitNorm = unit.startsWith('d') ? 'day'
+                                                : unit.startsWith('w') ? 'week'
+                                                : unit.startsWith('m') ? 'month'
+                                                : unit.startsWith('y') ? 'year'
+                                                : unit;
+                                            out.duration = `a ${unitNorm}`;
+                                            out.hadOlderThan = true;
+                                        }
+                                    }
                                     // Free-form 'older than ...' fallback
                                     if (!out.duration) {
                                         const mAnyOlder = q.match(/\bolder\s+than\s+(.+?)(?:\s+(from|with|as|yesterday|today|last|this|ago)\b|$)/i);
@@ -16798,6 +16878,46 @@
                                     const mOlderThan = q.match(/\bolder\s+than\s+(\d+\s+(?:day|days|week|weeks|month|months|year|years))\b/i);
                                     if (mOlderThan) { out.duration = mOlderThan[1]; out.hadOlderThan = true; }
                                     else if (mFromAgo) { out.duration = mFromAgo[1]; }
+                                    // EN: 'from a/an <unit>' (no 'ago' yet)
+                                    if (!out.duration) {
+                                        const mFromANoAgo = q.match(/\bfrom\s+(a|an)\s+([a-zA-Z]+)\b/i);
+                                        if (mFromANoAgo) {
+                                            const unit = (mFromANoAgo[2] || '').toLowerCase();
+                                            const unitNorm = unit.startsWith('d') ? 'day'
+                                                : unit.startsWith('w') ? 'week'
+                                                : unit.startsWith('m') ? 'month'
+                                                : unit.startsWith('y') ? 'year'
+                                                : unit;
+                                            out.duration = `a ${unitNorm}`;
+                                        }
+                                    }
+                                    // EN: 'from a/an <unit> ago'
+                                    if (!out.duration) {
+                                        const mFromA = q.match(/\bfrom\s+(a|an)\s+([a-zA-Z]+)\s+ago\b/i);
+                                        if (mFromA) {
+                                            const unit = (mFromA[2] || '').toLowerCase();
+                                            const unitNorm = unit.startsWith('d') ? 'day'
+                                                : unit.startsWith('w') ? 'week'
+                                                : unit.startsWith('m') ? 'month'
+                                                : unit.startsWith('y') ? 'year'
+                                                : unit;
+                                            out.duration = `a ${unitNorm}`;
+                                        }
+                                    }
+                                    // EN: 'older than a/an <unit>'
+                                    if (!out.duration) {
+                                        const mOlderA = q.match(/\bolder\s+than\s+(a|an)\s+([a-zA-Z]+)\b/i);
+                                        if (mOlderA) {
+                                            const unit = (mOlderA[2] || '').toLowerCase();
+                                            const unitNorm = unit.startsWith('d') ? 'day'
+                                                : unit.startsWith('w') ? 'week'
+                                                : unit.startsWith('m') ? 'month'
+                                                : unit.startsWith('y') ? 'year'
+                                                : unit;
+                                            out.duration = `a ${unitNorm}`;
+                                            out.hadOlderThan = true;
+                                        }
+                                    }
                                     // Free-form 'older than ...' fallback
                                     if (!out.duration) {
                                         const mAnyOlder = q.match(/\bolder\s+than\s+(.+?)(?:\s+(from|with|as|yesterday|today|last|this|ago)\b|$)/i);
