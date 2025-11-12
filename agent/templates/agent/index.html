@@ -2897,6 +2897,29 @@
                 }
             } catch (e) {}
 
+            // ARCHIVE-FROM-DURATION-AGO-COMPREHENSIVE-FILTER: If typing 'archive emails from [number]' or 'archive emails from [number] [unit] a/ag/ago', filter to only from duration ago command
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const isArchiveEmailsFromDurationAgoComprehensive = /^archive\s+emails\s+from\s+\d+(\s+(d|da|day|days|w|we|wee|week|weeks|m|mo|mon|mont|month|months|y|ye|yea|year|years))?(\s+(a|ag|ago))?$/.test(qlc);
+                if (isArchiveEmailsFromDurationAgoComprehensive && Array.isArray(items)) {
+                    // Filter to only show from duration ago commands
+                    items = items.filter(function(it) {
+                        const cmd = (it && it.cmd) ? it.cmd : String(it);
+                        const lcCmd = cmd.toLowerCase();
+                        return /^archive\s+emails\s+from\s+\[duration\]\s+ago$/.test(lcCmd);
+                    });
+                    // Ensure placeholder exists if filtering yielded none
+                    const hasArchiveDurationAgo = items.some(function(it){
+                        const s = (it && it.cmd) ? String(it.cmd).toLowerCase() : '';
+                        return /^archive\s+emails\s+from\s+\[duration\]\s+ago$/.test(s);
+                    });
+                    if (!hasArchiveDurationAgo) {
+                        items.push({ cmd: 'archive emails from [duration] ago', score: 1002, type: 'en_archive_from_duration_placeholder' });
+                    }
+                    try { console.log('[ARCHIVE-FROM-DURATION-AGO-COMPREHENSIVE-FILTER] filtered to from duration ago command for:', qlc); } catch(e) {}
+                }
+            } catch (e) {}
+
             // HEBREW DELETE SENDER OLDER-THAN SHORT-CIRCUIT: keep ONLY sender+older-than when typing 'ישנים' after a sender
             try {
                 const senderOlderThan = /^מחק\s+מיילים\s+מ\s*(?:\[שולח\]|[^\s]+)\s+י(?:ש(?:נ(?:י(?:ם)?)?)?)?(?:\s+מ(?:\s*\S.*)?)?\s*$/.test(qNormHe);
@@ -9813,6 +9836,62 @@
                 }
             } catch (e) {}
 
+            // ARCHIVE-OLDER-THAN QUANTITY FILTER: handle multi-digit numbers and units
+            try {
+                const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
+                const mOlder = qlc.match(/^archive\s+emails\s+older\s+than\s*(.*)$/i);
+                if (mOlder && Array.isArray(items)) {
+                    const rem = (mOlder[1] || '').trim();
+                    let qtyTok = null;
+                    let unitPrefix = '';
+                    const mNum = rem.match(/^(\d+)\s*([a-z]*)/i);
+                    const mArt = rem.match(/^(a|an)\s+([a-z]+)/i);
+                    if (mNum) {
+                        qtyTok = mNum[1];
+                        unitPrefix = (mNum[2] || '').trim();
+                    } else if (mArt) {
+                        qtyTok = mArt[1];
+                        unitPrefix = (mArt[2] || '').trim();
+                    }
+                    if (qtyTok !== null) {
+                        let allowedUnits = ['day','days','week','weeks','month','months','year','years'];
+                        if (unitPrefix) {
+                            if (/^d/i.test(unitPrefix)) allowedUnits = ['day','days'];
+                            else if (/^w/i.test(unitPrefix)) allowedUnits = ['week','weeks'];
+                            else if (/^m/i.test(unitPrefix)) allowedUnits = ['month','months'];
+                            else if (/^y/i.test(unitPrefix)) allowedUnits = ['year','years'];
+                        }
+                        const unitSet = new Set(allowedUnits);
+                        items = items.filter(function(it){
+                            const cmd = (it && it.cmd) ? it.cmd : String(it);
+                            const lc = cmd.toLowerCase();
+                            const m = lc.match(/^archive\s+emails\s+older\s+than\s+((?:\d+)|a|an)\s+(day|days|week|weeks|month|months|year|years)$/i);
+                            if (m) {
+                                if (String(m[1]) !== String(qtyTok)) return false;
+                                return unitSet.has(m[2]);
+                            }
+                            if (/^archive\s+emails\s+older\s+than\s+\[duration\]$/i.test(lc)) return true;
+                            return false;
+                        });
+                        try { console.log('[ARCHIVE-OLDER-THAN-QUANTITY]', { qtyTok, units: Array.from(unitSet) }); } catch(e) {}
+                    } else if (/^(a|an)$/i.test(rem)) {
+                        // Exactly 'older than a' or 'older than an' => keep only the placeholder
+                        items = items.filter(function(it){
+                            const s = (it && it.cmd) ? String(it.cmd).toLowerCase() : '';
+                            return /^archive\s+emails\s+older\s+than\s+\[duration\]$/i.test(s);
+                        });
+                        const hasPlaceholder = items.some(function(it){
+                            const s = (it && it.cmd) ? String(it.cmd).toLowerCase() : '';
+                            return /^archive\s+emails\s+older\s+than\s+\[duration\]$/i.test(s);
+                        });
+                        if (!hasPlaceholder) {
+                            items.push({ cmd: 'archive emails older than [duration]', score: 1002, type: 'en_archive_older_placeholder_a' });
+                        }
+                        try { console.log('[ARCHIVE-OLDER-THAN-A] enforcing placeholder for a/an'); } catch(e) {}
+                    }
+                }
+            } catch (e) {}
+
             // ARCHIVE-THIS-TIMEFRAME FILTER: If typing 'archive emails from this', filter and prioritize week/month/year
             try {
                 const qlc = (input || '').toLowerCase().replace(/[\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();
@@ -10246,6 +10325,14 @@
                         const lcCmd = cmd.toLowerCase();
                         return /^delete\s+emails\s+from\s+\[duration\]\s+ago$/.test(lcCmd);
                     });
+                    // Ensure placeholder exists if filtering yielded none
+                    const hasDeleteDurationAgo = items.some(function(it){
+                        const s = (it && it.cmd) ? String(it.cmd).toLowerCase() : '';
+                        return /^delete\s+emails\s+from\s+\[duration\]\s+ago$/.test(s);
+                    });
+                    if (!hasDeleteDurationAgo) {
+                        items.push({ cmd: 'delete emails from [duration] ago', score: 1002, type: 'en_delete_from_duration_placeholder' });
+                    }
                     try { console.log('[DELETE-FROM-DURATION-AGO-COMPREHENSIVE-FILTER] filtered to from duration ago command for:', qlc); } catch(e) {}
                 }
             } catch (e) {}
@@ -12943,6 +13030,14 @@
                         // Keep only the duration ago command that matches "archive emails from [number]"
                         return /^archive\s+emails\s+from\s+\[duration\]\s+ago$/.test(lcCmd);
                     });
+                    // Ensure the placeholder exists if filtering removed it
+                    const hasArchiveDurationAgo = items.some(function(it){
+                        const s = (it && it.cmd) ? String(it.cmd).toLowerCase() : '';
+                        return /^archive\s+emails\s+from\s+\[duration\]\s+ago$/.test(s);
+                    });
+                    if (!hasArchiveDurationAgo) {
+                        items.push({ cmd: 'archive emails from [duration] ago', score: 2001, type: 'en_archive_number_inject' });
+                    }
                     try { console.log('[EN-ARCHIVE-NUMBER-FILTER] filtered to only duration ago command for:', qlc); } catch(e) {}
                 }
             } catch (e) {}
