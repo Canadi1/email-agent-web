@@ -603,18 +603,23 @@ def index(request):
                 except Exception:
                     date_str = ''
 
-                # Prefer RFC822 Message-ID for a reliable Gmail deep link via search
-                rfc822_msgid = _h('Message-ID') or _h('Message-Id') or ''
+                # Try multiple Gmail URL formats to open the email directly
                 gmail_url = ''
-                if rfc822_msgid:
-                    # Strip angle brackets if present
+                thread_id = msg.get('threadId', '')
+                gmail_message_id = msg.get('id', '')  # Gmail API message ID
+                rfc822_msgid = _h('Message-ID') or _h('Message-Id') or ''
+                
+                # Priority 1: Try direct message URL using Gmail API message ID
+                # This format attempts to open the message directly in Gmail
+                if gmail_message_id:
+                    gmail_url = f"https://mail.google.com/mail/u/0/#inbox/{gmail_message_id}"
+                # Priority 2: Use thread ID (opens thread, Gmail may auto-scroll to message)
+                elif thread_id:
+                    gmail_url = f"https://mail.google.com/mail/u/0/#all/{thread_id}"
+                # Priority 3: Fallback to RFC822 Message-ID search (shows search results)
+                elif rfc822_msgid:
                     rid = rfc822_msgid.strip('<>')
                     gmail_url = f"https://mail.google.com/mail/u/0/#search/rfc822msgid:{rid}"
-                else:
-                    # Fallback: open the thread if available
-                    thread_id = msg.get('threadId', '')
-                    if thread_id:
-                        gmail_url = f"https://mail.google.com/mail/u/0/#all/{thread_id}"
 
                 # Decode body from parts
                 def decode_part_body(part):
