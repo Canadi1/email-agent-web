@@ -1120,16 +1120,16 @@
             <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px; padding-right:50px;">
                 <div id="email-viewer-title" style="font-weight:650; font-size:1.1rem; flex:1;" dir="auto"></div>
             </div>
-            <button type="button" id="email-viewer-close" class="cancel-btn" style="position:absolute; top:14px; right:14px; z-index:10;">Close</button>
+            <button type="button" id="email-viewer-close" class="cancel-btn" style="position:absolute; top:14px; right:14px; z-index:10;">{% trans "Close" %}</button>
             <iframe id="email-viewer-iframe" sandbox="allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts" referrerpolicy="no-referrer" style="display:none; width:100%; height:72vh; border:1px solid #ddd; border-radius:6px;"></iframe>
             <pre id="email-viewer-text" style="display:none; white-space:pre-wrap; background:#f7f7f7; border:1px solid #eee; border-radius:6px; padding:10px; height:72vh; overflow:auto;"></pre>
             <div id="email-viewer-attachments" style="display:none; margin-top:12px; padding:12px; background:#f7f7f7; border:1px solid #ddd; border-radius:6px;">
-                <div style="font-weight:600; font-size:0.95em; margin-bottom:8px; color:#333;">Attachments:</div>
+                <div id="email-viewer-attachments-title" style="font-weight:600; font-size:0.95em; margin-bottom:8px; color:#333;"></div>
                 <div id="email-viewer-attachments-list" style="display:flex; flex-direction:column; gap:6px;"></div>
             </div>
             <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:10px;">
                 <div id="email-viewer-meta" style="color:#666; font-size:0.95em;" dir="auto"></div>
-                <a id="email-viewer-gmail-link" href="#" target="_blank" rel="noopener noreferrer" style="display:none;">Open in Gmail</a>
+                <a id="email-viewer-gmail-link" href="#" target="_blank" rel="noopener noreferrer" style="display:none;">{% trans "Open in Gmail" %}</a>
             </div>
         </div>
     </div>
@@ -6827,6 +6827,7 @@
             const gmailLink = document.getElementById('email-viewer-gmail-link');
             const viewerAttachments = document.getElementById('email-viewer-attachments');
             const viewerAttachmentsList = document.getElementById('email-viewer-attachments-list');
+            const attachmentsTitle = document.getElementById('email-viewer-attachments-title');
             const loadingOverlay = document.getElementById('loading-overlay');
 
             // Cache opened messages to avoid refetching; debounce concurrent opens
@@ -6907,7 +6908,69 @@
                     return '';
                 }
             }
+            // Minimal i18n for viewer labels - check language dynamically
+            function getIsHebrew() {
+                // Check lang attribute first
+                const docLang = document.documentElement.getAttribute('lang');
+                if (docLang) {
+                    const langLower = docLang.toLowerCase();
+                    if (/^he|^iw/.test(langLower)) return true;
+                    if (/^en/.test(langLower)) return false;
+                }
+                // Fallback: check dir attribute
+                const docDir = document.documentElement.getAttribute('dir');
+                if (docDir === 'rtl') return true;
+                // Fallback: check navigator language
+                const navLang = (navigator.language || 'en').toLowerCase();
+                return /^he|^iw/.test(navLang);
+            }
+            function getI18n() {
+                const isHebrew = getIsHebrew();
+                return {
+                    close: isHebrew ? 'סגור' : 'Close',
+                    attachments: isHebrew ? 'קבצים מצורפים' : 'Attachments',
+                    showAll: (n) => isHebrew ? `הצג את כל ${n} הקבצים` : `Show all ${n} attachments`,
+                    showFewer: isHebrew ? 'הצג פחות קבצים' : 'Show fewer attachments',
+                    openInGmail: isHebrew ? 'פתח ב‑Gmail' : 'Open in Gmail',
+                    onlyAttachmentsMsg: isHebrew ? 'הודעה זו מכילה רק קבצים מצורפים. ראה למטה.' : 'This email contains only attachments. See the attachments list below.',
+                    previewNA: isHebrew ? 'תצוגה מקדימה לא זמינה. ראה קבצים מצורפים למטה או פתח ב‑Gmail.' : 'Preview not available. See attachments below or click Open in Gmail.'
+                };
+            }
+            // Apply static labels
+            function updateViewerLabels() {
+                try {
+                    const i18n = getI18n();
+                    const isHebrew = getIsHebrew();
+                    if (viewerClose) {
+                        viewerClose.textContent = i18n.close;
+                    }
+                    if (attachmentsTitle) {
+                        // Set text with colon (colon will be positioned correctly by RTL/LTR)
+                        attachmentsTitle.textContent = i18n.attachments + ':';
+                        attachmentsTitle.setAttribute('dir', isHebrew ? 'rtl' : 'ltr');
+                        attachmentsTitle.style.textAlign = isHebrew ? 'right' : 'left';
+                    }
+                    if (gmailLink) {
+                        if (gmailLink.href && gmailLink.href !== '#') {
+                            gmailLink.textContent = i18n.openInGmail;
+                        }
+                    }
+                } catch(e) {
+                    console.error('Error updating viewer labels:', e);
+                }
+            }
+            // Initialize labels when DOM is ready
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', updateViewerLabels);
+            } else {
+                updateViewerLabels();
+            }
+
             function renderEmailContent(data) {
+                // Update labels with current language
+                updateViewerLabels();
+                const i18n = getI18n();
+                
                 const subj = data.subject || '';
                 const from = data.sender || '';
                 const when = data.date || '';
@@ -6920,6 +6983,7 @@
                 if (gmailLink) {
                     if (data.gmail_url) {
                         gmailLink.href = data.gmail_url;
+                        gmailLink.textContent = i18n.openInGmail;
                         gmailLink.style.display = '';
                     } else {
                         gmailLink.removeAttribute('href');
@@ -6978,13 +7042,13 @@
                             const toggleBtn = document.createElement('button');
                             toggleBtn.id = 'email-viewer-attachments-toggle';
                             toggleBtn.type = 'button';
-                            toggleBtn.textContent = 'Show all ' + total + ' attachments';
+                            toggleBtn.textContent = i18n.showAll(total);
                             toggleBtn.style.cssText = 'margin-top:8px; align-self:flex-start; background:#f1f3f4; border:1px solid #d0d7de; color:#333; border-radius:6px; padding:6px 10px; cursor:pointer;';
                             let expanded = false;
                             toggleBtn.addEventListener('click', function() {
                                 expanded = !expanded;
                                 hidden.forEach(el => el.style.display = expanded ? 'flex' : 'none');
-                                toggleBtn.textContent = expanded ? 'Show fewer attachments' : ('Show all ' + total + ' attachments');
+                                toggleBtn.textContent = expanded ? i18n.showFewer : i18n.showAll(total);
                             });
                             viewerAttachments.appendChild(toggleBtn);
                         }
@@ -7011,7 +7075,7 @@
                             if (text) {
                                 viewerText.textContent = text;
                             } else if (hasAttachments) {
-                                viewerText.textContent = 'Preview not available. See attachments below or click Open in Gmail.';
+                                viewerText.textContent = i18n.previewNA;
                             } else {
                                 viewerText.textContent = '(No content)';
                             }
@@ -7024,7 +7088,7 @@
                         if (text) {
                             viewerText.textContent = text;
                         } else if (hasAttachments) {
-                            viewerText.textContent = 'This email contains only attachments. See the attachments list below.';
+                            viewerText.textContent = i18n.onlyAttachmentsMsg;
                         } else {
                             viewerText.textContent = '(No content)';
                         }
