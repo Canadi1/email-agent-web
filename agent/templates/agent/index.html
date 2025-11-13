@@ -6887,8 +6887,8 @@
                         }
                         return match;
                     });
-                    // Base CSS and click interceptor script
-                    const clickScript = '<script>(function(){document.addEventListener(\'click\',function(e){var a=e.target.closest(\'a[href]\');if(a&&a.href){a.target=\'_blank\';a.setAttribute(\'rel\',\'noopener noreferrer nofollow\');}}});})();<\/script>';
+                    // Base CSS and click interceptor script - force all links to open in parent window
+                    const clickScript = '<script>(function(){document.addEventListener(\'click\',function(e){var target=e.target;var a=target.closest(\'a[href]\');if(a&&a.href){e.preventDefault();e.stopPropagation();try{window.parent.postMessage({type:\'open_link\',url:a.href},\'*\');}catch(_){try{window.open(a.href,\'_blank\',\'noopener\');}catch(e2){}}return false;}if(target.tagName===\'IMG\'||target.tagName===\'BUTTON\'||target.tagName===\'DIV\'||target.tagName===\'SPAN\'){var parentA=target.closest(\'a[href]\');if(parentA&&parentA.href){e.preventDefault();e.stopPropagation();try{window.parent.postMessage({type:\'open_link\',url:parentA.href},\'*\');}catch(_){try{window.open(parentA.href,\'_blank\',\'noopener\');}catch(e2){}}return false;}}});window.addEventListener(\'message\',function(e){if(e.data&&e.data.type===\'open_link\'){window.open(e.data.url,\'_blank\',\'noopener\');}});})();<\/script>';
                     const baseStyle = '<style>body{margin:0;padding:16px;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#222;background:#fff;line-height:1.5;}img{max-width:100%;height:auto;}table{max-width:100%;}a{color:#1a73e8;text-decoration:none;}a:hover{text-decoration:underline;} .container{max-width:800px;margin:0 auto;}blockquote{margin:0 0 0 12px;border-left:3px solid #e0e0e0;padding-left:10px;color:#555;}</style>';
                     if (!/<!doctype/i.test(s)) {
                         s = '<!doctype html><html><head><meta charset="utf-8">' + baseStyle + '</head><body><div class="container">' + s + '</div>' + clickScript + '</body></html>';
@@ -7003,6 +7003,15 @@
                     if (e.target === viewerOverlay) hideEmailViewer();
                 });
             }
+            // Listen for messages from iframe to open links in parent window
+            window.addEventListener('message', function(e) {
+                if (e.data && e.data.type === 'open_link' && e.data.url) {
+                    // Verify the message is from our iframe
+                    if (viewerIframe && e.source === viewerIframe.contentWindow) {
+                        window.open(e.data.url, '_blank', 'noopener,noreferrer');
+                    }
+                }
+            });
         })();
 
         // Overlay suggestions just under the input (with fuzzy fallback) + keyboard navigation
