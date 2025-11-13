@@ -16573,7 +16573,17 @@
                                     if (/^שנה|^שנים$/.test(u)) return n === 1 ? 'שנה' : 'שנים';
                                     return u;
                                 })(tok);
-                                out.duration = `${isNaN(n) ? '' : n} ${unitHeb}`.trim();
+                                // If no number was provided, omit it and use singular unit
+                                if (!mHe[1]) {
+                                    // Force singular form for common units
+                                    if (/^יום/.test(unitHeb)) out.duration = 'יום';
+                                    else if (/^שבוע/.test(unitHeb)) out.duration = 'שבוע';
+                                    else if (/^חודש/.test(unitHeb)) out.duration = 'חודש';
+                                    else if (/^שנה|^שנים/.test(unitHeb)) out.duration = 'שנה';
+                                    else out.duration = unitHeb;
+                                } else {
+                                    out.duration = `${n} ${unitHeb}`.trim();
+                                }
                             }
                             // Hebrew older-than form: 'ישנים מ [N] <unit>'
                             if (!out.duration) {
@@ -16592,7 +16602,15 @@
                                         if (/^שנה|^שנים$/.test(u)) return n === 1 ? 'שנה' : 'שנים';
                                         return u;
                                     })(tok);
-                                    out.duration = `${isNaN(n) ? '' : n} ${unitHeb}`.trim();
+                                    if (!mHeOld[1]) {
+                                        if (/^יום/.test(unitHeb)) out.duration = 'יום';
+                                        else if (/^שבוע/.test(unitHeb)) out.duration = 'שבוע';
+                                        else if (/^חודש/.test(unitHeb)) out.duration = 'חודש';
+                                        else if (/^שנה|^שנים/.test(unitHeb)) out.duration = 'שנה';
+                                        else out.duration = unitHeb;
+                                    } else {
+                                        out.duration = `${n} ${unitHeb}`.trim();
+                                    }
                                     out.hadOlderThan = true;
                                 }
                             }
