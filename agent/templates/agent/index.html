@@ -16448,7 +16448,8 @@
                     try {
                         // Sender
                         if (isHebrew) {
-                            const mSenderHe = q.match(/מ-?\s*([^\s]+)(?=\s|$)/i);
+                            // Hebrew sender: match ' מ' or start + 'מ' (from) but avoid matching the word 'מיילים'
+                            const mSenderHe = q.match(/(?:^|\s)מ(?!יילים)-?\s*([^\s]+)(?=\s|$)/i);
                             if (mSenderHe && mSenderHe[1]) out.sender = mSenderHe[1];
                         } else {
                             const mSender = q.match(/\bfrom\s+([^]+?)(?=\s+(older than|from|with|as|ago|yesterday|today|last|this)\b|$)/i);
@@ -16576,6 +16577,10 @@
                 }
                 // Helper: fill template with detected slots, preserving 'older than' if present
                 function fillTemplateWithSlots(templateCmd, currentInput) {
+                    // If the suggestion has no placeholders, return it verbatim (avoid accidental mutations)
+                    if (!/\[(sender|שולח|duration|משך|time\s*period|timeframe)\]/i.test(templateCmd)) {
+                        return String(templateCmd || '').trim();
+                    }
                     const slots = extractSlots(currentInput);
                     // Align form with the suggestion template itself
                     if (!slots.hadOlderThan && /older\s+than/i.test(templateCmd)) {
@@ -16693,7 +16698,7 @@
                                 const isHebrew = document.documentElement.dir === 'rtl' || document.documentElement.lang === 'he';
                                 try {
                                     if (isHebrew) {
-                                        const mSenderHe = q.match(/מ-?\s*([^\s]+)(?=\s|$)/i);
+                                        const mSenderHe = q.match(/(?:^|\s)מ(?!יילים)-?\s*([^\s]+)(?=\s|$)/i);
                                         if (mSenderHe && mSenderHe[1]) out.sender = mSenderHe[1];
                                     } else {
                                         const mSender = q.match(/\bfrom\s+([^]+?)(?=\s+(older than|from|with|as|ago|yesterday|today|last|this)\b|$)/i);
@@ -16897,7 +16902,7 @@
                                 const isHebrew = document.documentElement.dir === 'rtl' || document.documentElement.lang === 'he';
                                 try {
                                     if (isHebrew) {
-                                        const mSenderHe = q.match(/מ-?\s*([^\s]+)(?=\s|$)/i);
+                                        const mSenderHe = q.match(/(?:^|\s)מ(?!יילים)-?\s*([^\s]+)(?=\s|$)/i);
                                         if (mSenderHe && mSenderHe[1]) out.sender = mSenderHe[1];
                                     } else {
                                         const mSender = q.match(/\bfrom\s+([^]+?)(?=\s+(older than|from|with|as|ago|yesterday|today|last|this)\b|$)/i);
