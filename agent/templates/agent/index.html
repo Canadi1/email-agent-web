@@ -1116,12 +1116,12 @@
     <div id="snackbar" class="snackbar" role="status" aria-live="polite"></div>
     <!-- Email viewer overlay -->
     <div id="email-viewer-overlay" class="overlay" style="display:none;">
-        <div class="overlay-content" style="max-width:1100px; width:96%; max-height:90vh; overflow:hidden; display:flex; flex-direction:column; background:#fff; border-radius:10px; box-shadow:0 10px 30px rgba(0,0,0,0.25); padding:14px;">
-            <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px;">
-                <div id="email-viewer-title" style="font-weight:650; font-size:1.1rem;" dir="auto"></div>
-                <button type="button" id="email-viewer-close" class="cancel-btn">Close</button>
+        <div class="overlay-content" style="max-width:1100px; width:96%; max-height:90vh; overflow:hidden; display:flex; flex-direction:column; background:#fff; border-radius:10px; box-shadow:0 10px 30px rgba(0,0,0,0.25); padding:14px; position:relative;">
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px; padding-right:50px;">
+                <div id="email-viewer-title" style="font-weight:650; font-size:1.1rem; flex:1;" dir="auto"></div>
             </div>
-            <iframe id="email-viewer-iframe" sandbox="allow-top-navigation-by-user-activation" referrerpolicy="no-referrer" style="display:none; width:100%; height:72vh; border:1px solid #ddd; border-radius:6px;"></iframe>
+            <button type="button" id="email-viewer-close" class="cancel-btn" style="position:absolute; top:14px; right:14px; z-index:10;">Close</button>
+            <iframe id="email-viewer-iframe" sandbox="allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts" referrerpolicy="no-referrer" style="display:none; width:100%; height:72vh; border:1px solid #ddd; border-radius:6px;"></iframe>
             <pre id="email-viewer-text" style="display:none; white-space:pre-wrap; background:#f7f7f7; border:1px solid #eee; border-radius:6px; padding:10px; height:72vh; overflow:auto;"></pre>
             <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:10px;">
                 <div id="email-viewer-meta" style="color:#666; font-size:0.95em;" dir="auto"></div>
@@ -6842,11 +6842,24 @@
             function sanitizeForSrcdoc(html) {
                 try {
                     let s = String(html || '');
-                    // Strip scripts/embeds and inline handlers
+                    // Extract URLs from onclick handlers BEFORE removing scripts/handlers
+                    const urlMap = new Map();
+                    let urlCounter = 0;
+                    s = s.replace(/\sonclick\s*=\s*(['"])([^'"]*?)\1/gi, function(_, quote, handler) {
+                        const urlMatch = handler.match(/(?:window\.open|location\.href|location\.replace)\s*\(\s*(['"])([^'"]+)\1/);
+                        if (urlMatch && urlMatch[2]) {
+                            const urlKey = '__EMAIL_LINK_' + (urlCounter++) + '__';
+                            urlMap.set(urlKey, urlMatch[2]);
+                            return ' data-email-link="' + urlKey + '"';
+                        }
+                        return '';
+                    });
+                    // NOW strip scripts/embeds and inline handlers AFTER extracting URLs
                     s = s.replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, '');
                     s = s.replace(/<iframe[\s\S]*?>[\s\S]*?<\/iframe>/gi, '');
                     s = s.replace(/<object[\s\S]*?>[\s\S]*?<\/object>/gi, '');
                     s = s.replace(/<embed[\s\S]*?>/gi, '');
+                    // Remove remaining inline event handlers
                     s = s.replace(/\son\w+\s*=\s*(['"]).*?\1/gi, '');
                     // Remove external link tags (stylesheets/preconnect/etc.)
                     s = s.replace(/<link\b[^>]*>/gi, '');
@@ -6855,16 +6868,33 @@
                     // Force links to open in new tab safely
                     s = s.replace(/<a\b([^>]*?)>/gi, function(_, attrs) {
                         let a = attrs;
+                        // Check for data-email-link attribute
+                        const linkMatch = attrs.match(/data-email-link=["']([^"']+)["']/);
+                        if (linkMatch && urlMap.has(linkMatch[1])) {
+                            a = a.replace(/data-email-link=["'][^"']+["']/, '');
+                            a += ' href="' + urlMap.get(linkMatch[1]) + '"';
+                        }
                         if (!/target=/i.test(a)) a += ' target="_blank"';
                         if (!/rel=/i.test(a)) a += ' rel="noopener noreferrer nofollow"';
                         return '<a' + a + '>';
                     });
-                    // Base CSS for cleaner look
+                    // Convert elements with data-email-link to clickable links (including images)
+                    s = s.replace(/<(button|div|span|td|tr|img)[^>]*data-email-link=["']([^"']+)["'][^>]*>/gi, function(match, tag, linkKey) {
+                        const url = urlMap.get(linkKey);
+                        if (url) {
+                            const cleaned = match.replace(/<(button|div|span|td|tr|img)/i, '<$1').replace(/data-email-link=["'][^"']+["']/, '');
+                            return '<a href="' + url + '" target="_blank" rel="noopener noreferrer nofollow" style="text-decoration:none;color:inherit;display:inline-block;">' + cleaned + '</a>';
+                        }
+                        return match;
+                    });
+                    // Base CSS and click interceptor script
+                    const clickScript = '<script>(function(){document.addEventListener(\'click\',function(e){var a=e.target.closest(\'a[href]\');if(a&&a.href){a.target=\'_blank\';a.setAttribute(\'rel\',\'noopener noreferrer nofollow\');}}});})();<\/script>';
                     const baseStyle = '<style>body{margin:0;padding:16px;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#222;background:#fff;line-height:1.5;}img{max-width:100%;height:auto;}table{max-width:100%;}a{color:#1a73e8;text-decoration:none;}a:hover{text-decoration:underline;} .container{max-width:800px;margin:0 auto;}blockquote{margin:0 0 0 12px;border-left:3px solid #e0e0e0;padding-left:10px;color:#555;}</style>';
                     if (!/<!doctype/i.test(s)) {
-                        s = '<!doctype html><html><head><meta charset="utf-8">' + baseStyle + '</head><body><div class="container">' + s + '</div></body></html>';
+                        s = '<!doctype html><html><head><meta charset="utf-8">' + baseStyle + '</head><body><div class="container">' + s + '</div>' + clickScript + '</body></html>';
                     } else {
                         s = s.replace(/<head[^>]*>/i, function(h){ return h + baseStyle; });
+                        s = s.replace(/<\/body>/i, clickScript + '</body>');
                     }
                     return s;
                 } catch(e) {
