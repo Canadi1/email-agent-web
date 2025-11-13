@@ -16951,6 +16951,9 @@
             } else if (e.key === 'Tab') {
                 if (suggestionItems.length) {
                     const el = (activeIndex >= 0 && suggestionItems[activeIndex]) ? suggestionItems[activeIndex] : suggestionItems[0];
+                    // Mirror click behavior: accept highlighted/first suggestion via its click handler
+                    e.preventDefault();
+                    if (el) { el.click(); return; }
                     const text = el ? el.textContent : '';
                     if (text) {
                         // Use slot fill on TAB accept too
