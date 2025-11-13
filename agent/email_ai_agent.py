@@ -229,13 +229,16 @@ class GmailAIAgent:
         )
 
     def api_get_message(self, message_id, user_id='me', **kwargs):
+        # Allow callers to override retry policy for this single call
+        max_retries = kwargs.pop('max_retries', 6)  # default as before
+        base_delay = kwargs.pop('base_delay', 0.8)
         # Avoid passing userId twice if provided in kwargs
         if 'userId' in kwargs:
             user_id = kwargs.pop('userId') or user_id
         return self._execute_with_retries(
             lambda: self.service.users().messages().get(userId=user_id, id=message_id, **kwargs),
-            max_retries=6,  # Increased retries for better SSL error handling
-            base_delay=0.8,
+            max_retries=max_retries,
+            base_delay=base_delay,
         )
 
     def api_batch_modify(self, message_ids, add_label_ids=None, remove_label_ids=None, user_id='me'):
@@ -2071,7 +2074,8 @@ class GmailAIAgent:
             except Exception:
                 date_str = ''
             
-            email_list.append({"sender": sender, "subject": subject, "date": date_str})
+            # Include the Gmail message id so the UI can open a specific email
+            email_list.append({"id": message['id'], "sender": sender, "subject": subject, "date": date_str})
             
             # Update progress
             if hasattr(self, 'command_id') and self.command_id:

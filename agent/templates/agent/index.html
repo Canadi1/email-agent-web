@@ -155,6 +155,7 @@
         .email-item {
             border-bottom: 1px solid #eee;
             padding: 10px 0;
+            cursor: pointer;
         }
         .email-item:last-child {
             border-bottom: none;
@@ -1113,6 +1114,21 @@
         </div>
     </div>
     <div id="snackbar" class="snackbar" role="status" aria-live="polite"></div>
+    <!-- Email viewer overlay -->
+    <div id="email-viewer-overlay" class="overlay" style="display:none;">
+        <div class="overlay-content" style="max-width:1100px; width:96%; max-height:90vh; overflow:hidden; display:flex; flex-direction:column; background:#fff; border-radius:10px; box-shadow:0 10px 30px rgba(0,0,0,0.25); padding:14px;">
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px;">
+                <div id="email-viewer-title" style="font-weight:650; font-size:1.1rem;" dir="auto"></div>
+                <button type="button" id="email-viewer-close" class="cancel-btn">Close</button>
+            </div>
+            <iframe id="email-viewer-iframe" sandbox="allow-top-navigation-by-user-activation" referrerpolicy="no-referrer" style="display:none; width:100%; height:72vh; border:1px solid #ddd; border-radius:6px;"></iframe>
+            <pre id="email-viewer-text" style="display:none; white-space:pre-wrap; background:#f7f7f7; border:1px solid #eee; border-radius:6px; padding:10px; height:72vh; overflow:auto;"></pre>
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:10px;">
+                <div id="email-viewer-meta" style="color:#666; font-size:0.95em;" dir="auto"></div>
+                <a id="email-viewer-gmail-link" href="#" target="_blank" rel="noopener noreferrer" style="display:none;">Open in Gmail</a>
+            </div>
+        </div>
+    </div>
     <div class="container">
         <header>
             <h1>{% trans "Email AI Agent" %}</h1>
@@ -1296,7 +1312,7 @@
                             {% if result.type == 'email_list' and result.data %}
                                 <ul class="email-list" id="email-list">
                                 {% for email in result.data %}
-                                    <li class="email-item">
+                                    <li class="email-item"{% if email.id %} data-id="{{ email.id }}"{% endif %}>
                                         <div class="email-sender" dir="auto">{{ email.sender }}</div>
                                         <div class="email-subject" dir="auto">{{ email.subject }}</div>
                                         {% firstof email.date email.date_str email.received_at email.received email.datetime email.internal_date email.internalDate "" as dt %}
@@ -6749,6 +6765,7 @@
                         items.forEach(item => {
                             const li = document.createElement('li');
                             li.className = 'email-item';
+                            if (item.id) { li.setAttribute('data-id', item.id); }
                             const sender = document.createElement('div');
                             sender.className = 'email-sender';
                             sender.setAttribute('dir','auto');
@@ -6769,6 +6786,8 @@
                             }
                             
                             emailList.appendChild(li);
+                            // Bind click to open email
+                            if (li.getAttribute('data-id')) bindEmailItem(li);
                         });
                         if (items.length) {
                             const tmpl = i18n.i18nLoadedMoreWithCount || 'Loaded {count} more';
@@ -6792,6 +6811,169 @@
                     .finally(() => { if (inline) inline.style.display = 'none'; });
             });
         }
+
+        // Click-to-open email viewer
+        (function(){
+            const viewerOverlay = document.getElementById('email-viewer-overlay');
+            const viewerTitle = document.getElementById('email-viewer-title');
+            const viewerMeta = document.getElementById('email-viewer-meta');
+            const viewerIframe = document.getElementById('email-viewer-iframe');
+            const viewerText = document.getElementById('email-viewer-text');
+            const viewerClose = document.getElementById('email-viewer-close');
+            const gmailLink = document.getElementById('email-viewer-gmail-link');
+            const loadingOverlay = document.getElementById('loading-overlay');
+
+            // Cache opened messages to avoid refetching; debounce concurrent opens
+            const messageCache = new Map(); // id -> {data, fetchedAt}
+            let openBusy = false;
+            let currentMessageId = null;
+
+            function showEmailViewer() {
+                if (viewerOverlay) {
+                    viewerOverlay.style.display = 'flex';
+                }
+            }
+            function hideEmailViewer() {
+                if (viewerOverlay) {
+                    viewerOverlay.style.display = 'none';
+                }
+                currentMessageId = null;
+            }
+            function sanitizeForSrcdoc(html) {
+                try {
+                    let s = String(html || '');
+                    // Strip scripts/embeds and inline handlers
+                    s = s.replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, '');
+                    s = s.replace(/<iframe[\s\S]*?>[\s\S]*?<\/iframe>/gi, '');
+                    s = s.replace(/<object[\s\S]*?>[\s\S]*?<\/object>/gi, '');
+                    s = s.replace(/<embed[\s\S]*?>/gi, '');
+                    s = s.replace(/\son\w+\s*=\s*(['"]).*?\1/gi, '');
+                    // Remove external link tags (stylesheets/preconnect/etc.)
+                    s = s.replace(/<link\b[^>]*>/gi, '');
+                    // Allow images by default, but set safe attributes
+                    s = s.replace(/<img\b/gi, '<img loading="lazy" referrerpolicy="no-referrer"');
+                    // Force links to open in new tab safely
+                    s = s.replace(/<a\b([^>]*?)>/gi, function(_, attrs) {
+                        let a = attrs;
+                        if (!/target=/i.test(a)) a += ' target="_blank"';
+                        if (!/rel=/i.test(a)) a += ' rel="noopener noreferrer nofollow"';
+                        return '<a' + a + '>';
+                    });
+                    // Base CSS for cleaner look
+                    const baseStyle = '<style>body{margin:0;padding:16px;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#222;background:#fff;line-height:1.5;}img{max-width:100%;height:auto;}table{max-width:100%;}a{color:#1a73e8;text-decoration:none;}a:hover{text-decoration:underline;} .container{max-width:800px;margin:0 auto;}blockquote{margin:0 0 0 12px;border-left:3px solid #e0e0e0;padding-left:10px;color:#555;}</style>';
+                    if (!/<!doctype/i.test(s)) {
+                        s = '<!doctype html><html><head><meta charset="utf-8">' + baseStyle + '</head><body><div class="container">' + s + '</div></body></html>';
+                    } else {
+                        s = s.replace(/<head[^>]*>/i, function(h){ return h + baseStyle; });
+                    }
+                    return s;
+                } catch(e) {
+                    return '';
+                }
+            }
+            function renderEmailContent(data) {
+                const subj = data.subject || '';
+                const from = data.sender || '';
+                const when = data.date || '';
+                if (viewerTitle) {
+                    viewerTitle.textContent = subj || '(No Subject)';
+                }
+                if (viewerMeta) {
+                    viewerMeta.textContent = (from ? from + ' • ' : '') + (when || '');
+                }
+                if (gmailLink) {
+                    if (data.gmail_url) {
+                        gmailLink.href = data.gmail_url;
+                        gmailLink.style.display = '';
+                    } else {
+                        gmailLink.removeAttribute('href');
+                        gmailLink.style.display = 'none';
+                    }
+                }
+                const html = data.body_html || '';
+                const text = data.body_text || '';
+                if (html) {
+                    if (viewerIframe) {
+                        viewerIframe.style.display = 'block';
+                        viewerText.style.display = 'none';
+                        viewerIframe.srcdoc = sanitizeForSrcdoc(html);
+                    }
+                } else {
+                    if (viewerText) {
+                        viewerText.style.display = 'block';
+                        viewerIframe.style.display = 'none';
+                        viewerText.textContent = text || '(No content)';
+                    }
+                }
+            }
+            function openEmailById(messageId) {
+                if (!messageId || openBusy) return;
+                openBusy = true;
+                currentMessageId = messageId;
+
+                // Use cache if available
+                const cached = messageCache.get(messageId);
+                if (cached && cached.data) {
+                    renderEmailContent(cached.data);
+                    showEmailViewer();
+                    openBusy = false;
+                    return;
+                }
+                if (loadingOverlay) loadingOverlay.style.display = 'flex';
+                const fd = new FormData();
+                fd.append('open_email', '1');
+                fd.append('message_id', messageId);
+                let csrf = (typeof getCookie === 'function') ? getCookie('csrftoken') : '';
+                if (!csrf) {
+                    const tokenEl = document.querySelector('input[name="csrfmiddlewaretoken"]');
+                    csrf = tokenEl ? tokenEl.value : '';
+                }
+                const headers = csrf && csrf.length > 20 ? {'X-CSRFToken': csrf, 'X-Requested-With': 'XMLHttpRequest'} : {'X-Requested-With': 'XMLHttpRequest'};
+                fetch('', { method: 'POST', headers, body: fd, credentials: 'same-origin' })
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data && data.status === 'success') {
+                            messageCache.set(messageId, { data: data, fetchedAt: Date.now() });
+                            renderEmailContent(data);
+                            showEmailViewer();
+                        } else {
+                            const msg = (data && (data.error || data.message)) || 'Failed to load email';
+                            showSnackbar(msg, 'error');
+                        }
+                    })
+                    .catch(() => {
+                        showSnackbar('Failed to load email', 'error');
+                    })
+                    .finally(() => {
+                        if (loadingOverlay) loadingOverlay.style.display = 'none';
+                        openBusy = false;
+                    });
+            }
+            function bindEmailItem(el) {
+                if (!el || el._emailBound) return;
+                const id = el.getAttribute('data-id');
+                if (!id) return;
+                el._emailBound = true;
+                el.addEventListener('click', function() { openEmailById(id); });
+            }
+            // Expose for Load More block
+            window.bindEmailItem = bindEmailItem;
+
+            // Bind existing server-rendered items
+            try {
+                document.querySelectorAll('#email-list .email-item[data-id]').forEach(bindEmailItem);
+            } catch (e) {}
+
+            // Close handlers
+            if (viewerClose) {
+                viewerClose.addEventListener('click', hideEmailViewer);
+            }
+            if (viewerOverlay) {
+                viewerOverlay.addEventListener('click', function(e){
+                    if (e.target === viewerOverlay) hideEmailViewer();
+                });
+            }
+        })();
 
         // Overlay suggestions just under the input (with fuzzy fallback) + keyboard navigation
         let debounceTimer = null;

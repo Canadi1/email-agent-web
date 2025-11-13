@@ -11,6 +11,7 @@ import time
 import threading
 import random
 import string
+import base64
 
 def get_progress_message(message_key, current_processed=None, total_emails=None, language_code=None):
     """
@@ -572,6 +573,104 @@ def index(request):
         return render(request, 'agent/index.html', context)
 
     if request.method == 'POST':
+        # Open a specific email (AJAX)
+        if request.POST.get('open_email') == '1':
+            try:
+                message_id = (request.POST.get('message_id') or '').strip()
+                if not message_id:
+                    return JsonResponse({"status": "error", "error": "Missing message_id"}, status=400)
+
+                # Fetch full message to extract headers and body (use low retries to avoid noisy logs)
+                msg = agent_instance.api_get_message(
+                    message_id,
+                    user_id='me',
+                    format='full',
+                    max_retries=2,   # fast-fail for UI click
+                    base_delay=0.5
+                )
+
+                headers = (msg.get('payload', {}) or {}).get('headers', []) or []
+                def _h(name):
+                    return next((h.get('value') for h in headers if h.get('name','').lower() == name.lower()), '')
+
+                subject = _h('Subject') or ''
+                sender = _h('From') or ''
+                date_str = ''
+                try:
+                    ts_ms = int(msg.get('internalDate', '0') or '0')
+                    if ts_ms:
+                        date_str = datetime.fromtimestamp(ts_ms/1000.0).strftime('%Y-%m-%d %H:%M')
+                except Exception:
+                    date_str = ''
+
+                # Prefer RFC822 Message-ID for a reliable Gmail deep link via search
+                rfc822_msgid = _h('Message-ID') or _h('Message-Id') or ''
+                gmail_url = ''
+                if rfc822_msgid:
+                    # Strip angle brackets if present
+                    rid = rfc822_msgid.strip('<>')
+                    gmail_url = f"https://mail.google.com/mail/u/0/#search/rfc822msgid:{rid}"
+                else:
+                    # Fallback: open the thread if available
+                    thread_id = msg.get('threadId', '')
+                    if thread_id:
+                        gmail_url = f"https://mail.google.com/mail/u/0/#all/{thread_id}"
+
+                # Decode body from parts
+                def decode_part_body(part):
+                    try:
+                        data = ((part.get('body') or {}).get('data') or '')
+                        if not data:
+                            return ''
+                        # Gmail uses URL-safe base64 without padding
+                        missing_padding = len(data) % 4
+                        if missing_padding:
+                            data += '=' * (4 - missing_padding)
+                        return base64.urlsafe_b64decode(data.encode('utf-8')).decode('utf-8', errors='replace')
+                    except Exception:
+                        return ''
+
+                def walk_parts(payload):
+                    if not payload:
+                        return {'html': '', 'text': ''}
+                    mime = (payload.get('mimeType') or '').lower()
+                    # Direct body
+                    if mime.startswith('text/plain'):
+                        return {'html': '', 'text': decode_part_body(payload)}
+                    if mime.startswith('text/html'):
+                        return {'html': decode_part_body(payload), 'text': ''}
+                    # Multipart: walk children
+                    parts = payload.get('parts') or []
+                    html = ''
+                    text = ''
+                    for p in parts:
+                        child = walk_parts(p)
+                        if child.get('html') and not html:
+                            html = child['html']
+                        if child.get('text') and not text:
+                            text = child['text']
+                        # Stop early if we have both
+                        if html and text:
+                            break
+                    return {'html': html, 'text': text}
+
+                bodies = walk_parts(msg.get('payload'))
+                body_html = bodies.get('html') or ''
+                body_text = bodies.get('text') or ''
+
+                return JsonResponse({
+                    "status": "success",
+                    "message_id": message_id,
+                    "subject": subject,
+                    "sender": sender,
+                    "date": date_str,
+                    "body_html": body_html,
+                    "body_text": body_text,
+                    "gmail_url": gmail_url
+                })
+            except Exception as e:
+                return JsonResponse({"status": "error", "error": str(e)}, status=500)
+
         # Hide a contact (stored in session) - AJAX
         if request.POST.get('hide_contact') == '1':
             try:
