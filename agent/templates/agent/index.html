@@ -16449,7 +16449,7 @@
                         // Sender
                         if (isHebrew) {
                             // Hebrew sender: match ' מ' or start + 'מ' (from) but avoid matching the word 'מיילים'
-                            const mSenderHe = q.match(/(?:^|\s)מ-?\s+([^\s]+)(?=\s|$)/i);
+                            const mSenderHe = q.match(/(?:^|\s)מ-?(?=[A-Za-z0-9._+@-])([A-Za-z0-9._+@-][^\s]*)/i) || q.match(/(?:^|\s)מ-?\s+(?!יילים)([^\s]+)/i);
                             if (mSenderHe && mSenderHe[1]) out.sender = mSenderHe[1];
                         } else {
                             const mSender = q.match(/\bfrom\s+([^]+?)(?=\s+(older than|from|with|as|ago|yesterday|today|last|this)\b|$)/i);
@@ -16746,7 +16746,7 @@
                                 const isHebrew = document.documentElement.dir === 'rtl' || document.documentElement.lang === 'he';
                                 try {
                                     if (isHebrew) {
-                                        const mSenderHe = q.match(/(?:^|\s)מ-?\s+([^\s]+)(?=\s|$)/i);
+                                        const mSenderHe = q.match(/(?:^|\s)מ-?(?=[A-Za-z0-9._+@-])([A-Za-z0-9._+@-][^\s]*)/i) || q.match(/(?:^|\s)מ-?\s+(?!יילים)([^\s]+)/i);
                                         if (mSenderHe && mSenderHe[1]) out.sender = mSenderHe[1];
                                     } else {
                                         const mSender = q.match(/\bfrom\s+([^]+?)(?=\s+(older than|from|with|as|ago|yesterday|today|last|this)\b|$)/i);
@@ -16982,7 +16982,7 @@
                                 const isHebrew = document.documentElement.dir === 'rtl' || document.documentElement.lang === 'he';
                                 try {
                                     if (isHebrew) {
-                                        const mSenderHe = q.match(/(?:^|\s)מ-?\s+([^\s]+)(?=\s|$)/i);
+                                        const mSenderHe = q.match(/(?:^|\s)מ-?(?=[A-Za-z0-9._+@-])([A-Za-z0-9._+@-][^\s]*)/i) || q.match(/(?:^|\s)מ-?\s+(?!יילים)([^\s]+)/i);
                                         if (mSenderHe && mSenderHe[1]) out.sender = mSenderHe[1];
                                     } else {
                                         const mSender = q.match(/\bfrom\s+([^]+?)(?=\s+(older than|from|with|as|ago|yesterday|today|last|this)\b|$)/i);
