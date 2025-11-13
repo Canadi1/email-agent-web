@@ -1116,13 +1116,17 @@
     <div id="snackbar" class="snackbar" role="status" aria-live="polite"></div>
     <!-- Email viewer overlay -->
     <div id="email-viewer-overlay" class="overlay" style="display:none;">
-        <div class="overlay-content" style="max-width:1100px; width:96%; max-height:90vh; overflow:hidden; display:flex; flex-direction:column; background:#fff; border-radius:10px; box-shadow:0 10px 30px rgba(0,0,0,0.25); padding:14px; position:relative;">
+        <div class="overlay-content" style="max-width:1100px; width:96%; max-height:90vh; overflow:auto; display:flex; flex-direction:column; background:#fff; border-radius:10px; box-shadow:0 10px 30px rgba(0,0,0,0.25); padding:14px; position:relative;">
             <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px; padding-right:50px;">
                 <div id="email-viewer-title" style="font-weight:650; font-size:1.1rem; flex:1;" dir="auto"></div>
             </div>
             <button type="button" id="email-viewer-close" class="cancel-btn" style="position:absolute; top:14px; right:14px; z-index:10;">Close</button>
             <iframe id="email-viewer-iframe" sandbox="allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts" referrerpolicy="no-referrer" style="display:none; width:100%; height:72vh; border:1px solid #ddd; border-radius:6px;"></iframe>
             <pre id="email-viewer-text" style="display:none; white-space:pre-wrap; background:#f7f7f7; border:1px solid #eee; border-radius:6px; padding:10px; height:72vh; overflow:auto;"></pre>
+            <div id="email-viewer-attachments" style="display:none; margin-top:12px; padding:12px; background:#f7f7f7; border:1px solid #ddd; border-radius:6px;">
+                <div style="font-weight:600; font-size:0.95em; margin-bottom:8px; color:#333;">Attachments:</div>
+                <div id="email-viewer-attachments-list" style="display:flex; flex-direction:column; gap:6px;"></div>
+            </div>
             <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:10px;">
                 <div id="email-viewer-meta" style="color:#666; font-size:0.95em;" dir="auto"></div>
                 <a id="email-viewer-gmail-link" href="#" target="_blank" rel="noopener noreferrer" style="display:none;">Open in Gmail</a>
@@ -6821,6 +6825,8 @@
             const viewerText = document.getElementById('email-viewer-text');
             const viewerClose = document.getElementById('email-viewer-close');
             const gmailLink = document.getElementById('email-viewer-gmail-link');
+            const viewerAttachments = document.getElementById('email-viewer-attachments');
+            const viewerAttachmentsList = document.getElementById('email-viewer-attachments-list');
             const loadingOverlay = document.getElementById('loading-overlay');
 
             // Cache opened messages to avoid refetching; debounce concurrent opens
@@ -6863,8 +6869,8 @@
                     s = s.replace(/\son\w+\s*=\s*(['"]).*?\1/gi, '');
                     // Remove external link tags (stylesheets/preconnect/etc.)
                     s = s.replace(/<link\b[^>]*>/gi, '');
-                    // Allow images by default, but set safe attributes
-                    s = s.replace(/<img\b/gi, '<img loading="lazy" referrerpolicy="no-referrer"');
+                    // Allow images by default, but set safe attributes (removed referrerpolicy to allow external images)
+                    s = s.replace(/<img\b/gi, '<img loading="lazy"');
                     // Force links to open in new tab safely
                     s = s.replace(/<a\b([^>]*?)>/gi, function(_, attrs) {
                         let a = attrs;
@@ -6920,19 +6926,108 @@
                         gmailLink.style.display = 'none';
                     }
                 }
+                // Display attachments
+                const attachments = data.attachments || [];
+                if (viewerAttachments && viewerAttachmentsList) {
+                    if (attachments && attachments.length > 0) {
+                        viewerAttachments.style.display = 'block';
+                        // Reset list and prior toggle if present
+                        viewerAttachmentsList.innerHTML = '';
+                        const prevToggle = document.getElementById('email-viewer-attachments-toggle');
+                        if (prevToggle) prevToggle.remove();
+                        const created = [];
+                        attachments.forEach(function(att, idx) {
+                            const filename = att.filename || 'attachment';
+                            const size = att.size || 0;
+                            const mime = att.mime_type || '';
+                            
+                            // Format file size
+                            let sizeStr = '';
+                            if (size < 1024) {
+                                sizeStr = size + ' B';
+                            } else if (size < 1024 * 1024) {
+                                sizeStr = (size / 1024).toFixed(1) + ' KB';
+                            } else {
+                                sizeStr = (size / (1024 * 1024)).toFixed(1) + ' MB';
+                            }
+                            
+                            // Get file icon/type
+                            let fileType = '📎';
+                            if (mime.startsWith('image/')) fileType = '🖼️';
+                            else if (mime.includes('pdf')) fileType = '📄';
+                            else if (mime.includes('word') || mime.includes('document')) fileType = '📝';
+                            else if (mime.includes('excel') || mime.includes('spreadsheet')) fileType = '📊';
+                            else if (mime.includes('zip') || mime.includes('archive')) fileType = '📦';
+                            
+                            const attDiv = document.createElement('div');
+                            attDiv.style.cssText = 'display:flex; align-items:center; gap:8px; padding:8px; background:#fff; border:1px solid #ddd; border-radius:4px;';
+                            attDiv.innerHTML = '<span style="font-size:1.2em;">' + fileType + '</span><span style="flex:1; font-weight:500; color:#333;">' + filename + '</span><span style="color:#666; font-size:0.9em;">' + sizeStr + '</span>';
+                            viewerAttachmentsList.appendChild(attDiv);
+                            created.push(attDiv);
+                        });
+                        // Collapse to show only 5 with a toggle
+                        const maxVisible = 3;
+                        const total = created.length;
+                        const hidden = [];
+                        if (total > maxVisible) {
+                            for (let i = maxVisible; i < total; i++) {
+                                created[i].style.display = 'none';
+                                hidden.push(created[i]);
+                            }
+                            // Add toggle button
+                            const toggleBtn = document.createElement('button');
+                            toggleBtn.id = 'email-viewer-attachments-toggle';
+                            toggleBtn.type = 'button';
+                            toggleBtn.textContent = 'Show all ' + total + ' attachments';
+                            toggleBtn.style.cssText = 'margin-top:8px; align-self:flex-start; background:#f1f3f4; border:1px solid #d0d7de; color:#333; border-radius:6px; padding:6px 10px; cursor:pointer;';
+                            let expanded = false;
+                            toggleBtn.addEventListener('click', function() {
+                                expanded = !expanded;
+                                hidden.forEach(el => el.style.display = expanded ? 'flex' : 'none');
+                                toggleBtn.textContent = expanded ? 'Show fewer attachments' : ('Show all ' + total + ' attachments');
+                            });
+                            viewerAttachments.appendChild(toggleBtn);
+                        }
+                    } else {
+                        viewerAttachments.style.display = 'none';
+                    }
+                }
+                
                 const html = data.body_html || '';
                 const text = data.body_text || '';
+                const hasAttachments = attachments && attachments.length > 0;
+                
                 if (html) {
                     if (viewerIframe) {
-                        viewerIframe.style.display = 'block';
-                        viewerText.style.display = 'none';
-                        viewerIframe.srcdoc = sanitizeForSrcdoc(html);
+                        const sanitized = sanitizeForSrcdoc(html) || '';
+                        if (sanitized.trim()) {
+                            viewerIframe.style.display = 'block';
+                            viewerText.style.display = 'none';
+                            viewerIframe.srcdoc = sanitized;
+                        } else {
+                            // Fallback: sanitized HTML is empty/invalid; show text panel instead
+                            viewerText.style.display = 'block';
+                            viewerIframe.style.display = 'none';
+                            if (text) {
+                                viewerText.textContent = text;
+                            } else if (hasAttachments) {
+                                viewerText.textContent = 'Preview not available. See attachments below or click Open in Gmail.';
+                            } else {
+                                viewerText.textContent = '(No content)';
+                            }
+                        }
                     }
                 } else {
                     if (viewerText) {
                         viewerText.style.display = 'block';
                         viewerIframe.style.display = 'none';
-                        viewerText.textContent = text || '(No content)';
+                        if (text) {
+                            viewerText.textContent = text;
+                        } else if (hasAttachments) {
+                            viewerText.textContent = 'This email contains only attachments. See the attachments list below.';
+                        } else {
+                            viewerText.textContent = '(No content)';
+                        }
                     }
                 }
             }
