@@ -634,34 +634,244 @@ def index(request):
                         return base64.urlsafe_b64decode(data.encode('utf-8')).decode('utf-8', errors='replace')
                     except Exception:
                         return ''
+                
+                # Extract attachment data URL
+                def get_attachment_data_url(attachment_id):
+                    """Generate a data URL for an attachment (for images)"""
+                    if not attachment_id:
+                        return None
+                    try:
+                        att = agent_instance.service.users().messages().attachments().get(
+                            userId='me',
+                            messageId=message_id,
+                            id=attachment_id
+                        ).execute()
+                        att_data = att.get('data', '')
+                        if att_data:
+                            missing_padding = len(att_data) % 4
+                            if missing_padding:
+                                att_data += '=' * (4 - missing_padding)
+                            decoded = base64.urlsafe_b64decode(att_data.encode('utf-8'))
+                            return decoded
+                        return None
+                    except Exception as e:
+                        # Log error for debugging
+                        import logging
+                        logger = logging.getLogger(__name__)
+                        logger.warning(f"Failed to fetch attachment {attachment_id} for message {message_id}: {e}")
+                        return None
 
-                def walk_parts(payload):
+                # Store attachments and inline images (CID references)
+                attachments = []
+                cid_map = {}  # Maps CID to attachment data URL or attachment info
+
+                def get_header_value(headers, name):
+                    """Helper to get header value by name"""
+                    for h in headers:
+                        if h.get('name', '').lower() == name.lower():
+                            return h.get('value', '')
+                    return ''
+
+                def walk_parts(payload, cid_map, attachments):
                     if not payload:
                         return {'html': '', 'text': ''}
+                    
                     mime = (payload.get('mimeType') or '').lower()
+                    headers = payload.get('headers', [])
+                    
+                    # Handle inline images and attachments
+                    content_disposition = get_header_value(headers, 'Content-Disposition')
+                    content_id = get_header_value(headers, 'Content-ID') or get_header_value(headers, 'Content-Id')
+                    
+                    # Extract filename
+                    filename = get_header_value(headers, 'Content-Disposition')
+                    if filename:
+                        # Parse filename from Content-Disposition: attachment; filename="file.pdf"
+                        import re
+                        fn_match = re.search(r'filename[^;=\n]*=(([\'"]).*?\2|[^\s;]+)', filename, re.IGNORECASE)
+                        if fn_match:
+                            filename = fn_match.group(1).strip('"\'')
+                    else:
+                        # Try filename header
+                        filename = get_header_value(headers, 'Filename') or ''
+                    
+                    attachment_id = (payload.get('body') or {}).get('attachmentId', '')
+                    size = (payload.get('body') or {}).get('size', 0)
+                    
+                    # Handle inline images (CID references)
+                    if content_id and mime.startswith('image/'):
+                        cid_clean = content_id.strip('<>')
+                        # For small images (< 1MB), convert to data URL
+                        if size and size < 1024 * 1024 and attachment_id:
+                            try:
+                                att_data = get_attachment_data_url(attachment_id)
+                                if att_data:
+                                    data_b64 = base64.b64encode(att_data).decode('utf-8')
+                                    cid_map[cid_clean] = f"data:{mime};base64,{data_b64}"
+                            except Exception:
+                                pass
+                        # Store CID mapping for later replacement
+                        if cid_clean not in cid_map:
+                            cid_map[cid_clean] = {
+                                'attachment_id': attachment_id,
+                                'message_id': message_id,
+                                'mime': mime
+                            }
+                    
+                    # Handle attachments - check if this part is an attachment
+                    is_attachment = False
+                    if attachment_id:  # Has attachment ID means it's an attachment
+                        # If it's explicitly marked as attachment
+                        if content_disposition and 'attachment' in content_disposition.lower():
+                            is_attachment = True
+                        # Or if it's NOT a text/html or text/plain body part (and not multipart)
+                        elif not mime.startswith('text/') and not mime.startswith('multipart/'):
+                            is_attachment = True
+                        # Or if it has a filename and is NOT inline
+                        elif filename and not (content_disposition and 'inline' in content_disposition.lower()):
+                            is_attachment = True
+                        # Or if it's an image without CID (standalone image attachment)
+                        elif mime.startswith('image/') and not content_id:
+                            is_attachment = True
+                    
+                    if is_attachment and attachment_id:
+                        att_info = {
+                            'filename': filename or ('attachment.' + mime.split('/')[-1] if '/' in mime else 'attachment'),
+                            'mime_type': mime,
+                            'size': size,
+                            'attachment_id': attachment_id
+                        }
+                        attachments.append(att_info)
+                        # Also handle if it's an image attachment with CID
+                        if content_id and mime.startswith('image/'):
+                            cid_clean = content_id.strip('<>')
+                            cid_map[cid_clean] = att_info
+                    
                     # Direct body
                     if mime.startswith('text/plain'):
                         return {'html': '', 'text': decode_part_body(payload)}
                     if mime.startswith('text/html'):
                         return {'html': decode_part_body(payload), 'text': ''}
+                    
                     # Multipart: walk children
                     parts = payload.get('parts') or []
                     html = ''
                     text = ''
+                    # Process ALL parts to find all attachments, not just until we have HTML/text
                     for p in parts:
-                        child = walk_parts(p)
+                        child = walk_parts(p, cid_map, attachments)
                         if child.get('html') and not html:
                             html = child['html']
                         if child.get('text') and not text:
                             text = child['text']
-                        # Stop early if we have both
-                        if html and text:
-                            break
+                        # Don't break early - we need to process all parts to find all attachments
                     return {'html': html, 'text': text}
 
-                bodies = walk_parts(msg.get('payload'))
+                bodies = walk_parts(msg.get('payload'), cid_map, attachments)
                 body_html = bodies.get('html') or ''
                 body_text = bodies.get('text') or ''
+                
+                # Replace CID references in HTML with data URLs or attachment URLs
+                if body_html and cid_map:
+                    import re
+                    def replace_cid(match):
+                        cid = match.group(1)
+                        cid_clean = cid.strip('<>')
+                        replacement = cid_map.get(cid_clean)
+                        if replacement:
+                            if isinstance(replacement, str) and replacement.startswith('data:'):
+                                # Data URL
+                                return f'src="{replacement}"'
+                            elif isinstance(replacement, dict) and replacement.get('attachment_id'):
+                                # Large attachment - leave CID reference, user can see in Gmail
+                                # For now, return empty src so image shows broken, user knows to click "Open in Gmail"
+                                return 'src="data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\'%3E%3Ctext%3EImage attachment - click Open in Gmail to view%3C/text%3E%3C/svg%3E"'
+                        return match.group(0)  # Keep original if no replacement
+                    
+                    # Replace cid: references in img src
+                    body_html = re.sub(r'src=["\']cid:([^"\']+)["\']', replace_cid, body_html, flags=re.IGNORECASE)
+
+                # Add image attachments to HTML body (for emails with image attachments but no HTML body)
+                image_attachments = [att for att in attachments if att.get('mime_type', '').startswith('image/') and att.get('attachment_id')]
+                if image_attachments and not body_html:
+                    # Create HTML with image tags for standalone image attachments
+                    img_tags = []
+                    for img_att in image_attachments:
+                        att_id = img_att.get('attachment_id')
+                        mime = img_att.get('mime_type', 'image/png')
+                        filename = img_att.get('filename', 'image')
+                        size = img_att.get('size', 0)
+                        
+                        # Try to fetch and embed image (up to 20MB for display - larger images may take longer but should work)
+                        # If size is 0 or None, still try to fetch (size might not be available)
+                        max_size = 20 * 1024 * 1024  # 20MB limit
+                        if not size or size < max_size:
+                            if not att_id:
+                                # No attachment ID - can't fetch
+                                size_str = f'{(size // 1024)} KB' if size and size < 1024*1024 else (f'{(size / (1024*1024)):.1f} MB' if size else 'unknown size')
+                                img_tags.append(f'<div style="margin-bottom:16px; padding:20px; background:#f5f5f5; border:1px solid #ddd; border-radius:4px; text-align:center; color:#666;">🖼️ Image: {filename} ({size_str})<br/><small>No attachment ID available. Click "Open in Gmail" to view.</small></div>')
+                            else:
+                                try:
+                                    att_data = get_attachment_data_url(att_id)
+                                    if att_data and len(att_data) > 0:
+                                        data_b64 = base64.b64encode(att_data).decode('utf-8')
+                                        img_tags.append(f'<div style="margin-bottom:16px;"><img src="data:{mime};base64,{data_b64}" alt="{filename}" style="max-width:100%; height:auto; border:1px solid #ddd; border-radius:4px;" /></div>')
+                                    else:
+                                        # Fetch failed - show placeholder
+                                        size_str = f'{(size // 1024)} KB' if size and size < 1024*1024 else (f'{(size / (1024*1024)):.1f} MB' if size else 'unknown size')
+                                        img_tags.append(f'<div style="margin-bottom:16px; padding:20px; background:#f5f5f5; border:1px solid #ddd; border-radius:4px; text-align:center; color:#666;">🖼️ Image: {filename} ({size_str})<br/><small>Failed to load attachment data. Check server logs for details. Click "Open in Gmail" to view.</small></div>')
+                                except Exception as e:
+                                    # If fetch fails, add placeholder with error info
+                                    import logging
+                                    logging.getLogger(__name__).error(f"Exception fetching image attachment {att_id}: {e}")
+                                    size_str = f'{(size // 1024)} KB' if size and size < 1024*1024 else (f'{(size / (1024*1024)):.1f} MB' if size else 'unknown size')
+                                    img_tags.append(f'<div style="margin-bottom:16px; padding:20px; background:#f5f5f5; border:1px solid #ddd; border-radius:4px; text-align:center; color:#666;">🖼️ Image: {filename} ({size_str})<br/><small>Error loading image: {str(e)[:50]}. Click "Open in Gmail" to view.</small></div>')
+                        else:
+                            # Very large image (> 20MB) - show placeholder
+                            size_str = f'{(size / (1024*1024)):.1f} MB'
+                            img_tags.append(f'<div style="margin-bottom:16px; padding:20px; background:#f5f5f5; border:1px solid #ddd; border-radius:4px; text-align:center; color:#666;">🖼️ Image: {filename} ({size_str})<br/><small>File too large — open in Gmail to view attachment.</small></div>')
+                    
+                    if img_tags:
+                        body_html = '<div style="padding:16px;">' + ''.join(img_tags) + '</div>'
+                elif image_attachments and body_html:
+                    # Email has HTML body AND image attachments - append images at the end
+                    img_tags = []
+                    for img_att in image_attachments:
+                        att_id = img_att.get('attachment_id')
+                        mime = img_att.get('mime_type', 'image/png')
+                        filename = img_att.get('filename', 'image')
+                        size = img_att.get('size', 0)
+                        
+                        # Try to fetch and embed image (up to 20MB for display)
+                        # If size is 0 or None, still try to fetch
+                        max_size = 20 * 1024 * 1024  # 20MB limit
+                        if not size or size < max_size:
+                            try:
+                                att_data = get_attachment_data_url(att_id)
+                                if att_data:
+                                    data_b64 = base64.b64encode(att_data).decode('utf-8')
+                                    img_tags.append(f'<div style="margin-top:16px; margin-bottom:16px;"><img src="data:{mime};base64,{data_b64}" alt="{filename}" style="max-width:100%; height:auto; border:1px solid #ddd; border-radius:4px;" /></div>')
+                            except Exception:
+                                pass  # Skip if fetch fails
+                        else:
+                            # Too large to inline – add a clear note
+                            size_str = f'{(size / (1024*1024)):.1f} MB' if size else 'large file'
+                            img_tags.append(f'<div style="margin-top:16px; margin-bottom:16px; padding:16px; background:#f5f5f5; border:1px solid #ddd; border-radius:4px; color:#666; text-align:center;">🖼️ Image: {filename} ({size_str})<br/><small>File too large — open in Gmail to view attachment.</small></div>')
+                    
+                    if img_tags:
+                        # Append images to HTML body
+                        body_html += '<div style="margin-top:20px; padding-top:20px; border-top:1px solid #eee;">' + ''.join(img_tags) + '</div>'
+
+                # Format attachments for JSON
+                formatted_attachments = []
+                for att in attachments:
+                    if att.get('attachment_id'):
+                        formatted_attachments.append({
+                            'filename': att.get('filename', 'attachment'),
+                            'mime_type': att.get('mime_type', 'application/octet-stream'),
+                            'size': att.get('size', 0),
+                            'attachment_id': att.get('attachment_id')
+                        })
 
                 return JsonResponse({
                     "status": "success",
@@ -671,7 +881,8 @@ def index(request):
                     "date": date_str,
                     "body_html": body_html,
                     "body_text": body_text,
-                    "gmail_url": gmail_url
+                    "gmail_url": gmail_url,
+                    "attachments": formatted_attachments
                 })
             except Exception as e:
                 return JsonResponse({"status": "error", "error": str(e)}, status=500)
