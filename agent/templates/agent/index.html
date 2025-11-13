@@ -16552,19 +16552,49 @@
                             else if (/מהחודש/.test(q)) out.timeframe = 'this month';
                             else if (/מהשנה/.test(q)) out.timeframe = 'this year';
                         }
-                        // Hebrew numeric duration: מלפני N יחידה
+                        // Hebrew numeric/free-form duration (prefer Hebrew units): 'מלפני [N] <unit>'
                         if (isHebrew && !out.duration) {
-                            const mHe = q.match(/מלפני\s*(\d+)\s*(יום(?:ים)?|שבוע(?:ות)?|חודש(?:ים)?|שנה(?:ים)?)/);
+                            // Accept minimal prefixes: ח→חודש, י→יום, שב/ש/שבו→שבוע, שנ→שנה
+                            const mHe = q.match(/מלפני\s*(\d*)\s*([^\s]+)/);
                             if (mHe) {
-                                const n = mHe[1];
-                                const u = mHe[2];
-                                const unitMap = [
-                                    [/^יום/, n === '1' ? 'day' : 'days'],
-                                    [/^שבוע/, n === '1' ? 'week' : 'weeks'],
-                                    [/^חודש/, n === '1' ? 'month' : 'months'],
-                                    [/^שנה|^שנים/, n === '1' ? 'year' : 'years'],
-                                ];
-                                for (const [re, en] of unitMap) { if (re.test(u)) { out.duration = `${n} ${en}`; break; } }
+                                const n = mHe[1] ? parseInt(mHe[1], 10) : 1;
+                                const tok = (mHe[2] || '').toLowerCase();
+                                const unitHeb = (function(u){
+                                    if (/^י/.test(u)) return n === 1 ? 'יום' : 'ימים';
+                                    if (/^שנ/.test(u)) return n === 1 ? 'שנה' : 'שנים';
+                                    if (/^שב|^ש(?!נ)/.test(u)) return n === 1 ? 'שבוע' : 'שבועות';
+                                    if (/^ח/.test(u)) return n === 1 ? 'חודש' : 'חודשים';
+                                    // Exact full forms
+                                    if (/^שנ/.test(u)) return n === 1 ? 'שנה' : 'שנים';
+                                    // If an exact full form was typed, keep it
+                                    if (/^יום(?:ים)?$/.test(u)) return n === 1 ? 'יום' : 'ימים';
+                                    if (/^שבוע(?:ות)?$/.test(u)) return n === 1 ? 'שבוע' : 'שבועות';
+                                    if (/^חודש(?:ים)?$/.test(u)) return n === 1 ? 'חודש' : 'חודשים';
+                                    if (/^שנה|^שנים$/.test(u)) return n === 1 ? 'שנה' : 'שנים';
+                                    return u;
+                                })(tok);
+                                out.duration = `${isNaN(n) ? '' : n} ${unitHeb}`.trim();
+                            }
+                            // Hebrew older-than form: 'ישנים מ [N] <unit>'
+                            if (!out.duration) {
+                                const mHeOld = q.match(/ישנים\s*מ\s*(\d*)\s*([^\s]+)/);
+                                if (mHeOld) {
+                                    const n = mHeOld[1] ? parseInt(mHeOld[1], 10) : 1;
+                                    const tok = (mHeOld[2] || '').toLowerCase();
+                                    const unitHeb = (function(u){
+                                        if (/^י/.test(u)) return n === 1 ? 'יום' : 'ימים';
+                                        if (/^שנ/.test(u)) return n === 1 ? 'שנה' : 'שנים';
+                                        if (/^שב|^ש(?!נ)/.test(u)) return n === 1 ? 'שבוע' : 'שבועות';
+                                        if (/^ח/.test(u)) return n === 1 ? 'חודש' : 'חודשים';
+                                        if (/^יום(?:ים)?$/.test(u)) return n === 1 ? 'יום' : 'ימים';
+                                        if (/^שבוע(?:ות)?$/.test(u)) return n === 1 ? 'שבוע' : 'שבועות';
+                                        if (/^חודש(?:ים)?$/.test(u)) return n === 1 ? 'חודש' : 'חודשים';
+                                        if (/^שנה|^שנים$/.test(u)) return n === 1 ? 'שנה' : 'שנים';
+                                        return u;
+                                    })(tok);
+                                    out.duration = `${isNaN(n) ? '' : n} ${unitHeb}`.trim();
+                                    out.hadOlderThan = true;
+                                }
                             }
                             // Hebrew raw fallback: any text after 'מלפני'
                             if (!out.duration) {
@@ -16831,17 +16861,46 @@
                                         else if (/מהשנה/.test(q)) out.timeframe = 'this year';
                                     }
                                     if (isHebrew && !out.duration) {
-                                        const mHe = q.match(/מלפני\s*(\d+)\s*(יום(?:ים)?|שבוע(?:ות)?|חודש(?:ים)?|שנה(?:ים)?)/);
+                                        const mHe = q.match(/מלפני\s*(\d*)\s*([^\s]+)/);
                                         if (mHe) {
-                                            const n = mHe[1];
-                                            const u = mHe[2];
-                                            const unitMap = [
-                                                [/^יום/, n === '1' ? 'day' : 'days'],
-                                                [/^שבוע/, n === '1' ? 'week' : 'weeks'],
-                                                [/^חודש/, n === '1' ? 'month' : 'months'],
-                                                [/^שנה|^שנים/, n === '1' ? 'year' : 'years'],
-                                            ];
-                                            for (const [re, en] of unitMap) { if (re.test(u)) { out.duration = `${n} ${en}`; break; } }
+                                            const n = mHe[1] ? parseInt(mHe[1], 10) : 1;
+                                            const tok = (mHe[2] || '').toLowerCase();
+                                            const unitHeb = (function(u){
+                                                if (/^י/.test(u)) return n === 1 ? 'יום' : 'ימים';
+                                                if (/^שנ/.test(u)) return n === 1 ? 'שנה' : 'שנים';
+                                                if (/^שב|^ש(?!נ)/.test(u)) return n === 1 ? 'שבוע' : 'שבועות';
+                                                if (/^ח/.test(u)) return n === 1 ? 'חודש' : 'חודשים';
+                                                if (/^יום(?:ים)?$/.test(u)) return n === 1 ? 'יום' : 'ימים';
+                                                if (/^שבוע(?:ות)?$/.test(u)) return n === 1 ? 'שבוע' : 'שבועות';
+                                                if (/^חודש(?:ים)?$/.test(u)) return n === 1 ? 'חודש' : 'חודשים';
+                                                if (/^שנה|^שנים$/.test(u)) return n === 1 ? 'שנה' : 'שנים';
+                                                return u;
+                                            })(tok);
+                                            out.duration = `${isNaN(n) ? '' : n} ${unitHeb}`.trim();
+                                        }
+                                        if (!out.duration) {
+                                            const mHeOld = q.match(/ישנים\s*מ\s*(\d*)\s*([^\s]+)/);
+                                            if (mHeOld) {
+                                                const n = mHeOld[1] ? parseInt(mHeOld[1], 10) : 1;
+                                                const tok = (mHeOld[2] || '').toLowerCase();
+                                                const unitHeb = (function(u){
+                                                    if (/^י/.test(u)) return n === 1 ? 'יום' : 'ימים';
+                                                    if (/^שנ/.test(u)) return n === 1 ? 'שנה' : 'שנים';
+                                                    if (/^שב|^ש(?!נ)/.test(u)) return n === 1 ? 'שבוע' : 'שבועות';
+                                                    if (/^ח/.test(u)) return n === 1 ? 'חודש' : 'חודשים';
+                                                    if (/^יום(?:ים)?$/.test(u)) return n === 1 ? 'יום' : 'ימים';
+                                                    if (/^שבוע(?:ות)?$/.test(u)) return n === 1 ? 'שבוע' : 'שבועות';
+                                                    if (/^חודש(?:ים)?$/.test(u)) return n === 1 ? 'חודש' : 'חודשים';
+                                                    if (/^שנה|^שנים$/.test(u)) return n === 1 ? 'שנה' : 'שנים';
+                                                    return u;
+                                                })(tok);
+                                                out.duration = `${isNaN(n) ? '' : n} ${unitHeb}`.trim();
+                                                out.hadOlderThan = true;
+                                            }
+                                        }
+                                        if (!out.duration) {
+                                            const mHeAny = q.match(/מלפני\s+(.+?)(?:\s|$)/);
+                                            if (mHeAny && mHeAny[1]) out.duration = mHeAny[1].trim();
                                         }
                                     }
                                 } catch (e) {}
@@ -16998,17 +17057,33 @@
                                         else if (/מהשנה/.test(q)) out.timeframe = 'this year';
                                     }
                                     if (isHebrew && !out.duration) {
-                                        const mHe = q.match(/מלפני\s*(\d+)\s*(יום(?:ים)?|שבוע(?:ות)?|חודש(?:ים)?|שנה(?:ים)?)/);
+                                        // 'מלפני N <unit>' with partial units normalized to Hebrew
+                                        const mHe = q.match(/מלפני\s*(\d+)\s*([^\s]+)/);
                                         if (mHe) {
-                                            const n = mHe[1];
-                                            const u = mHe[2];
-                                            const unitMap = [
-                                                [/^יום/, n === '1' ? 'day' : 'days'],
-                                                [/^שבוע/, n === '1' ? 'week' : 'weeks'],
-                                                [/^חודש/, n === '1' ? 'month' : 'months'],
-                                                [/^שנה|^שנים/, n === '1' ? 'year' : 'years'],
-                                            ];
-                                            for (const [re, en] of unitMap) { if (re.test(u)) { out.duration = `${n} ${en}`; break; } }
+                                            const n = parseInt(mHe[1], 10);
+                                            const tok = (mHe[2] || '').toLowerCase();
+                                            const unitHeb = (function(u){
+                                                if (/^יו/.test(u)) return n === 1 ? 'יום' : 'ימים';
+                                                if (/^שבו/.test(u)) return n === 1 ? 'שבוע' : 'שבועות';
+                                                if (/^חוד/.test(u) || /^חדש/.test(u)) return n === 1 ? 'חודש' : 'חודשים';
+                                                if (/^שנ/.test(u)) return n === 1 ? 'שנה' : 'שנים';
+                                                if (/^יום(?:ים)?$/.test(u)) return n === 1 ? 'יום' : 'ימים';
+                                                if (/^שבוע(?:ות)?$/.test(u)) return n === 1 ? 'שבוע' : 'שבועות';
+                                                if (/^חודש(?:ים)?$/.test(u)) return n === 1 ? 'חודש' : 'חודשים';
+                                                if (/^שנה|^שנים$/.test(u)) return n === 1 ? 'שנה' : 'שנים';
+                                                return u;
+                                            })(tok);
+                                            out.duration = `${isNaN(n) ? '' : n} ${unitHeb}`.trim();
+                                        }
+                                        // older-than Hebrew form
+                                        if (!out.duration) {
+                                            const mHeOld = q.match(/ישנים\s*מ\s+(.+?)(?:\s|$)/);
+                                            if (mHeOld && mHeOld[1]) out.duration = mHeOld[1].trim();
+                                        }
+                                        // raw fallback
+                                        if (!out.duration) {
+                                            const mHeAny = q.match(/מלפני\s+(.+?)(?:\s|$)/);
+                                            if (mHeAny && mHeAny[1]) out.duration = mHeAny[1].trim();
                                         }
                                     }
                                 } catch (e) {}
