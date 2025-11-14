@@ -1122,7 +1122,7 @@
             </div>
             <button type="button" id="email-viewer-close" class="cancel-btn" style="position:absolute; top:14px; right:14px; z-index:10;">{% trans "Close" %}</button>
             <iframe id="email-viewer-iframe" sandbox="allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts" referrerpolicy="no-referrer" style="display:none; width:100%; height:72vh; border:1px solid #ddd; border-radius:6px;"></iframe>
-            <pre id="email-viewer-text" style="display:none; white-space:pre-wrap; background:#f7f7f7; border:1px solid #eee; border-radius:6px; padding:10px; height:72vh; overflow:auto;"></pre>
+            <div id="email-viewer-text" style="display:none; white-space:pre-wrap; background:#f7f7f7; border:1px solid #eee; border-radius:6px; padding:10px; height:72vh; overflow:auto;"></div>
             <div id="email-viewer-attachments" style="display:none; margin-top:12px; padding:12px; background:#f7f7f7; border:1px solid #ddd; border-radius:6px;">
                 <div id="email-viewer-attachments-title" style="font-weight:600; font-size:0.95em; margin-bottom:8px; color:#333;"></div>
                 <div id="email-viewer-attachments-list" style="display:flex; flex-direction:column; gap:6px;"></div>
@@ -6863,7 +6863,13 @@
                     });
                     // NOW strip scripts/embeds and inline handlers AFTER extracting URLs
                     s = s.replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, '');
-                    s = s.replace(/<iframe[\s\S]*?>[\s\S]*?<\/iframe>/gi, '');
+                    // Remove all iframes EXCEPT ones explicitly marked as safe (data-email-safe=\"1\")
+                    s = s.replace(/<iframe([\s\S]*?)>([\s\S]*?)<\/iframe>/gi, function(_, attrs, inner) {
+                        if (/data-email-safe=["']1["']/.test(attrs)) {
+                            return '<iframe' + attrs + '>' + inner + '</iframe>';
+                        }
+                        return '';
+                    });
                     s = s.replace(/<object[\s\S]*?>[\s\S]*?<\/object>/gi, '');
                     s = s.replace(/<embed[\s\S]*?>/gi, '');
                     // Remove remaining inline event handlers
@@ -6908,6 +6914,22 @@
                     return '';
                 }
             }
+            // Analyze sanitized HTML for visible content (ignoring styles/scripts/head)
+            function analyzeSanitizedContent(html) {
+                try {
+                    const container = document.createElement('div');
+                    container.innerHTML = html || '';
+                    container.querySelectorAll('style,script,link,meta,title,head,template').forEach(n => n.remove());
+                    const hasImages = !!container.querySelector('img');
+                    let text = (container.textContent || '')
+                        .replace(/\u00A0/g, ' ')
+                        .replace(/[\u200B-\u200D\uFEFF]/g, ''); // strip zero-width chars
+                    text = text.replace(/\s+/g, ' ').trim();
+                    return { hasText: text.length > 0, hasImages, textLength: text.length };
+                } catch (e) {
+                    return { hasText: false, hasImages: false, textLength: 0 };
+                }
+            }
             // Minimal i18n for viewer labels - check language dynamically
             function getIsHebrew() {
                 // Check lang attribute first
@@ -6924,18 +6946,28 @@
                 const navLang = (navigator.language || 'en').toLowerCase();
                 return /^he|^iw/.test(navLang);
             }
-            function getI18n() {
-                const isHebrew = getIsHebrew();
-                return {
-                    close: isHebrew ? 'סגור' : 'Close',
-                    attachments: isHebrew ? 'קבצים מצורפים' : 'Attachments',
-                    showAll: (n) => isHebrew ? `הצג את כל ${n} הקבצים` : `Show all ${n} attachments`,
-                    showFewer: isHebrew ? 'הצג פחות קבצים' : 'Show fewer attachments',
-                    openInGmail: isHebrew ? 'פתח ב‑Gmail' : 'Open in Gmail',
-                    onlyAttachmentsMsg: isHebrew ? 'הודעה זו מכילה רק קבצים מצורפים. ראה למטה.' : 'This email contains only attachments. See the attachments list below.',
-                    previewNA: isHebrew ? 'תצוגה מקדימה לא זמינה. ראה קבצים מצורפים למטה או פתח ב‑Gmail.' : 'Preview not available. See attachments below or click Open in Gmail.'
-                };
-            }
+                function getI18n() {
+                    const isHebrew = getIsHebrew();
+                    return {
+                        close: isHebrew ? 'סגור' : 'Close',
+                        attachments: isHebrew ? 'קבצים מצורפים' : 'Attachments',
+                        showAll: (n) => isHebrew ? `הצג את כל ${n} הקבצים` : `Show all ${n} attachments`,
+                        showFewer: isHebrew ? 'הצג פחות קבצים' : 'Show fewer attachments',
+                        openInGmail: isHebrew ? 'פתח ב‑Gmail' : 'Open in Gmail',
+                        onlyAttachmentsTitle: isHebrew
+                            ? 'הודעה זו מכילה רק קבצים מצורפים'
+                            : 'This email contains only attachments',
+                        onlyAttachmentsBody: isHebrew
+                            ? 'כדי לצפות בהם, השתמש ברשימת הקבצים המצורפים למטה או לחץ על \"פתח ב‑Gmail\".'
+                            : 'To view them, use the attachments list below or click \"Open in Gmail\".',
+                        previewNATitle: isHebrew
+                            ? 'לא ניתן להציג תצוגה מקדימה של תוכן ההודעה'
+                            : 'Preview is not available for this email',
+                        previewNABody: isHebrew
+                            ? 'נסה להשתמש ברשימת הקבצים המצורפים למטה או לחץ על \"פתח ב‑Gmail\" כדי לראות את ההודעה והקבצים.'
+                            : 'Try using the attachments list below or click \"Open in Gmail\" to see the message and its files.'
+                    };
+                }
             // Apply static labels
             function updateViewerLabels() {
                 try {
@@ -7060,22 +7092,62 @@
                 const html = data.body_html || '';
                 const text = data.body_text || '';
                 const hasAttachments = attachments && attachments.length > 0;
+                const hasPlainText = (function(t){
+                    try {
+                        t = String(t || '');
+                        t = t.replace(/\u00A0/g, ' ')
+                             .replace(/[\u200B-\u200D\uFEFF]/g, '');
+                        t = t.replace(/\s+/g, ' ').trim();
+                        return t.length > 0;
+                    } catch(_){ return false; }
+                })(text);
+
+                // Special case: emails that truly contain ONLY attachments (no HTML and no text)
+                if (!html && !hasPlainText && hasAttachments && viewerText && viewerIframe) {
+                    viewerText.style.display = 'block';
+                    viewerIframe.style.display = 'none';
+                    viewerText.innerHTML = `
+                        <div style="padding:24px; border-radius:8px; background:#f5f5f5; border:1px solid #ddd; text-align:center; color:#444;">
+                            <div style="font-size:1.1rem; font-weight:600; margin-bottom:8px;">${i18n.onlyAttachmentsTitle}</div>
+                            <div style="font-size:0.95rem; line-height:1.5;">${i18n.onlyAttachmentsBody}</div>
+                        </div>
+                    `;
+                    return;
+                }
                 
                 if (html) {
                     if (viewerIframe) {
                         const sanitized = sanitizeForSrcdoc(html) || '';
-                        if (sanitized.trim()) {
+                        const stats = analyzeSanitizedContent(sanitized);
+                        console.debug('[EmailViewer] analyze', {
+                            hasAttachments,
+                            htmlLen: (html || '').length,
+                            textLen: (text || '').length,
+                            sanitizedLen: sanitized.length,
+                            stats
+                        });
+
+                        const consideredEmpty = !(stats.hasText || stats.hasImages) || (stats.textLength <= 3 && !stats.hasImages);
+                        if (sanitized.trim() && !consideredEmpty) {
+                            // Real HTML content (text and/or images) – always show it,
+                            // even when there are attachments.
                             viewerIframe.style.display = 'block';
                             viewerText.style.display = 'none';
                             viewerIframe.srcdoc = sanitized;
                         } else {
-                            // Fallback: sanitized HTML is empty/invalid; show text panel instead
+                            // Fallback: sanitized HTML is empty or essentially only scaffolding
                             viewerText.style.display = 'block';
                             viewerIframe.style.display = 'none';
-                            if (text) {
+                            if (hasPlainText && !hasAttachments) {
                                 viewerText.textContent = text;
                             } else if (hasAttachments) {
-                                viewerText.textContent = i18n.previewNA;
+                                // Attachments but no usable HTML/text – show big friendly message
+                                viewerText.innerHTML = `
+                                    <div style="padding:24px; border-radius:8px; background:#f5f5f5; border:1px solid #ddd; text-align:center; color:#444;">
+                                        <div style="font-size:1.1rem; font-weight:600; margin-bottom:8px;">${i18n.onlyAttachmentsTitle}</div>
+                                        <div style="font-size:0.95rem; line-height:1.5;">${i18n.onlyAttachmentsBody}</div>
+                                    </div>
+                                `;
                             } else {
                                 viewerText.textContent = '(No content)';
                             }
@@ -7085,10 +7157,15 @@
                     if (viewerText) {
                         viewerText.style.display = 'block';
                         viewerIframe.style.display = 'none';
-                        if (text) {
+                        if (hasPlainText && !hasAttachments) {
                             viewerText.textContent = text;
                         } else if (hasAttachments) {
-                            viewerText.textContent = i18n.onlyAttachmentsMsg;
+                            viewerText.innerHTML = `
+                                <div style="padding:24px; border-radius:8px; background:#f5f5f5; border:1px solid #ddd; text-align:center; color:#444;">
+                                    <div style="font-size:1.1rem; font-weight:600; margin-bottom:8px;">${i18n.onlyAttachmentsTitle}</div>
+                                    <div style="font-size:0.95rem; line-height:1.5;">${i18n.onlyAttachmentsBody}</div>
+                                </div>
+                            `;
                         } else {
                             viewerText.textContent = '(No content)';
                         }

@@ -862,6 +862,29 @@ def index(request):
                         # Append images to HTML body
                         body_html += '<div style="margin-top:20px; padding-top:20px; border-top:1px solid #eee;">' + ''.join(img_tags) + '</div>'
 
+                # Note: document attachments (PDF, DOC, etc.) are not embedded directly in the HTML.
+                # They are shown in the attachments list, and the viewer text tells the user to
+                # use the attachments or “Open in Gmail” to view them. This avoids browser
+                # blocking issues with inline PDF viewers inside sandboxed iframes.
+
+                # Debug summary for terminal
+                try:
+                    import logging
+                    logger = logging.getLogger(__name__)
+                    logger.debug(
+                        "Email open summary: id=%s html_len=%s text_len=%s attachments=%s",
+                        message_id, len(body_html or ""), len(body_text or ""), len(attachments or [])
+                    )
+                    print(f"[EmailOpen] id={message_id} html_len={len(body_html or '')} text_len={len(body_text or '')} attachments={len(attachments or [])}")
+                    if (not body_html) and (not body_text) and attachments:
+                        logger.debug(
+                            "Attachment-only email detected for id=%s (no body_html/text, %d attachments)",
+                            message_id, len(attachments)
+                        )
+                        print(f"[EmailOpen] Attachment-only detected id={message_id} attachments={len(attachments)}")
+                except Exception:
+                    pass
+
                 # Format attachments for JSON
                 formatted_attachments = []
                 for att in attachments:
