@@ -162,7 +162,7 @@ class GmailAIAgent:
                         if cmd_id:
                             current_count = self._ssl_retry_counts.get(cmd_id, 0) + 1
                             self._ssl_retry_counts[cmd_id] = current_count
-                            if current_count >= 3:
+                            if current_count >= 2:
                                 # Signal to the progress stream that we should show a connection warning
                                 try:
                                     from agent.views import progress_data  # local import to avoid circulars
@@ -994,35 +994,20 @@ class GmailAIAgent:
             sender = sender.strip()
             query = f"from:{sender} after:{start_date} before:{end_date}"
 
-            # Fetch all matching messages with retry
-            max_retries = 5
-            retry_delay = 1
+            # Fetch all matching messages using unified API wrapper
             all_messages = []
-            next_page_token = None
-            for attempt in range(max_retries):
-                try:
-                    while True:
-                        kwargs = {"userId": 'me', "q": query, "maxResults": 500}
-                        if next_page_token:
-                            kwargs["pageToken"] = next_page_token
-                        results = self.service.users().messages().list(**kwargs).execute()
-                        msgs = results.get('messages', []) or []
-                        all_messages.extend(msgs)
-                        next_page_token = results.get('nextPageToken')
-                        if not next_page_token:
-                            break
+            page_token = None
+            while True:
+                kwargs = {"userId": 'me', "q": query, "maxResults": 500}
+                if page_token:
+                    kwargs["pageToken"] = page_token
+                # Use unified API wrapper for proper SSL retry handling
+                results = self.api_list_messages(**kwargs)
+                msgs = results.get('messages', []) or []
+                all_messages.extend(msgs)
+                page_token = results.get('nextPageToken')
+                if not page_token:
                     break
-                except Exception as e:
-                    err_text = str(e)
-                    if (("SSL" in err_text or "WRONG_VERSION_NUMBER" in err_text or "DECRYPTION_FAILED_OR_BAD_RECORD_MAC" in err_text or
-                         "timeout" in err_text.lower() or "connection" in err_text.lower() or
-                         "WinError 10060" in err_text or "failed to respond" in err_text.lower()) and attempt < max_retries - 1):
-                        print(f"Connection error in delete_emails_from_sender_duration_ago (attempt {attempt + 1}): {err_text}")
-                        time.sleep(retry_delay)
-                        retry_delay *= 2
-                        continue
-                    else:
-                        raise
 
             if not all_messages:
                 if hebrew_mode:
@@ -1100,26 +1085,14 @@ class GmailAIAgent:
                     if next_page_token:
                         request_body['pageToken'] = next_page_token
                     
-                    try:
-                        results = self.service.users().messages().list(**request_body).execute()
-                        messages = results.get('messages', [])
-                        all_messages.extend(messages)
-                        
-                        next_page_token = results.get('nextPageToken')
-                        if not next_page_token:
-                            break
-                    except Exception as e:
-                        err_text = str(e)
-                        if (("SSL" in err_text or "WRONG_VERSION_NUMBER" in err_text or "DECRYPTION_FAILED_OR_BAD_RECORD_MAC" in err_text or
-                             "timeout" in err_text.lower() or "connection" in err_text.lower() or
-                             "WinError 10060" in err_text or "failed to respond" in err_text.lower())
-                            and attempt < max_retries - 1):
-                            print(f"Connection error in archive_emails_by_age_only (attempt {attempt + 1}): {err_text}")
-                            time.sleep(retry_delay)
-                            retry_delay *= 2
-                            break  # Break out of while loop to retry the whole function
-                        else:
-                            raise e
+                    # Use unified API wrapper for proper SSL retry handling
+                    results = self.api_list_messages(**request_body)
+                    messages = results.get('messages', [])
+                    all_messages.extend(messages)
+                    
+                    next_page_token = results.get('nextPageToken')
+                    if not next_page_token:
+                        break
                 
                 # If we get here, the operation was successful
                 break
@@ -2467,25 +2440,13 @@ class GmailAIAgent:
                     if page_token:
                         kwargs["pageToken"] = page_token
                     
-                    try:
-                        results = self.service.users().messages().list(**kwargs).execute()
-                        msgs = results.get('messages', []) or []
-                        all_messages.extend(msgs)
-                        page_token = results.get('nextPageToken')
-                        if not page_token:
-                            break
-                    except Exception as e:
-                        err_text = str(e)
-                        if (("SSL" in err_text or "WRONG_VERSION_NUMBER" in err_text or "DECRYPTION_FAILED_OR_BAD_RECORD_MAC" in err_text or
-                             "timeout" in err_text.lower() or "connection" in err_text.lower() or
-                             "WinError 10060" in err_text or "failed to respond" in err_text.lower())
-                            and attempt < max_retries - 1):
-                            print(f"Connection error in delete_emails_by_custom_category (attempt {attempt + 1}): {err_text}")
-                            time.sleep(retry_delay)
-                            retry_delay *= 2
-                            break  # Break out of while loop to retry the whole function
-                        else:
-                            raise e
+                    # Use unified API wrapper for proper SSL retry handling
+                    results = self.api_list_messages(**kwargs)
+                    msgs = results.get('messages', []) or []
+                    all_messages.extend(msgs)
+                    page_token = results.get('nextPageToken')
+                    if not page_token:
+                        break
                 
                 # If we get here, the operation was successful
                 break
@@ -2635,25 +2596,13 @@ class GmailAIAgent:
                     if page_token:
                         kwargs["pageToken"] = page_token
                     
-                    try:
-                        results = self.service.users().messages().list(**kwargs).execute()
-                        msgs = results.get('messages', []) or []
-                        all_messages.extend(msgs)
-                        page_token = results.get('nextPageToken')
-                        if not page_token:
-                            break
-                    except Exception as e:
-                        err_text = str(e)
-                        if (("SSL" in err_text or "WRONG_VERSION_NUMBER" in err_text or "DECRYPTION_FAILED_OR_BAD_RECORD_MAC" in err_text or
-                             "timeout" in err_text.lower() or "connection" in err_text.lower() or
-                             "WinError 10060" in err_text or "failed to respond" in err_text.lower())
-                            and attempt < max_retries - 1):
-                            print(f"Connection error in archive_emails_by_custom_category (attempt {attempt + 1}): {err_text}")
-                            time.sleep(retry_delay)
-                            retry_delay *= 2
-                            break  # Break out of while loop to retry the whole function
-                        else:
-                            raise e
+                    # Use unified API wrapper for proper SSL retry handling
+                    results = self.api_list_messages(**kwargs)
+                    msgs = results.get('messages', []) or []
+                    all_messages.extend(msgs)
+                    page_token = results.get('nextPageToken')
+                    if not page_token:
+                        break
                 
                 # If we get here, the operation was successful
                 break
@@ -3056,20 +3005,20 @@ class GmailAIAgent:
                 cutoff_date = (datetime.utcnow() - timedelta(days=older_than_days)).strftime('%Y/%m/%d')
                 query_parts.append(f"before:{cutoff_date}")
             query = " ".join(query_parts)
-            results = self.service.users().messages().list(
-                userId='me', q=query, maxResults=500).execute()
-            messages = results.get('messages', [])
-            page_token = results.get('nextPageToken')
+            # Use unified API wrapper for proper SSL retry handling
             all_messages = []
-            if messages:
-                all_messages.extend(messages)
-            while page_token:
-                results = self.service.users().messages().list(
-                    userId='me', q=query, maxResults=500, pageToken=page_token).execute()
-                messages = results.get('messages', [])
+            page_token = None
+            while True:
+                kwargs = {"userId": 'me', "q": query, "maxResults": 500}
+                if page_token:
+                    kwargs["pageToken"] = page_token
+                results = self.api_list_messages(**kwargs)
+                messages = results.get('messages', []) or []
                 if messages:
                     all_messages.extend(messages)
                 page_token = results.get('nextPageToken')
+                if not page_token:
+                    break
 
             if not all_messages:
                 pretty_cat = self._pretty_gmail_label_or_category(category_id)
@@ -4659,25 +4608,13 @@ class GmailAIAgent:
                     if page_token:
                         kwargs["pageToken"] = page_token
                     
-                    try:
-                        results = self.service.users().messages().list(**kwargs).execute()
-                        messages = results.get('messages', []) or []
-                        all_messages.extend(messages)
-                        page_token = results.get('nextPageToken')
-                        if not page_token:
-                            break
-                    except Exception as e:
-                        err_text = str(e)
-                        if (("SSL" in err_text or "WRONG_VERSION_NUMBER" in err_text or "DECRYPTION_FAILED_OR_BAD_RECORD_MAC" in err_text or
-                             "timeout" in err_text.lower() or "connection" in err_text.lower() or
-                             "WinError 10060" in err_text or "failed to respond" in err_text.lower())
-                            and attempt < max_retries - 1):
-                            print(f"Connection error in archive_emails_by_sender (attempt {attempt + 1}): {err_text}")
-                            time.sleep(retry_delay)
-                            retry_delay *= 2
-                            break  # Break out of while loop to retry the whole function
-                        else:
-                            raise e
+                    # Use unified API wrapper for proper SSL retry handling
+                    results = self.api_list_messages(**kwargs)
+                    messages = results.get('messages', []) or []
+                    all_messages.extend(messages)
+                    page_token = results.get('nextPageToken')
+                    if not page_token:
+                        break
                 
                 # Helper to convert days to readable duration string (Hebrew-aware)
                 def _days_to_duration_string(days, hebrew_mode=False):
@@ -4794,25 +4731,13 @@ class GmailAIAgent:
                     if page_token:
                         kwargs["pageToken"] = page_token
                     
-                    try:
-                        results = self.service.users().messages().list(**kwargs).execute()
-                        messages = results.get('messages', []) or []
-                        all_messages.extend(messages)
-                        page_token = results.get('nextPageToken')
-                        if not page_token:
-                            break
-                    except Exception as e:
-                        err_text = str(e)
-                        if (("SSL" in err_text or "WRONG_VERSION_NUMBER" in err_text or "DECRYPTION_FAILED_OR_BAD_RECORD_MAC" in err_text or
-                             "timeout" in err_text.lower() or "connection" in err_text.lower() or
-                             "WinError 10060" in err_text or "failed to respond" in err_text.lower())
-                            and attempt < max_retries - 1):
-                            print(f"Connection error in archive_emails_by_domain (attempt {attempt + 1}): {err_text}")
-                            time.sleep(retry_delay)
-                            retry_delay *= 2
-                            break  # Break out of while loop to retry the whole function
-                        else:
-                            raise e
+                    # Use unified API wrapper for proper SSL retry handling
+                    results = self.api_list_messages(**kwargs)
+                    messages = results.get('messages', []) or []
+                    all_messages.extend(messages)
+                    page_token = results.get('nextPageToken')
+                    if not page_token:
+                        break
                 
                 # If we get here, the operation was successful
                 break
@@ -4898,22 +4823,9 @@ class GmailAIAgent:
                 keyword_query = " OR ".join([f'subject:{keyword}' for keyword in keywords])
                 query = f"({keyword_query})"
                 
-                try:
-                    results = self.service.users().messages().list(
-                        userId='me', q=query).execute()
-                    messages = results.get('messages', [])
-                except Exception as e:
-                    err_text = str(e)
-                    if (("SSL" in err_text or "WRONG_VERSION_NUMBER" in err_text or "DECRYPTION_FAILED_OR_BAD_RECORD_MAC" in err_text or
-                         "timeout" in err_text.lower() or "connection" in err_text.lower() or
-                         "WinError 10060" in err_text or "failed to respond" in err_text.lower())
-                        and attempt < max_retries - 1):
-                        print(f"Connection error in archive_emails_by_subject_keywords (attempt {attempt + 1}): {err_text}")
-                        time.sleep(retry_delay)
-                        retry_delay *= 2
-                        continue  # Continue to next attempt
-                    else:
-                        raise e
+                # Use unified API wrapper for proper SSL retry handling
+                results = self.api_list_messages(userId='me', q=query)
+                messages = results.get('messages', []) or []
                 
                 # If we get here, the operation was successful
                 break
@@ -5626,34 +5538,20 @@ class GmailAIAgent:
             end_date = end_dt.strftime('%Y/%m/%d')
             query = f"after:{start_date} before:{end_date}"
 
-            max_retries = 5
-            retry_delay = 1
+            # Fetch all matching messages using unified API wrapper
             all_messages = []
-            next_page_token = None
-            for attempt in range(max_retries):
-                try:
-                    while True:
-                        kwargs = {"userId": 'me', "q": query, "maxResults": 500}
-                        if next_page_token:
-                            kwargs["pageToken"] = next_page_token
-                        results = self.service.users().messages().list(**kwargs).execute()
-                        msgs = results.get('messages', []) or []
-                        all_messages.extend(msgs)
-                        next_page_token = results.get('nextPageToken')
-                        if not next_page_token:
-                            break
+            page_token = None
+            while True:
+                kwargs = {"userId": 'me', "q": query, "maxResults": 500}
+                if page_token:
+                    kwargs["pageToken"] = page_token
+                # Use unified API wrapper for proper SSL retry handling
+                results = self.api_list_messages(**kwargs)
+                msgs = results.get('messages', []) or []
+                all_messages.extend(msgs)
+                page_token = results.get('nextPageToken')
+                if not page_token:
                     break
-                except Exception as e:
-                    err_text = str(e)
-                    if (("SSL" in err_text or "WRONG_VERSION_NUMBER" in err_text or "DECRYPTION_FAILED_OR_BAD_RECORD_MAC" in err_text or
-                         "timeout" in err_text.lower() or "connection" in err_text.lower() or
-                         "WinError 10060" in err_text or "failed to respond" in err_text.lower()) and attempt < max_retries - 1):
-                        print(f"Connection error in archive_emails_from_time (attempt {attempt + 1}): {err_text}")
-                        time.sleep(retry_delay)
-                        retry_delay *= 2
-                        continue
-                    else:
-                        raise
 
             if not all_messages:
                 return {"status": "success", "message": _("No emails found from %(time)s to archive.") % {"time": display_time}, "archived_count": 0}
@@ -5773,34 +5671,20 @@ class GmailAIAgent:
             end_date = end_dt.strftime('%Y/%m/%d')
             query = f"after:{start_date} before:{end_date}"
 
-            max_retries = 5
-            retry_delay = 1
+            # Fetch all matching messages using unified API wrapper
             all_messages = []
-            next_page_token = None
-            for attempt in range(max_retries):
-                try:
-                    while True:
-                        kwargs = {"userId": 'me', "q": query, "maxResults": 500}
-                        if next_page_token:
-                            kwargs["pageToken"] = next_page_token
-                        results = self.service.users().messages().list(**kwargs).execute()
-                        msgs = results.get('messages', []) or []
-                        all_messages.extend(msgs)
-                        next_page_token = results.get('nextPageToken')
-                        if not next_page_token:
-                            break
+            page_token = None
+            while True:
+                kwargs = {"userId": 'me', "q": query, "maxResults": 500}
+                if page_token:
+                    kwargs["pageToken"] = page_token
+                # Use unified API wrapper for proper SSL retry handling
+                results = self.api_list_messages(**kwargs)
+                msgs = results.get('messages', []) or []
+                all_messages.extend(msgs)
+                page_token = results.get('nextPageToken')
+                if not page_token:
                     break
-                except Exception as e:
-                    err_text = str(e)
-                    if (("SSL" in err_text or "WRONG_VERSION_NUMBER" in err_text or "DECRYPTION_FAILED_OR_BAD_RECORD_MAC" in err_text or
-                         "timeout" in err_text.lower() or "connection" in err_text.lower() or
-                         "WinError 10060" in err_text or "failed to respond" in err_text.lower()) and attempt < max_retries - 1):
-                        print(f"Connection error in archive_emails_from_duration_ago (attempt {attempt + 1}): {err_text}")
-                        time.sleep(retry_delay)
-                        retry_delay *= 2
-                        continue
-                    else:
-                        raise
 
             if not all_messages:
                 return {"status": "success", "message": _("No emails found from %(duration)s to archive.") % {"duration": display_duration}, "archived_count": 0}
