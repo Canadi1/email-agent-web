@@ -56,6 +56,8 @@ class GmailAIAgent:
         self._http_rebuilds = 0
         self.credentials = None
         self._logged_transport_reuse = False
+        # Track SSL/TLS retry counts per active command id (for user-facing warnings)
+        self._ssl_retry_counts = {}
         self.setup_gemini_api(gemini_api_key)
     
     def _is_retryable_network_error(self, error):
@@ -154,6 +156,22 @@ class GmailAIAgent:
                 last_exc = exc
                 retryable = self._is_retryable_network_error(exc)
                 if attempt < max_retries - 1 and retryable:
+                    # Bump SSL retry counter for this command and expose a warning flag to the UI if it gets high
+                    try:
+                        cmd_id = getattr(self, 'command_id', None) or getattr(self, 'current_command_id', None) or getattr(self, 'active_command_id', None)
+                        if cmd_id:
+                            current_count = self._ssl_retry_counts.get(cmd_id, 0) + 1
+                            self._ssl_retry_counts[cmd_id] = current_count
+                            if current_count >= 3:
+                                # Signal to the progress stream that we should show a connection warning
+                                try:
+                                    from agent.views import progress_data  # local import to avoid circulars
+                                    if cmd_id in progress_data:
+                                        progress_data[cmd_id]['ssl_warning'] = True
+                                except Exception:
+                                    pass
+                    except Exception:
+                        pass
                     # On first retry attempt, rebuild the transport to shed bad sockets
                     try:
                         if attempt == 0 and self.credentials is not None:
