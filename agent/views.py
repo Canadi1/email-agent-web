@@ -255,6 +255,12 @@ def process_with_detailed_progress(agent, command, command_id, start_progress, e
         return process_with_email_listing_progress(agent, command, command_id, start_progress, end_progress, language_code)
     else:
         # For other commands, use simulated progress
+        # Expose command id to the agent so lower-level retry code can attribute SSL retries
+        try:
+            agent.current_command_id = command_id
+            agent.active_command_id = command_id
+        except Exception:
+            pass
         progress_thread = threading.Thread(target=simulate_progress, args=(command_id, start_progress, end_progress, is_stats_command, language_code))
         progress_thread.daemon = True
         progress_thread.start()
@@ -265,6 +271,14 @@ def process_with_detailed_progress(agent, command, command_id, start_progress, e
         # Stop the progress simulation
         if command_id in progress_data:
             progress_data[command_id]['stop_simulation'] = True
+        # Clear command id exposure on the agent
+        try:
+            if getattr(agent, 'active_command_id', None) == command_id:
+                agent.active_command_id = None
+            if getattr(agent, 'current_command_id', None) == command_id:
+                agent.current_command_id = None
+        except Exception:
+            pass
         
         return result
 
