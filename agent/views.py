@@ -839,7 +839,8 @@ def index(request):
                                     import logging
                                     logging.getLogger(__name__).error(f"Exception fetching image attachment {att_id}: {e}")
                                     size_str = f'{(size // 1024)} KB' if size and size < 1024*1024 else (f'{(size / (1024*1024)):.1f} MB' if size else 'unknown size')
-                                    img_tags.append(f'<div style="margin-bottom:16px; padding:20px; background:#f5f5f5; border:1px solid #ddd; border-radius:4px; text-align:center; color:#666;">🖼️ Image: {filename} ({size_str})<br/><small>Error loading image: {str(e)[:50]}. Click "Open in Gmail" to view.</small></div>')
+                                    error_msg = _("Failed to load image. Click \"Open in Gmail\" to view.")
+                                    img_tags.append(f'<div style="margin-bottom:16px; padding:20px; background:#f5f5f5; border:1px solid #ddd; border-radius:4px; text-align:center; color:#666;">🖼️ Image: {filename} ({size_str})<br/><small>{error_msg}</small></div>')
                         else:
                             # Very large image (> 20MB) - show placeholder
                             size_str = f'{(size / (1024*1024)):.1f} MB'

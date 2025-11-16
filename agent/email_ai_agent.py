@@ -780,7 +780,7 @@ class GmailAIAgent:
             return {"status": "success", "message": _("Trashed %(count)d emails older than %(days)d days") % {"count": total_processed, "days": older_than_days}, "deleted_count": total_processed, "undo_action_id": action_id}
 
         except HttpError as error:
-            return {"status": "error", "message": f"Error deleting emails by age: {error}"}
+            return {"status": "error", "message": _("Failed to delete emails. Please try again.")}
     
     def delete_emails_from_duration_ago(self, duration_ago, confirm=False):
         """Delete emails from a specific duration ago (e.g., '2 weeks ago', 'a month ago').
@@ -1108,7 +1108,7 @@ class GmailAIAgent:
                         time.sleep(retry_delay)
                         retry_delay *= 2
                         continue  # Continue to next attempt in outer for loop
-                return {"error": f"Error archiving emails by age: {error_msg}"}
+                return {"error": _("Failed to archive emails. Please try again.")}
         
         try:
 
@@ -1169,7 +1169,7 @@ class GmailAIAgent:
             return {"status": "success", "message": _("Archived %(count)d emails older than %(days)d days.") % {"count": total_processed, "days": older_than_days}, "archived_count": total_processed, "undo_action_id": action_id}
 
         except HttpError as error:
-            return {"status": "error", "message": f"Error archiving emails by age: {error}"}
+            return {"status": "error", "message": _("Failed to archive emails. Please try again.")}
     
     def show_email_stats(self, full=False):
         """Show comprehensive email statistics.
@@ -1597,7 +1597,7 @@ class GmailAIAgent:
             }
             
         except HttpError as error:
-            return {"error": f"Error getting email stats: {error}"}
+            return {"error": _("Failed to get email statistics. Please try again.")}
 
     def list_emails_by_date_range(self, date_range_str, max_results=None, page_token=None):
         """
@@ -2024,14 +2024,14 @@ class GmailAIAgent:
                         continue  # Continue to next attempt in outer for loop
                     else:
                         print(f"❌ SSL/Connection error after {max_retries} attempts: {error_msg}")
-                        return {"error": f"Connection error after {max_retries} attempts: {error_msg}"}
+                        return {"error": _("Unable to connect to Gmail. Please check your internet connection and try again.")}
                 else:
                     # Non-SSL error, don't retry
-                    return {"error": f"Error executing search query: {error_msg}"}
+                    return {"error": _("Failed to search emails. Please try again.")}
         
         # Check if results was successfully obtained
         if results is None:
-            return {"error": "Failed to execute search query after all retries"}
+            return {"error": _("Failed to search emails. Please try again.")}
         
         # Process the results
         messages = results.get('messages', [])
@@ -2466,7 +2466,7 @@ class GmailAIAgent:
                         continue
                 
                 # If it's not a retryable error or we've exhausted retries
-                return {"status": "error", "message": f"Error deleting by category: {error_msg}"}
+                return {"status": "error", "message": _("Failed to delete emails. Please try again.")}
         
         # Translate date_range to Hebrew if needed
         def _hebrew_date_phrase(eng_phrase: str) -> str:
@@ -2564,7 +2564,7 @@ class GmailAIAgent:
             action_id = self._record_undo('trash', message_ids)
             return {"status": "success", "message": _("Trashed %(count)d emails from %(what)s.") % {"count": total_processed, "what": self._pretty_category_name(category_key)}, "deleted_count": total_processed, "undo_action_id": action_id}
         except HttpError as error:
-            return {"status": "error", "message": f"Error deleting by category: {error}"}
+            return {"status": "error", "message": _("Failed to delete emails. Please try again.")}
 
     def archive_emails_by_custom_category(self, category_key, confirm=False, older_than_days=None, date_range=None):
         """Archive messages matching a custom category definition.
@@ -2622,7 +2622,7 @@ class GmailAIAgent:
                         continue
                 
                 # If it's not a retryable error or we've exhausted retries
-                return {"status": "error", "message": f"Error archiving emails: {error_msg}"}
+                return {"status": "error", "message": _("Failed to archive emails. Please try again.")}
         
         # Translate date_range to Hebrew if needed
         def _hebrew_date_phrase(eng_phrase: str) -> str:
@@ -2860,7 +2860,7 @@ class GmailAIAgent:
             return {"status": "success", "message": _("Trashed %(count)d emails from %(sender)s.") % {"count": total_processed, "sender": sender_email}, "deleted_count": total_processed, "undo_action_id": action_id}
             
         except HttpError as error:
-            return {"status": "error", "message": f"Error deleting emails: {error}"}
+            return {"status": "error", "message": _("Failed to delete emails. Please try again.")}
     
     def delete_emails_by_domain(self, domain, confirm=False, older_than_days=None):
         """Delete emails from a specific domain by moving them to Trash.
@@ -2928,7 +2928,7 @@ class GmailAIAgent:
             return {"status": "success", "message": _("Trashed %(count)d emails from %(domain)s.") % {"count": total_processed, "domain": domain}, "deleted_count": total_processed, "undo_action_id": action_id}
             
         except HttpError as error:
-            return {"status": "error", "message": f"Error deleting emails: {error}"}
+            return {"status": "error", "message": _("Failed to delete emails. Please try again.")}
     def delete_emails_by_subject_keywords(self, keywords, confirm=False, older_than_days=None):
         """Delete emails containing specific keywords in subject by moving them to Trash.
         Optionally filter by age using older_than_days.
@@ -2994,7 +2994,7 @@ class GmailAIAgent:
             return {"status": "success", "message": f"Trashed {total_processed} emails with keywords: {', '.join(keywords)}", "deleted_count": total_processed, "undo_action_id": action_id}
             
         except HttpError as error:
-            return {"status": "error", "message": f"Error deleting emails: {error}"}
+            return {"status": "error", "message": _("Failed to delete emails. Please try again.")}
 
     def delete_emails_by_category(self, category_id, confirm=False, older_than_days=None):
         """Delete emails by Gmail category (e.g., CATEGORY_PROMOTIONS, CATEGORY_SOCIAL)."""
@@ -3071,7 +3071,7 @@ class GmailAIAgent:
             return {"status": "success", "message": _("Trashed %(count)d emails from %(what)s.") % {"count": total_processed, "what": pretty_cat}, "deleted_count": total_processed, "undo_action_id": action_id}
 
         except HttpError as error:
-            return {"status": "error", "message": f"Error deleting by category: {error}"}
+            return {"status": "error", "message": _("Failed to delete emails. Please try again.")}
 
 
     
@@ -4106,7 +4106,7 @@ class GmailAIAgent:
                     res = self.list_recent_emails()
                     emails = res.get("emails", [])
                     if "error" in res:
-                        return {"status": "error", "message": f"Error fetching emails: {res['error']}"}
+                        return {"status": "error", "message": _("Failed to fetch emails. Please try again.")}
                     if not emails: 
                         if hebrew_mode:
                             return {"status": "success", "message": "לא נמצאו מיילים אחרונים."}
@@ -4145,7 +4145,7 @@ class GmailAIAgent:
                     emails = res.get("emails", []) if isinstance(res, dict) else res
                     next_token = res.get("next_page_token") if isinstance(res, dict) else None
                     if "error" in res:
-                        return {"status": "error", "message": f"Error fetching archived emails: {res['error']}"}
+                        return {"status": "error", "message": _("Failed to fetch archived emails. Please try again.")}
                     if not emails: 
                         return {"status": "success", "message": res.get("message", _("No archived emails found from that duration."))}
                     return {"status": "success", "data": emails, "type": "email_list", "next_page_token": next_token, "list_context": {"mode": "archived_duration_ago", "duration_ago": parsed.get("duration_ago")}}
@@ -4153,10 +4153,10 @@ class GmailAIAgent:
                     res = self.list_all_emails()
                     # Check if res is valid before calling .get()
                     if not res or not isinstance(res, dict):
-                        return {"status": "error", "message": "Failed to retrieve emails from All Mail"}
+                        return {"status": "error", "message": _("Failed to retrieve emails. Please try again.")}
                     # Check if res contains an error
                     if "error" in res:
-                        return {"status": "error", "message": f"Error: {res['error']}"}
+                        return {"status": "error", "message": _("Failed to fetch emails. Please try again.")}
                     emails = res.get("emails", [])
                     if not emails: 
                         return {"status": "success", "message": _("No emails found in All Mail.")}
@@ -4325,10 +4325,10 @@ class GmailAIAgent:
                                     continue
                                 else:
                                     print(f"❌ SSL/Connection error after {max_retries} attempts: {error_msg}")
-                                    return {"status": "error", "message": f"Connection error after {max_retries} attempts: {error_msg}"}
+                                    return {"status": "error", "message": _("Unable to connect to Gmail. Please check your internet connection and try again.")}
                             else:
                                 # Non-SSL error, don't retry
-                                return {"status": "error", "message": f"Error executing command: {error_msg}"}
+                                return {"status": "error", "message": _("Failed to execute command. Please try again.")}
                 elif target_type == "older_than":
                     result = self.list_emails_older_than(target)
                     if not result.get("emails"): return {"status": "success", "message": result.get("message")}
@@ -4581,10 +4581,10 @@ class GmailAIAgent:
 
             # ... other actions
             
-            return {"status": "error", "message": "Command executed, but no return value."}
+            return {"status": "error", "message": _("Command failed to execute. Please try again.")}
             
         except Exception as error:
-            return {"status": "error", "message": f"Error executing command: {error}"}
+            return {"status": "error", "message": _("An unexpected error occurred. Please try again.")}
 
     def test_permissions(self):
         """Test what permissions we have"""
@@ -4721,10 +4721,10 @@ class GmailAIAgent:
                         time.sleep(retry_delay)
                         retry_delay *= 2
                         continue  # Continue to next attempt in outer for loop
-                return {"error": f"Error archiving emails by sender: {error_msg}"}
+                return {"error": _("Failed to archive emails. Please try again.")}
         
         # This should never be reached due to the break statement above
-        return {"error": "Unexpected error in archive_emails_by_sender"}
+        return {"error": _("An unexpected error occurred. Please try again.")}
     
     def archive_emails_by_domain(self, domain, confirm=False, older_than_days=None):
         """Archive emails from a specific domain, optionally filtered by age."""
@@ -4768,7 +4768,7 @@ class GmailAIAgent:
                         time.sleep(retry_delay)
                         retry_delay *= 2
                         continue  # Continue to next attempt in outer for loop
-                return {"error": f"Error archiving emails by domain: {error_msg}"}
+                return {"error": _("Failed to archive emails. Please try again.")}
         
         try:
             
@@ -4823,7 +4823,7 @@ class GmailAIAgent:
             return {"status": "success", "message": _("Archived %(count)d emails from %(domain)s.") % {"count": total_processed, "domain": domain}, "archived_count": total_processed, "undo_action_id": action_id}
             
         except HttpError as error:
-            return {"status": "error", "message": f"Error archiving emails: {error}"}
+            return {"status": "error", "message": _("Failed to archive emails. Please try again.")}
     
     def archive_emails_by_subject_keywords(self, keywords, confirm=False):
         """Archive emails containing specific keywords in subject (safer than delete)"""
@@ -4856,7 +4856,7 @@ class GmailAIAgent:
                         time.sleep(retry_delay)
                         retry_delay *= 2
                         continue  # Continue to next attempt in outer for loop
-                return {"error": f"Error archiving emails by subject keywords: {error_msg}"}
+                return {"error": _("Failed to archive emails. Please try again.")}
         
         try:
             
@@ -4932,7 +4932,7 @@ class GmailAIAgent:
             return {"status": "success", "message": f"Archived {len(messages)} emails with keywords {', '.join(keywords)}.", "archived_count": len(messages)}
             
         except HttpError as error:
-            return {"status": "error", "message": f"Error archiving emails: {error}"}
+            return {"status": "error", "message": _("Failed to archive emails. Please try again.")}
     def archive_emails_by_sender_from_time(self, sender_email, time_period, confirm=False):
         """Archive emails from a specific sender from a specific time period (e.g., 'from today', 'from yesterday')."""
         try:
@@ -5075,7 +5075,7 @@ class GmailAIAgent:
             return {"status": "success", "message": _("Archived %(count)d emails from %(sender)s from %(time)s.") % {"count": total_processed, "sender": sender_email, "time": display_time}, "archived_count": total_processed, "undo_action_id": action_id}
             
         except HttpError as error:
-            return {"status": "error", "message": f"Error archiving emails: {error}"}
+            return {"status": "error", "message": _("Failed to archive emails. Please try again.")}
 
     def delete_emails_by_sender_from_time(self, sender_email, time_period, confirm=False):
         """Delete emails (move to Trash) from a specific sender within a fixed time period (today/yesterday/this|last week/month/year)."""
@@ -5357,10 +5357,10 @@ class GmailAIAgent:
             return {"status": "success", "message": _("Archived %(count)d emails from %(sender)s from %(duration)s.") % {"count": total_processed, "sender": sender_email, "duration": display_duration}, "archived_count": total_processed, "undo_action_id": action_id}
 
         except HttpError as error:
-            return {"status": "error", "message": f"Error archiving emails: {error}"}
+            return {"status": "error", "message": _("Failed to archive emails. Please try again.")}
         except Exception as e:
             print(f"Unexpected error in archive_emails_by_sender_from_duration_ago: {e}")
-            return {"error": f"Unexpected error: {str(e)}"}
+            return {"error": _("An unexpected error occurred. Please try again.")}
 
     def delete_emails_from_time(self, time_period, confirm=False):
         """Delete emails from a specific time window: today, yesterday, this/last week/month/year.
@@ -5617,7 +5617,7 @@ class GmailAIAgent:
             return {"status": "success", "message": _("Archived %(count)d emails from %(time)s.") % {"count": total_processed, "time": display_time}, "archived_count": total_processed, "undo_action_id": action_id}
 
         except HttpError as error:
-            return {"status": "error", "message": f"Error archiving emails: {error}"}
+            return {"status": "error", "message": _("Failed to archive emails. Please try again.")}
     
     def archive_emails_from_duration_ago(self, duration_ago, confirm=False):
         """Archive emails from a specific duration ago (e.g., '2 weeks ago', 'a month ago').
@@ -5748,7 +5748,7 @@ class GmailAIAgent:
             return {"status": "success", "message": _("Archived %(count)d emails from %(duration)s.") % {"count": total_processed, "duration": display_duration}, "archived_count": total_processed, "undo_action_id": action_id}
 
         except HttpError as error:
-            return {"status": "error", "message": f"Error archiving emails: {error}"}
+            return {"status": "error", "message": _("Failed to archive emails. Please try again.")}
     def list_archived_emails(self, max_results=None, page_token=None):
         """List archived emails (messages not in Inbox, excluding Sent/Drafts/Spam/Trash)."""
         from agent.views import update_email_progress  # Import at function start
@@ -5873,13 +5873,13 @@ class GmailAIAgent:
                             break
                         except Exception as fallback_e:
                             print(f"Fallback query also failed: {fallback_e}")
-                            return {"error": f"Error listing archived emails: {error_msg}"}
+                            return {"error": _("Failed to list archived emails. Please try again.")}
                 else:
-                    return {"error": f"Error listing archived emails: {error_msg}"}
+                    return {"error": _("Failed to list archived emails. Please try again.")}
         
         # Process the results
         if results is None:
-            return {"error": "Failed to retrieve archived emails"}
+            return {"error": _("Failed to retrieve archived emails. Please try again.")}
             
         # Collect up to max_results across pages to honor the selected page size
         messages = results.get('messages', []) or []
@@ -6514,7 +6514,7 @@ class GmailAIAgent:
             return {"status": "success", "message": _("Labeled %(count)d emails with keywords %(keywords)s as '%(label)s'.") % {"count": total_processed, "keywords": ', '.join(keywords), "label": label_name}, "labeled_count": total_processed}
             
         except HttpError as error:
-            return {"status": "error", "message": f"Error labeling emails: {error}"}
+            return {"status": "error", "message": _("Failed to label emails. Please try again.")}
 
     def label_emails_by_sender(self, sender_email, label_name, confirm=False):
         """Label emails from a specific sender.
@@ -6588,7 +6588,7 @@ class GmailAIAgent:
             return {"status": "success", "message": _("Labeled %(count)d emails from %(sender)s as '%(label)s'.") % {"count": total_processed, "sender": sender_email, "label": label_name}, "labeled_count": total_processed}
             
         except HttpError as error:
-            return {"status": "error", "message": f"Error labeling emails: {error}"}
+            return {"status": "error", "message": _("Failed to label emails. Please try again.")}
 
     def restore_emails_from_sender(self, sender_email, confirm=False):
         """Restore archived emails from a specific sender back to Inbox (unarchive)."""
@@ -6657,7 +6657,7 @@ class GmailAIAgent:
             return {"status": "success", "message": _("Restored %(count)d emails from %(sender)s to Inbox.") % {"count": total_restored, "sender": sender_email}, "restored_count": total_restored, "undo_action_id": action_id}
 
         except HttpError as error:
-            return {"status": "error", "message": f"Error restoring emails: {error}"}
+            return {"status": "error", "message": _("Failed to restore emails. Please try again.")}
 
     def label_emails_by_domain(self, domain, label_name, confirm=False):
         """Label emails from a specific domain.
@@ -6731,7 +6731,7 @@ class GmailAIAgent:
             return {"status": "success", "message": _("Labeled %(count)d emails from domain %(domain)s as '%(label)s'.") % {"count": total_processed, "domain": domain, "label": label_name}, "labeled_count": total_processed}
             
         except HttpError as error:
-            return {"status": "error", "message": f"Error labeling emails: {error}"}
+            return {"status": "error", "message": _("Failed to label emails. Please try again.")}
 
     def list_labels(self):
         """List all Gmail labels"""

@@ -1,6 +1,999 @@
+# (moved specific example command translations further down to avoid header duplication)
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-11-16 23:12+0200\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: he\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=4; plural=(n == 1 && n % 1 == 0) ? 0 : (n == 2 && n % "
+"1 == 0) ? 1: (n % 10 == 0 && n % 1 == 0 && n > 10) ? 2 : 3;\n"
+
+#, python-format
+msgid "older than %(days)d days"
+msgstr "ישנים מ-%(days)d ימים"
+
+#, fuzzy, python-format
+#| msgid "older than %(days)d days"
+msgid "older than %(text)s"
+msgstr "ישנים מ-%(days)d ימים"
+
+#, fuzzy, python-format
+#| msgid " from %(range)s"
+msgid "in %(range)s"
+msgstr " מ-%(range)s"
+
+#, fuzzy, python-format
+#| msgid "Found %(count)d emails in %(what)s."
+msgid "Found %(count)d emails from %(who)s%(extra)s."
+msgstr "נמצאו %(count)d מיילים ב-%(what)s."
+
+#, python-format
+msgid "No emails found older than %(days)d days"
+msgstr "לא נמצאו מיילים ישנים מ-%(days)d ימים"
+
+#, python-format
+msgid ""
+"Found %(count)d emails older than %(days)d days. Do you want to move them to "
+"Trash?"
+msgstr "נמצאו %(count)d מיילים ישנים מ-%(days)d ימים. להעבירם לאשפה?"
+
+#, python-format
+msgid "Trashed %(count)d emails older than %(days)d days"
+msgstr "הועברו לאשפה %(count)d מיילים ישנים מ-%(days)d ימים"
+
+msgid "Failed to delete emails. Please try again."
+msgstr "נכשל במחיקת מיילים. אנא נסה שוב."
+
+#, fuzzy, python-format
+#| msgid "No emails found from %(duration)s to archive."
+msgid "No emails found from %(duration)s to delete."
+msgstr "לא נמצאו מיילים מ-%(duration)s לארכוב."
+
+#, fuzzy, python-format
+#| msgid ""
+#| "Found %(count)d emails from %(sender)s%(age)s. Do you want to move them "
+#| "to Trash?"
+msgid ""
+"Found %(count)d emails from %(duration)s. Do you want to move them to Trash?"
+msgstr "נמצאו %(count)d מיילים מ-%(sender)s%(age)s. להעבירם לאשפה?"
+
+#, fuzzy, python-format
+#| msgid "Trashed %(count)d emails from %(domain)s."
+msgid "Trashed %(count)d emails from %(duration)s"
+msgstr "הועברו לאשפה %(count)d מיילים מ-%(domain)s."
+
+#, fuzzy, python-format
+#| msgid "delete emails from [duration] ago"
+msgid "Error deleting emails from %(duration)s: %(error)s"
+msgstr "מחק מיילים מלפני [משך]"
+
+#, fuzzy, python-format
+#| msgid "No emails found from %(sender)s from %(duration)s to archive."
+msgid "No emails found from %(sender)s %(duration)s to delete."
+msgstr "לא נמצאו מיילים מ-%(sender)s מלפני %(duration)s לארכיון."
+
+#, fuzzy, python-format
+#| msgid ""
+#| "Found %(count)d emails from %(sender)s from %(duration)s. Do you want to "
+#| "archive them?"
+msgid "Found %(count)d emails from %(sender)s %(duration)s. Move to Trash?"
+msgstr "נמצאו %(count)d מיילים מ-%(sender)s מלפני %(duration)s. לארכב אותם?"
+
+#, fuzzy, python-format
+#| msgid "Archived %(count)d emails from %(sender)s from %(duration)s."
+msgid "Trashed %(count)d emails from %(sender)s %(duration)s"
+msgstr "נארכבו %(count)d מיילים מ-%(sender)s מלפני %(duration)s."
+
+#, fuzzy, python-format
+#| msgid "No emails found from %(sender)s from %(duration)s to archive."
+msgid "Error deleting emails from %(sender)s %(duration)s: %(error)s"
+msgstr "לא נמצאו מיילים מ-%(sender)s מלפני %(duration)s לארכיון."
+
+msgid "Failed to archive emails. Please try again."
+msgstr "נכשל בארכוב מיילים. אנא נסה שוב."
+
+#, python-format
+msgid "No emails found older than %(days)d days to archive."
+msgstr "לא נמצאו מיילים ישנים מ-%(days)d ימים לארכוב."
+
+#, python-format
+msgid ""
+"Found %(count)d emails older than %(days)d days. Do you want to archive them?"
+msgstr "נמצאו %(count)d מיילים ישנים מ-%(days)d ימים. לארכב אותם?"
+
+#, python-format
+msgid "Archived %(count)d emails older than %(days)d days."
+msgstr "נארכבו %(count)d מיילים ישנים מ-%(days)d ימים."
+
+msgid "No emails found for analysis"
+msgstr "לא נמצאו מיילים לניתוח"
+
+msgid "Unknown"
+msgstr "לא ידוע"
+
+msgid "Inbox"
+msgstr "דואר נכנס"
+
+msgid "Sent"
+msgstr "נשלחו"
+
+msgid "Starred"
+msgstr "מסומנים בכוכב"
+
+msgid "Important"
+msgstr "חשובים"
+
+msgid "Drafts"
+msgstr "טיוטות"
+
+msgid "Trash"
+msgstr "אשפה"
+
+msgid "Spam"
+msgstr "ספאם"
+
+msgid "Unread"
+msgstr "לא נקראו"
+
+msgid "Personal"
+msgstr "אישי"
+
+msgid "Social"
+msgstr "חברתי"
+
+msgid "Promotions"
+msgstr "קידומי מכירות"
+
+msgid "Updates"
+msgstr "עדכונים"
+
+msgid "Forums"
+msgstr "פורומים"
+
+#, python-format
+msgid "Most active sender: %(sender)s (%(count)d emails)"
+msgstr "השולח הפעיל ביותר: %(sender)s (%(count)d מיילים)"
+
+#, python-format
+msgid "Most active domain: %(domain)s (%(count)d emails)"
+msgstr "הדומיין הפעיל ביותר: %(domain)s (%(count)d מיילים)"
+
+#, python-format
+msgid "Top sender accounts for %(pct).1f%% of analyzed emails"
+msgstr "השולח המוביל מהווה %(pct).1f%% מהמיילים שנותחו"
+
+#, python-format
+msgid ""
+"Analysis limited to most recent 1000 emails (out of %(total)d total) to "
+"ensure reasonable processing time"
+msgstr ""
+"הניתוח מוגבל ל-1000 המיילים האחרונים (מתוך %(total)d סה\"כ) כדי להבטיח זמן "
+"עיבוד סביר"
+
+msgid "Failed to get email statistics. Please try again."
+msgstr "נכשל בקבלת סטטיסטיקות מיילים. אנא נסה שוב."
+
+msgid "for today"
+msgstr "עבור היום"
+
+msgid "for yesterday"
+msgstr "עבור אתמול"
+
+#, fuzzy
+#| msgid "from last week"
+msgid "from this week"
+msgstr "משבוע שעבר"
+
+msgid "from last week"
+msgstr "משבוע שעבר"
+
+#, fuzzy
+#| msgid "from last month"
+msgid "from this month"
+msgstr "מהחודש שעבר"
+
+msgid "from last month"
+msgstr "מהחודש שעבר"
+
+msgid "from last year"
+msgstr "מהשנה שעברה"
+
+#, python-format
+msgid "from %(quantity)d %(unit)s ago"
+msgstr ""
+
+#, python-format
+msgid "in the 3 months starting around %(date)s"
+msgstr "בשלושת החודשים שמתחילים סביב %(date)s"
+
+#, fuzzy
+#| msgid "from last year"
+msgid "from this year"
+msgstr "מהשנה שעברה"
+
+msgid ""
+"Unable to connect to Gmail. Please check your internet connection and try "
+"again."
+msgstr "לא ניתן להתחבר ל-Gmail. אנא בדוק את חיבור האינטרנט שלך ונסה שוב."
+
+msgid "Failed to search emails. Please try again."
+msgstr "נכשל בחיפוש מיילים. אנא נסה שוב."
+
+#, python-format
+msgid "Found %(count)d emails %(description)s."
+msgstr "נמצאו %(count)d מיילים %(description)s."
+
+msgid "verification codes"
+msgstr "קודי אימות"
+
+msgid "shipping emails"
+msgstr "מיילי משלוח"
+
+msgid "account security emails"
+msgstr "מיילי אבטחת חשבון"
+
+#, fuzzy, python-format
+#| msgid "Found %(count)d emails in %(what)s."
+msgid "Found %(count)d emails."
+msgstr "נמצאו %(count)d מיילים ב-%(what)s."
+
+#, python-format
+msgid " from %(range)s"
+msgstr " מ-%(range)s"
+
+#, python-format
+msgid " older than %(days)d days"
+msgstr " ישנים מ-%(days)d ימים"
+
+#, python-format
+msgid "No emails found for %(what)s%(time)s%(age)s."
+msgstr "לא נמצאו מיילים עבור %(what)s%(time)s%(age)s."
+
+#, python-format
+msgid ""
+"Found %(count)d emails in %(what)s%(time)s%(age)s. Do you want to move them "
+"to Trash?"
+msgstr "נמצאו %(count)d מיילים ב-%(what)s%(time)s%(age)s. להעבירם לאשפה?"
+
+#, python-format
+msgid "Trashed %(count)d emails from %(what)s."
+msgstr "הועברו לאשפה %(count)d מיילים מ-%(what)s."
+
+#, python-format
+msgid ""
+"Found %(count)d emails in %(what)s%(time)s%(age)s. Do you want to archive "
+"them?"
+msgstr "נמצאו %(count)d מיילים ב-%(what)s%(time)s%(age)s. לארכב אותם?"
+
+#, python-format
+msgid "Archived %(count)d emails from %(what)s."
+msgstr "נארכבו %(count)d מיילים מ-%(what)s."
+
+#, python-format
+msgid "No emails found from %(sender)s%(age)s."
+msgstr "לא נמצאו מיילים מ-%(sender)s%(age)s."
+
+#, python-format
+msgid ""
+"Found %(count)d emails from %(sender)s%(age)s. Do you want to move them to "
+"Trash?"
+msgstr "נמצאו %(count)d מיילים מ-%(sender)s%(age)s. להעבירם לאשפה?"
+
+#, python-format
+msgid "Trashed %(count)d emails from %(sender)s."
+msgstr "הועברו לאשפה %(count)d מיילים מ-%(sender)s."
+
+#, python-format
+msgid "No emails found from domain: %(domain)s%(age)s."
+msgstr "לא נמצאו מיילים מהדומיין: %(domain)s%(age)s."
+
+#, python-format
+msgid ""
+"Found %(count)d emails from domain %(domain)s%(age)s. Do you want to move "
+"them to Trash?"
+msgstr "נמצאו %(count)d מיילים מהדומיין %(domain)s%(age)s. להעבירם לאשפה?"
+
+#, python-format
+msgid "Trashed %(count)d emails from %(domain)s."
+msgstr "הועברו לאשפה %(count)d מיילים מ-%(domain)s."
+
+#, python-format
+msgid "No emails found in category: %(category)s."
+msgstr "לא נמצאו מיילים בקטגוריה: %(category)s."
+
+#, python-format
+msgid ""
+"Found %(count)d emails in %(what)s%(age)s. Do you want to move them to Trash?"
+msgstr "נמצאו %(count)d מיילים ב-%(what)s%(age)s. להעבירם לאשפה?"
+
+msgid "Label name not found in confirmation data."
+msgstr ""
+
+#, python-format
+msgid "Unknown confirmation action: %(action)s"
+msgstr ""
+
+msgid ""
+"Couldn't understand that. Try phrasing it differently, or check the command "
+"list below."
+msgstr "לא הבנתי את הפקודה. נסה לנסח אחרת או לבדוק את רשימת הפקודות למטה."
+
+msgid "Failed to fetch emails. Please try again."
+msgstr "נכשל בטעינת מיילים. אנא נסה שוב."
+
+#, fuzzy
+#| msgid "No archived emails found."
+msgid "No recent emails found."
+msgstr "לא נמצאו מיילים בארכיון."
+
+msgid ""
+"Unable to retrieve archived emails due to connection error. Please try again."
+msgstr "לא ניתן לטעון מיילים מארכיון עקב שגיאת חיבור. אנא נסה שוב."
+
+msgid "No archived emails found."
+msgstr "לא נמצאו מיילים בארכיון."
+
+msgid "Failed to fetch archived emails. Please try again."
+msgstr "נכשל בטעינת מיילים מארכיון. אנא נסה שוב."
+
+#, fuzzy
+#| msgid "No archived emails found from %(sender)s."
+msgid "No archived emails found from that duration."
+msgstr "לא נמצאו מיילים בארכיון מ-%(sender)s."
+
+msgid "Failed to retrieve emails. Please try again."
+msgstr "נכשל בטעינת מיילים. אנא נסה שוב."
+
+msgid "No emails found in All Mail."
+msgstr "לא נמצאו מיילים ב\"כל הדואר\"."
+
+#, python-format
+msgid "No archived emails found from %(sender)s."
+msgstr "לא נמצאו מיילים בארכיון מ-%(sender)s."
+
+#, fuzzy, python-format
+#| msgid "Found %(count)d emails in %(what)s."
+msgid "Found %(count)d archived emails from %(who)s."
+msgstr "נמצאו %(count)d מיילים ב-%(what)s."
+
+msgid "You have no custom labels."
+msgstr "אין לך תוויות מותאמות."
+
+#, python-format
+msgid "Found %(count)d emails%(age)s in %(what)s."
+msgstr "נמצאו %(count)d מיילים%(age)s ב-%(what)s."
+
+#, python-format
+msgid "Found %(count)d emails in %(what)s."
+msgstr "נמצאו %(count)d מיילים ב-%(what)s."
+
+#, fuzzy, python-format
+#| msgid "No emails found from domain: %(domain)s%(age)s."
+msgid "No emails found from domain: %(domain)s from %(time)s."
+msgstr "לא נמצאו מיילים מהדומיין: %(domain)s%(age)s."
+
+#, python-format
+msgid "No emails found from domain: %(domain)s."
+msgstr "לא נמצאו מיילים מהדומיין: %(domain)s."
+
+#, fuzzy, python-format
+#| msgid "Found %(count)d emails%(age)s in %(what)s."
+msgid "Found %(count)d emails from %(who)s%(age)s%(date)s."
+msgstr "נמצאו %(count)d מיילים%(age)s ב-%(what)s."
+
+#, python-format
+msgid "No emails found from %(sender)s from %(time)s."
+msgstr "לא נמצאו מיילים מ-%(sender)s מ-%(time)s."
+
+#, fuzzy, python-format
+#| msgid "No emails found from %(sender)s%(age)s."
+msgid "No emails found from %(sender)s."
+msgstr "לא נמצאו מיילים מ-%(sender)s%(age)s."
+
+msgid "Failed to execute command. Please try again."
+msgstr "נכשל בביצוע הפקודה. אנא נסה שוב."
+
+#, python-format
+msgid "No emails found for %(what)s."
+msgstr "לא נמצאו מיילים עבור %(what)s."
+
+#, python-format
+msgid "No emails found with subject: '%(subject)s'."
+msgstr "לא נמצאו מיילים עם נושא: '%(subject)s'."
+
+#, python-format
+msgid "Found %(count)d emails with subject '%(subject)s'."
+msgstr "נמצאו %(count)d מיילים עם הנושא '%(subject)s'."
+
+msgid "Command failed to execute. Please try again."
+msgstr "הפקודה נכשלה בביצוע. אנא נסה שוב."
+
+msgid "An unexpected error occurred. Please try again."
+msgstr "אירעה שגיאה בלתי צפויה. אנא נסה שוב."
+
+#, python-format
+msgid ""
+"Found %(count)d emails from %(sender)s%(age)s. Do you want to archive them?"
+msgstr "נמצאו %(count)d מיילים מ-%(sender)s%(age)s. לארכב אותם?"
+
+#, python-format
+msgid "Archived %(count)d emails from %(sender)s%(age)s."
+msgstr "נארכבו %(count)d מיילים מ-%(sender)s%(age)s."
+
+#, python-format
+msgid "No emails found from %(domain)s%(age)s."
+msgstr "לא נמצאו מיילים מ-%(domain)s%(age)s."
+
+#, python-format
+msgid ""
+"Found %(count)d emails from %(domain)s%(age)s. Do you want to archive them?"
+msgstr "נמצאו %(count)d מיילים מ-%(domain)s%(age)s. לארכב אותם?"
+
+#, python-format
+msgid "Archived %(count)d emails from %(domain)s."
+msgstr "נארכבו %(count)d מיילים מ-%(domain)s."
+
+#, python-format
+msgid ""
+"Found %(count)d emails from %(sender)s from %(time)s. Do you want to archive "
+"them?"
+msgstr "נמצאו %(count)d מיילים מ-%(sender)s מ-%(time)s. לארכב אותם?"
+
+#, python-format
+msgid "Archived %(count)d emails from %(sender)s from %(time)s."
+msgstr "נארכבו %(count)d מיילים מ-%(sender)s מ-%(time)s."
+
+#, fuzzy, python-format
+#| msgid "No emails found from %(sender)s to restore."
+msgid "No emails found from %(sender)s %(period)s to delete."
+msgstr "לא נמצאו מיילים מ-%(sender)s לשחזור."
+
+#, fuzzy, python-format
+#| msgid ""
+#| "Found %(count)d emails from %(sender)s%(age)s. Do you want to move them "
+#| "to Trash?"
+msgid "Found %(count)d emails from %(sender)s %(period)s. Move to Trash?"
+msgstr "נמצאו %(count)d מיילים מ-%(sender)s%(age)s. להעבירם לאשפה?"
+
+#, fuzzy, python-format
+#| msgid "Trashed %(count)d emails from %(sender)s."
+msgid "Trashed %(count)d emails from %(sender)s %(period)s"
+msgstr "הועברו לאשפה %(count)d מיילים מ-%(sender)s."
+
+#, fuzzy, python-format
+#| msgid "No emails found from %(sender)s from %(time)s."
+msgid "Error deleting emails from %(sender)s %(period)s: %(error)s"
+msgstr "לא נמצאו מיילים מ-%(sender)s מ-%(time)s."
+
+#, python-format
+msgid "No emails found from %(sender)s from %(duration)s to archive."
+msgstr "לא נמצאו מיילים מ-%(sender)s מלפני %(duration)s לארכיון."
+
+#, python-format
+msgid ""
+"Found %(count)d emails from %(sender)s from %(duration)s. Do you want to "
+"archive them?"
+msgstr "נמצאו %(count)d מיילים מ-%(sender)s מלפני %(duration)s. לארכב אותם?"
+
+#, python-format
+msgid "Archived %(count)d emails from %(sender)s from %(duration)s."
+msgstr "נארכבו %(count)d מיילים מ-%(sender)s מלפני %(duration)s."
+
+#, fuzzy, python-format
+#| msgid "No emails found from %(sender)s to restore."
+msgid "No emails found from %(period)s to delete."
+msgstr "לא נמצאו מיילים מ-%(sender)s לשחזור."
+
+#, fuzzy, python-format
+#| msgid ""
+#| "Found %(count)d emails from %(sender)s%(age)s. Do you want to move them "
+#| "to Trash?"
+msgid ""
+"Found %(count)d emails from %(period)s. Do you want to move them to Trash?"
+msgstr "נמצאו %(count)d מיילים מ-%(sender)s%(age)s. להעבירם לאשפה?"
+
+#, fuzzy, python-format
+#| msgid "Trashed %(count)d emails from %(sender)s."
+msgid "Trashed %(count)d emails from %(period)s"
+msgstr "הועברו לאשפה %(count)d מיילים מ-%(sender)s."
+
+#, python-format
+msgid "Error deleting emails from %(period)s: %(error)s"
+msgstr ""
+
+#, python-format
+msgid "No emails found from %(time)s to archive."
+msgstr "לא נמצאו מיילים מ-%(time)s לארכוב."
+
+#, python-format
+msgid "Found %(count)d emails from %(time)s. Do you want to archive them?"
+msgstr "נמצאו %(count)d מיילים מ-%(time)s. לארכב אותם?"
+
+#, python-format
+msgid "Archived %(count)d emails from %(time)s."
+msgstr "נארכבו %(count)d מיילים מ-%(time)s."
+
+#, python-format
+msgid "No emails found from %(duration)s to archive."
+msgstr "לא נמצאו מיילים מ-%(duration)s לארכוב."
+
+#, python-format
+msgid "Found %(count)d emails from %(duration)s. Do you want to archive them?"
+msgstr "נמצאו %(count)d מיילים מ-%(duration)s. לארכב אותם?"
+
+#, python-format
+msgid "Archived %(count)d emails from %(duration)s."
+msgstr "נארכבו %(count)d מיילים מ-%(duration)s."
+
+msgid "Failed to list archived emails. Please try again."
+msgstr "נכשל ברשימת מיילים מארכיון. אנא נסה שוב."
+
+msgid "Failed to retrieve archived emails. Please try again."
+msgstr "נכשל בטעינת מיילים מארכיון. אנא נסה שוב."
+
+#, fuzzy, python-format
+#| msgid "Found %(count)d emails in %(what)s."
+msgid "Found %(count)d archived emails."
+msgstr "נמצאו %(count)d מיילים ב-%(what)s."
+
+#, fuzzy, python-format
+#| msgid "Found %(count)d emails in %(what)s."
+msgid "Found %(count)d emails in All Mail."
+msgstr "נמצאו %(count)d מיילים ב-%(what)s."
+
+#, python-format
+msgid "No emails found with keywords: %(keywords)s."
+msgstr "לא נמצאו מיילים עם מילות מפתח: %(keywords)s."
+
+#, python-format
+msgid ""
+"Found %(count)d emails with keywords %(keywords)s. Do you want to label them "
+"as '%(label)s'?"
+msgstr ""
+"נמצאו %(count)d מיילים עם מילות מפתח %(keywords)s. האם ברצונך לתייג אותם "
+"כ-'%(label)s'?"
+
+#, python-format
+msgid "Labeled %(count)d emails with keywords %(keywords)s as '%(label)s'."
+msgstr "תויגו %(count)d מיילים עם מילות מפתח %(keywords)s כ-'%(label)s'."
+
+msgid "Failed to label emails. Please try again."
+msgstr "נכשל בתיוג מיילים. אנא נסה שוב."
+
+#, python-format
+msgid ""
+"Found %(count)d emails from %(sender)s. Do you want to label them as "
+"'%(label)s'?"
+msgstr ""
+"נמצאו %(count)d מיילים מ-%(sender)s. האם ברצונך לתייג אותם כ-'%(label)s'?"
+
+#, python-format
+msgid "Labeled %(count)d emails from %(sender)s as '%(label)s'."
+msgstr "תויגו %(count)d מיילים מ-%(sender)s כ-'%(label)s'."
+
+#, python-format
+msgid "Found %(count)d archived emails from %(sender)s. Restore to Inbox?"
+msgstr "נמצאו %(count)d מיילים בארכיון מ-%(sender)s. לשחזר לתיבת הנכנס?"
+
+#, python-format
+msgid "Restored %(count)d emails from %(sender)s to Inbox."
+msgstr "שוחזרו %(count)d מיילים מ-%(sender)s לתיבת הנכנס."
+
+msgid "Failed to restore emails. Please try again."
+msgstr "נכשל בשחזור מיילים. אנא נסה שוב."
+
+#, python-format
+msgid ""
+"Found %(count)d emails from domain %(domain)s. Do you want to label them as "
+"'%(label)s'?"
+msgstr ""
+"נמצאו %(count)d מיילים מהדומיין %(domain)s. האם ברצונך לתייג אותם "
+"כ-'%(label)s'?"
+
+#, python-format
+msgid "Labeled %(count)d emails from domain %(domain)s as '%(label)s'."
+msgstr "תויגו %(count)d מיילים מהדומיין %(domain)s כ-'%(label)s'."
+
+#, python-format
+msgid "Label '%(label)s' does not exist."
+msgstr ""
+
+#, python-format
+msgid "Deleted label '%(label)s'."
+msgstr ""
+
+#, python-format
+msgid "Cannot delete system label '%(label)s'."
+msgstr ""
+
+#, python-format
+msgid "Error deleting label '%(label)s': %(error)s"
+msgstr ""
+
+#, fuzzy, python-format
+#| msgid "No emails found with subject: '%(subject)s'."
+msgid "No emails found with label: '%(label)s'."
+msgstr "לא נמצאו מיילים עם נושא: '%(subject)s'."
+
+#, fuzzy, python-format
+#| msgid "Found %(count)d emails with subject '%(subject)s'."
+msgid "Found %(count)d emails with label: '%(label)s'."
+msgstr "נמצאו %(count)d מיילים עם הנושא '%(subject)s'."
+
+msgid "Nothing to undo (expired or invalid)."
+msgstr "אין מה לבטל (פג תוקף או לא תקין)."
+
+#, python-format
+msgid "Undo complete. Restored %(count)d emails to Inbox."
+msgstr "הביטול הושלם. שוחזרו %(count)d מיילים לתיבת הנכנס."
+
+#, python-format
+msgid "Undo complete. Untrashed %(count)d emails."
+msgstr "הביטול הושלם. הוחזרו מהאשפה %(count)d מיילים."
+
 # Undo archived after restore
+#, python-format
 msgid "Undo complete. Archived %(count)d emails."
 msgstr "הביטול הושלם. הועברו לארכיון %(count)d מיילים."
+
+msgid "Cannot undo labels (missing label id)."
+msgstr "לא ניתן לבטל תוויות (חסר מזהה תווית)."
+
+#, python-format
+msgid "Removed label from %(count)d emails."
+msgstr "הוסרה תווית מ-%(count)d מיילים."
+
+#, fuzzy
+#| msgid "Cannot undo labels (missing label id)."
+msgid "Cannot undo: missing label name."
+msgstr "לא ניתן לבטל תוויות (חסר מזהה תווית)."
+
+#, fuzzy, python-format
+#| msgid "Failed to send email: %(err)s"
+msgid "Failed to recreate label '%(label)s'."
+msgstr "שליחת ההודעה נכשלה: %(err)s"
+
+#, fuzzy, python-format
+#| msgid "Removed label from %(count)d emails."
+msgid "Restored label '%(label)s' and re-applied to %(count)d emails."
+msgstr "הוסרה תווית מ-%(count)d מיילים."
+
+msgid "Undo not supported for this action."
+msgstr "לא נתמך ביטול עבור פעולה זו."
+
+#, python-format
+msgid "Undo failed: %(err)s"
+msgstr "הביטול נכשל: %(err)s"
+
+#, fuzzy, python-format
+#| msgid "Archived %(count)d emails from %(what)s."
+msgid "Archived %(count)d emails"
+msgstr "נארכבו %(count)d מיילים מ-%(what)s."
+
+# Undo archived after restore
+#, fuzzy, python-format
+#| msgid "Undo complete. Archived %(count)d emails."
+msgid "Deleted %(count)d emails"
+msgstr "הביטול הושלם. הועברו לארכיון %(count)d מיילים."
+
+#, fuzzy, python-format
+#| msgid "Undo complete. Restored %(count)d emails to Inbox."
+msgid "Restored %(count)d emails to Inbox"
+msgstr "הביטול הושלם. שוחזרו %(count)d מיילים לתיבת הנכנס."
+
+#, fuzzy, python-format
+#| msgid "Removed label from %(count)d emails."
+msgid "Added label to %(count)d emails"
+msgstr "הוסרה תווית מ-%(count)d מיילים."
+
+#, python-format
+msgid "Deleted label '%(label)s'"
+msgstr ""
+
+#, fuzzy
+#| msgid "list labels"
+msgid "Deleted a label"
+msgstr "רשום תוויות"
+
+msgid "View details"
+msgstr "הצגת פרטים"
+
+msgid "Loading…"
+msgstr "טוען…"
+
+msgid "No more results"
+msgstr "אין עוד תוצאות"
+
+msgid "Load more"
+msgstr "טען עוד"
+
+msgid "Analyzing..."
+msgstr "מנתח…"
+
+msgid "Undoing..."
+msgstr "מבטל..."
+
+#, python-brace-format
+msgid "Loaded {count} more"
+msgstr "נטענו עוד {count}"
+
+msgid "Failed to load more"
+msgstr "טעינת פריטים נוספים נכשלה"
+
+msgid "Clear all favorites?"
+msgstr "לנקות את כל המועדפים?"
+
+msgid "Processing…"
+msgstr "מעבד…"
+
+msgid "Close"
+msgstr ""
+
+#, fuzzy
+#| msgid "Sending email..."
+msgid "Open in Gmail"
+msgstr "שולח מייל..."
+
+# Settings modal UI
+msgid "Settings"
+msgstr "הגדרות"
+
+msgid "Theme"
+msgstr "ערכת עיצוב"
+
+msgid "Toggle theme"
+msgstr "החלף ערכת עיצוב"
+
+msgid "Language"
+msgstr "שפה"
+
+msgid "Changing language reloads the page."
+msgstr "שינוי השפה יטען את הדף מחדש."
+
+msgid "Account"
+msgstr "חשבון"
+
+msgid "Coming soon"
+msgstr "בקרוב"
+
+msgid "Sign in with Google"
+msgstr "התחבר באמצעות Google"
+
+msgid "Sign out"
+msgstr "התנתק"
+
+msgid "Email AI Agent"
+msgstr "סוכן דוא\"ל חכם"
+
+msgid "Connection Error:"
+msgstr "שגיאת חיבור:"
+
+msgid "e.g., list recent emails"
+msgstr "לדוגמה: רשום מיילים אחרונים"
+
+msgid "Process"
+msgstr "בצע"
+
+msgid "Compose Email"
+msgstr "כתיבת הודעה"
+
+msgid "To"
+msgstr "אל"
+
+msgid "Subject"
+msgstr "נושא"
+
+msgid "Subject (optional)"
+msgstr "נושא (לא חובה)"
+
+msgid "Message"
+msgstr "הודעה"
+
+msgid "Write your message..."
+msgstr "כתבו את ההודעה..."
+
+msgid "Send"
+msgstr "שלח"
+
+msgid "Results per page:"
+msgstr "תוצאות בכל עמוד:"
+
+msgid "Quick Commands"
+msgstr "פקודות מהירות"
+
+msgid "Save custom command"
+msgstr "שמור פקודה מותאמת אישית"
+
+msgid "Add Favorite"
+msgstr "הוסף למועדפים"
+
+msgid "Clear all"
+msgstr "נקה הכול"
+
+msgid "Remove"
+msgstr "הסר"
+
+msgid "No favorites yet. Add one above."
+msgstr "אין מועדפים עדיין. הוסף אחד למעלה."
+
+msgid "Confirmation Required:"
+msgstr "נדרש אישור:"
+
+msgid "Preview (first 10)"
+msgstr "תצוגה מקדימה (10 ראשונים)"
+
+msgid "Estimated total affected:"
+msgstr "הערכה של סך הפריטים שיושפעו:"
+
+msgid "Confirm"
+msgstr "אישור"
+
+msgid "Cancel"
+msgstr "ביטול"
+
+msgid "Your Labels"
+msgstr "התוויות שלך"
+
+msgid "Email Statistics"
+msgstr "סטטיסטיקות דוא\"ל"
+
+msgid "Full analysis"
+msgstr "ניתוח מלא"
+
+msgid "Total Inbox Emails:"
+msgstr "סך ההודעות בתיבת הדואר הנכנס:"
+
+msgid "Sample Analyzed:"
+msgstr "מדגם שנותח:"
+
+msgid "full"
+msgstr "מלא"
+
+msgid "sample"
+msgstr "מדגם"
+
+msgid "What is \"sample analyzed\"?"
+msgstr "מה זה \"מדגם שנותח\"?"
+
+msgid ""
+"Number of recent emails examined to compute stats quickly. Choose \"Full "
+"analysis\" to analyze all emails."
+msgstr ""
+"מספר ההודעות האחרונות שנבדקו כדי לחשב סטטיסטיקות במהירות. בחר \"ניתוח מלא\" "
+"כדי לנתח את כל ההודעות."
+
+msgid "Analysis Note:"
+msgstr "הערת ניתוח:"
+
+msgid "Top Senders"
+msgstr "שולחים מובילים"
+
+msgid "Top Domains"
+msgstr "דומיינים מובילים"
+
+msgid "Top Subject Terms"
+msgstr "מונחי נושא מובילים"
+
+msgid "Emails by Hour"
+msgstr "הודעות לפי שעה"
+
+msgid "What is this?"
+msgstr "מה זה?"
+
+msgid ""
+"Count of analyzed emails by the hour of day they were received (local time)."
+msgstr "כמות ההודעות שנותחו לפי השעה ביום שבה התקבלו (זמן מקומי)."
+
+msgid "Label Distribution"
+msgstr "התפלגות תוויות"
+
+msgid "What does this show?"
+msgstr "מה זה מציג?"
+
+msgid ""
+"Friendly label names (e.g., Inbox, Promotions) and how many analyzed emails "
+"had each label."
+msgstr ""
+"שמות תוויות ידידותיים (למשל, דואר נכנס, קידומים) וכמה הודעות שנותחו היו עם "
+"כל תווית."
+
+msgid "Insights"
+msgstr "תובנות"
+
+msgid "Enter a command to get started."
+msgstr "הזן פקודה כדי להתחיל."
+
+msgid "Example Commands"
+msgstr "פקודות לדוגמה"
+
+msgid "Show All Commands"
+msgstr "הצג את כל הפקודות"
+
+msgid "Hide All Commands"
+msgstr "הסתר את כל הפקודות"
+
+msgid "list recent emails"
+msgstr "רשום מיילים אחרונים"
+
+msgid "Shows the 10 most recent emails."
+msgstr "מציג את 10 ההודעות האחרונות."
+
+msgid "list archived emails"
+msgstr "רשום מיילים בארכיון"
+
+msgid "Emails not in Inbox."
+msgstr "הודעות שאינן בתיבת הדואר הנכנס."
+
+msgid "list archived emails from [sender]"
+msgstr "רשום מיילים מארכיון מ[שולח]"
+
+msgid "Emails in All Mail from a specific sender (excluding Inbox)."
+msgstr "מיילים בתיבת כל הדואר (All Mail) משולח מסוים, בלי תיבת הנכנס."
+
+msgid "list all mail"
+msgstr "רשום את כל הדואר"
+
+msgid "Everything in All Mail (excludes Spam/Trash)."
+msgstr "הכול ב'כל הדואר' (ללא ספאם/אשפה)."
+
+msgid "list emails from [sender/domain]"
+msgstr "רשום מיילים מ-[שולח/דומיין]"
+
+msgid "e.g., 'list emails from [domain]'"
+msgstr "לדוגמה: 'רשום מיילים מ-[דומיין]'"
+
+msgid "list emails from [timeframe]"
+msgstr "רשום מיילים מ-[מסגרת זמן]"
+
+msgid "e.g., 'last week', 'yesterday', '2 days ago'"
+msgstr "למשל: 'שבוע שעבר', 'אתמול', 'לפני 2 ימים'"
+
+msgid "list emails before [duration]"
+msgstr "רשום מיילים לפני [משך]"
+
+msgid "e.g., '6 months', '2 weeks'"
+msgstr "למשל: '6 חודשים', 'שבועיים'"
+
+msgid "list emails from [duration] ago"
+msgstr "רשום מיילים מלפני [משך]"
+
+msgid "e.g., '4 months ago'"
+msgstr "למשל: 'לפני 4 חודשים'"
+
+msgid "list emails older than [duration]"
+msgstr "רשום מיילים ישנים מ-[משך]"
+
+msgid "e.g., '6 months', '1 year'"
+msgstr "למשל: '6 חודשים', 'שנה אחת'"
+
+msgid "list emails from [sender] from [timeframe]"
+msgstr "רשום מיילים מ-[שולח] מ-[תקופת זמן]"
+
+msgid ""
+"e.g., 'list emails from google from today', 'list emails from amazon from "
+"last month', 'list emails from google from 2 weeks ago'"
+msgstr ""
+"למשל, 'רשום מיילים מ-google מהיום', 'רשום מיילים מ-amazon מהחודש שעבר', "
+"'רשום מיילים מ-google מ-2 שבועות שעברו'"
+
+msgid "list emails from [sender] older than [duration]"
+msgstr "רשום מיילים מ-[שולח] ישנים מ-[משך]"
+
+msgid "e.g., 'list emails from google older than 3 months'"
+msgstr "למשל, 'רשום מיילים מ-google ישנים מ-3 חודשים'"
+
 msgid "list [category] emails"
 msgstr "רשום מיילי [קטגוריה]"
 
@@ -22,44 +1015,16 @@ msgstr "רשימת מיילי קטגוריה מתקופת זמן מסוימת ש
 msgid "list [category] emails from [timeframe]"
 msgstr "רשום מיילי [קטגוריה] מ-[תקופה]"
 
-msgid "Lists category emails by fixed time (today, yesterday, last week, etc.)."
+msgid ""
+"Lists category emails by fixed time (today, yesterday, last week, etc.)."
 msgstr "רשימת מיילי קטגוריה לפי זמן קבוע (היום, אתמול, שבוע שעבר וכו')."
 
-msgid "archive [category] emails older than [duration]"
-msgstr "ארכב מיילי [קטגוריה] ישנים מ-[משך]"
+msgid "archive emails older than [duration]"
+msgstr "ארכב מיילים ישנים מ-[משך]"
 
-msgid "Archives category emails by age window."
-msgstr "ארכוב מיילי קטגוריה לפי חלון גיל."
+msgid "Bulk archives old emails."
+msgstr "ארכוב גורף של הודעות ישנות."
 
-msgid "archive [category] emails from [timeframe]"
-msgstr "ארכב מיילי [קטגוריה] מ-[תקופה]"
-
-msgid "Archives category emails by fixed time (today, yesterday, last week, etc.)."
-msgstr "ארכוב מיילי קטגוריה לפי זמן קבוע (היום, אתמול, שבוע שעבר וכו')."
-
-msgid "archive [category] emails from [duration] ago"
-msgstr "ארכב מיילי [קטגוריה] מלפני [משך]"
-
-msgid "Archives category emails from a time period ago."
-msgstr "ארכוב מיילי קטגוריה מתקופת זמן מסוימת שעברה."
-
-msgid "delete [category] emails older than [duration]"
-msgstr "מחק מיילי [קטגוריה] ישנים מ-[משך]"
-
-msgid "Deletes category emails by age window."
-msgstr "מחיקת מיילי קטגוריה לפי חלון גיל."
-
-msgid "delete [category] emails from [timeframe]"
-msgstr "מחק מיילי [קטגוריה] מ-[תקופה]"
-
-msgid "Deletes category emails by fixed time (today, yesterday, last week, etc.)."
-msgstr "מחיקת מיילי קטגוריה לפי זמן קבוע (היום, אתמול, שבוע שעבר וכו')."
-
-msgid "delete [category] emails from [duration] ago"
-msgstr "מחק מיילי [קטגוריה] מלפני [משך]"
-
-msgid "Deletes category emails from a time period ago."
-msgstr "מחיקת מיילי קטגוריה מתקופת זמן מסוימת שעברה."
 # New All-Commands (Archive) UI strings
 msgid "archive emails from [timeframe]"
 msgstr "ארכב מיילים מ-[תקופה]"
@@ -73,47 +1038,51 @@ msgstr "ארכב מיילים מלפני [משך]"
 msgid "Archives emails from a specific time period ago."
 msgstr "מארכב מיילים מתקופת זמן מסוימת שעברה."
 
+msgid "archive emails from [sender] older than [duration]"
+msgstr "ארכב מיילים מ-[שולח] ישנים מ-[משך]"
+
+msgid "Archives messages from a sender with an age filter."
+msgstr "מארכב הודעות משולח עם סינון לפי גיל."
+
+msgid "archive emails from [sender] from [time period]"
+msgstr "ארכב מיילים מ-[שולח] מ-[תקופת זמן]"
+
+msgid ""
+"Archives messages from a sender from specific time (today, yesterday, last "
+"week, etc.)."
+msgstr "מארכב הודעות משולח מתקופת זמן מסוימת (היום, אתמול, שבוע שעבר וכו')"
+
 msgid "archive emails from [sender] from [duration] ago"
 msgstr "ארכב מיילים מ-[שולח] מלפני [משך]"
 
 msgid "Archives messages from a sender from a time period ago."
 msgstr "מארכב הודעות משולח מתקופת זמן מסוימת שעברה."
 
-msgid "archive verification codes from [timeframe]"
-msgstr "ארכב קודי אימות מ-[תקופה]"
+msgid "archive [category] emails older than [duration]"
+msgstr "ארכב מיילי [קטגוריה] ישנים מ-[משך]"
 
-msgid "Archives codes by fixed time (today, yesterday, last week, etc.)."
-msgstr "מארכב קודים לפי זמן קבוע (היום, אתמול, שבוע שעבר וכו')."
+msgid "Archives category emails by age window."
+msgstr "ארכוב מיילי קטגוריה לפי חלון גיל."
 
-msgid "archive verification codes from [duration] ago"
-msgstr "ארכב קודי אימות מלפני [משך]"
+msgid "archive [category] emails from [timeframe]"
+msgstr "ארכב מיילי [קטגוריה] מ-[תקופה]"
 
-msgid "Archives codes from a time period ago."
-msgstr "מארכב קודים מתקופת זמן מסוימת שעברה."
+msgid ""
+"Archives category emails by fixed time (today, yesterday, last week, etc.)."
+msgstr "ארכוב מיילי קטגוריה לפי זמן קבוע (היום, אתמול, שבוע שעבר וכו')."
 
-msgid "archive shipping emails from [timeframe]"
-msgstr "ארכב מיילי משלוח מ-[תקופה]"
+msgid "archive [category] emails from [duration] ago"
+msgstr "ארכב מיילי [קטגוריה] מלפני [משך]"
 
-msgid "Archives shipping updates by fixed time (today, yesterday, last week, etc.)."
-msgstr "מארכב עדכוני משלוח לפי זמן קבוע (היום, אתמול, שבוע שעבר וכו')."
+msgid "Archives category emails from a time period ago."
+msgstr "ארכוב מיילי קטגוריה מתקופת זמן מסוימת שעברה."
 
-msgid "archive shipping emails from [duration] ago"
-msgstr "ארכב מיילי משלוח מלפני [משך]"
+msgid "delete emails from [sender/domain]"
+msgstr "מחק מיילים מ-[שולח/דומיין]"
 
-msgid "Archives shipping updates from a time period ago."
-msgstr "מארכב עדכוני משלוח מתקופת זמן מסוימת שעברה."
+msgid "Moves emails to Trash."
+msgstr "מעביר את ההודעות לאשפה."
 
-msgid "archive account security emails from [timeframe]"
-msgstr "ארכב מיילי אבטחת חשבון מ-[תקופה]"
-
-msgid "Archives security alerts by fixed time (today, yesterday, last week, etc.)."
-msgstr "מארכב התראות אבטחה לפי זמן קבוע (היום, אתמול, שבוע שעבר וכו')."
-
-msgid "archive account security emails from [duration] ago"
-msgstr "ארכב מיילי אבטחת חשבון מלפני [משך]"
-
-msgid "Archives security alerts from a time period ago."
-msgstr "מארכב התראות אבטחה מתקופת זמן מסוימת שעברה."
 # New All-Commands (Delete) UI strings
 msgid "delete emails older than [duration]"
 msgstr "מחק מיילים ישנים מ-[משך]"
@@ -133,13 +1102,18 @@ msgstr "מחק מיילים מלפני [משך]"
 msgid "Deletes emails from a specific time period ago."
 msgstr "מוחק מיילים מתקופת זמן מסוימת שעברה."
 
+msgid "delete emails from [sender] older than [duration]"
+msgstr "מחק מיילים מ-[שולח] ישנים מ-[משך]"
+
 msgid "Deletes messages from a sender with an age filter."
 msgstr "מוחק הודעות משולח עם מסנן גיל."
 
 msgid "delete emails from [sender] from [timeframe]"
 msgstr "מחק מיילים מ-[שולח] מ-[תקופה]"
 
-msgid "Deletes messages from a sender from a specific time (today, yesterday, last week, etc.)."
+msgid ""
+"Deletes messages from a sender from a specific time (today, yesterday, last "
+"week, etc.)."
 msgstr "מוחק הודעות משולח ממועד מסוים (היום, אתמול, שבוע שעבר וכו')."
 
 msgid "delete emails from [sender] from [duration] ago"
@@ -148,1246 +1122,92 @@ msgstr "מחק מיילים מ-[שולח] מלפני [משך]"
 msgid "Deletes messages from a sender from a time period ago."
 msgstr "מוחק הודעות משולח מתקופת זמן מסוימת שעברה."
 
-msgid "delete verification codes from [timeframe]"
-msgstr "מחק קודי אימות מ-[תקופה]"
-
-msgid "Deletes codes by fixed time (today, yesterday, last week, etc.)."
-msgstr "מוחק קודים לפי זמן קבוע (היום, אתמול, שבוע שעבר וכו')."
-
-msgid "delete verification codes from [duration] ago"
-msgstr "מחק קודי אימות מלפני [משך]"
-
-msgid "Deletes codes from a time period ago."
-msgstr "מוחק קודים מתקופת זמן מסוימת שעברה."
-
-msgid "delete shipping emails from [timeframe]"
-msgstr "מחק מיילי משלוח מ-[תקופה]"
-
-msgid "Deletes shipping updates by fixed time (today, yesterday, last week, etc.)."
-msgstr "מוחק עדכוני משלוח לפי זמן קבוע (היום, אתמול, שבוע שעבר וכו')."
-
-msgid "delete shipping emails from [duration] ago"
-msgstr "מחק מיילי משלוח מלפני [משך]"
-
-msgid "Deletes shipping updates from a time period ago."
-msgstr "מוחק עדכוני משלוח מתקופת זמן מסוימת שעברה."
-
-msgid "delete account security emails from [timeframe]"
-msgstr "מחק מיילי אבטחת חשבון מ-[תקופה]"
-
-msgid "Deletes security alerts by fixed time (today, yesterday, last week, etc.)."
-msgstr "מוחק התראות אבטחה לפי זמן קבוע (היום, אתמול, שבוע שעבר וכו')."
-
-msgid "delete account security emails from [duration] ago"
-msgstr "מחק מיילי אבטחת חשבון מלפני [משך]"
-
-msgid "Deletes security alerts from a time period ago."
-msgstr "מוחק התראות אבטחה מתקופת זמן מסוימת שעברה."
-# Custom category timeframe autocomplete entries
-msgid "list shipping emails from [timeframe]"
-msgstr "רשום מיילי משלוח מ-[תקופה]"
-
-msgid "list shipping emails from [duration] ago"
-msgstr "רשום מיילי משלוח מלפני [משך]"
-
-msgid "list account security emails from [timeframe]"
-msgstr "רשום מיילי אבטחת חשבון מ-[תקופה]"
-
-msgid "list account security emails from [duration] ago"
-msgstr "רשום מיילי אבטחת חשבון מלפני [משך]"
-
-msgid "list verification codes from [timeframe]"
-msgstr "רשום קודי אימות מ-[תקופה]"
-
-msgid "list verification codes from [duration] ago"
-msgstr "רשום קודי אימות מלפני [משך]"
-#: .\agent\views.py
-msgid "list emails from this week"
-msgstr "רשום מיילים מהשבוע"
-
-#: .\agent\views.py
-msgid "list emails from this month"
-msgstr "רשום מיילים מהחודש"
-
-#: .\agent\views.py
-msgid "list emails from this year"
-msgstr "רשום מיילים מהשנה"
-#: .\agent\templates\agent\index.html
-msgid "Archives messages from a sender from specific time (today, yesterday, last week, etc.)."
-msgstr "מארכב הודעות משולח מתקופת זמן מסוימת (היום, אתמול, שבוע שעבר וכו')"
-# Example Commands (specific brand/value examples)
-#: .\agent\views.py
-msgid "list emails from google"
-msgstr "רשום מיילים מ-google"
-
-#: .\agent\views.py
-msgid "search emails with subject \"sale\""
-msgstr "חפש מיילים עם נושא \"sale\""
-
-#: .\agent\views.py
-msgid "delete emails from netflix"
-msgstr "מחק מיילים מ-netflix"
-
-#: .\agent\views.py
-msgid "archive emails older than 1 year"
-msgstr "ארכב מיילים ישנים משנה"
-
-#: .\agent\views.py
-msgid "archive emails from google older than 90 days"
-msgstr "ארכב מיילים מ-google ישנים מ-90 ימים"
-
-#: .\agent\views.py
-msgid "archive emails from youtube from last month"
-msgstr "ארכב מיילים מ-youtube מהחודש שעבר"
-
-#: .\agent\views.py
-msgid "label emails from amazon as \"shopping\""
-msgstr "תייג מיילים מ-amazon כ-\"קניות\""
-
-#: .\agent\views.py
-msgid "show label \"shopping\""
-msgstr "הצג תווית \"קניות\""
-
-#: .\agent\views.py
-msgid "restore emails from netflix"
-msgstr "שחזר מיילים מ-netflix"
-
-#: .\agent\views.py
-msgid "list emails from [sender] from [timeframe]"
-msgstr "רשום מיילים מ-[שולח] מ-[תקופת זמן]"
-
-#: .\agent\views.py
-msgid "list emails from [sender] from today"
-msgstr "רשום מיילים מ-[שולח] מהיום"
-
-#: .\agent\views.py
-msgid "list emails from [sender] from yesterday"
-msgstr "רשום מיילים מ-[שולח] מאתמול"
-
-#: .\agent\views.py
-msgid "list emails from [sender] from this week"
-msgstr "רשום מיילים מ-[שולח] מהשבוע"
-
-#: .\agent\views.py
-msgid "list emails from [sender] from this month"
-msgstr "רשום מיילים מ-[שולח] מהחודש"
-
-#: .\agent\views.py
-msgid "list emails from [sender] from this year"
-msgstr "רשום מיילים מ-[שולח] מהשנה"
-
-#: .\agent\views.py
-msgid "list emails from [sender] from last week"
-msgstr "רשום מיילים מ-[שולח] מהשבוע שעבר"
-
-#: .\agent\views.py
-msgid "list emails from [sender] from last month"
-msgstr "רשום מיילים מ-[שולח] מהחודש שעבר"
-
-#: .\agent\views.py
-msgid "list emails from [sender] from last year"
-msgstr "רשום מיילים מ-[שולח] מהשנה שעברה"
-
-#: .\agent\views.py
-msgid "list emails from [sender] from [duration] ago"
-msgstr "רשום מיילים מ-[שולח] מ-[משך זמן] שעבר"
-
-#: .\agent\templates\agent\index.html
-msgid "e.g., 'list emails from google from today', 'list emails from amazon from last month', 'list emails from google from 2 weeks ago'"
-msgstr "למשל, 'רשום מיילים מ-google מהיום', 'רשום מיילים מ-amazon מהחודש שעבר', 'רשום מיילים מ-google מ-2 שבועות שעברו'"
-
-#: .\agent\templates\agent\index.html
-msgid "e.g., 'list emails from google older than 3 months'"
-msgstr "למשל, 'רשום מיילים מ-google ישנים מ-3 חודשים'"
 # Missing Hebrew for unquoted/short variants used in template
-#: .\agent\templates\agent\index.html
 msgid "delete promotions older than [duration]"
 msgstr "מחק קידומי מכירות ישנים מ-[משך]"
 
-#: .\agent\templates\agent\index.html
-msgid "label emails from [sender] as [label]"
-msgstr "תייג מיילים מ-[שולח] כתווית [תווית]"
-
-#: .\agent\templates\agent\index.html
-msgid "search emails with subject [keyword]"
-msgstr "חפש מיילים עם נושא [מילת מפתח]"
-#: .\agent\templates\agent\index.html
-msgid "archive emails from [sender] older than [duration]"
-msgstr "ארכב מיילים מ-[שולח] ישנים מ-[משך]"
-# (moved specific example command translations further down to avoid header duplication)
-# SOME DESCRIPTIVE TITLE.
-# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
-# This file is distributed under the same license as the PACKAGE package.
-# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-#
-#
-msgid ""
-msgstr ""
-"Project-Id-Version: PACKAGE VERSION\n"
-"Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-08-24 21:01+0300\n"
-"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
-"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
-"Language-Team: LANGUAGE <LL@li.org>\n"
-"Language: he\n"
-"MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=UTF-8\n"
-"Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=4; plural=(n == 1 && n % 1 == 0) ? 0 : (n == 2 && n % "
-"1 == 0) ? 1: (n % 10 == 0 && n % 1 == 0 && n > 10) ? 2 : 3;\n"
-
-#: .\agent\email_ai_agent.py:267
-#, python-format
-msgid "No emails found older than %(days)d days"
-msgstr "לא נמצאו מיילים ישנים מ-%(days)d ימים"
-
-#: .\agent\email_ai_agent.py:272
-#, python-format
-msgid ""
-"Found %(count)d emails older than %(days)d days. Do you want to move them to "
-"Trash?"
-msgstr "נמצאו %(count)d מיילים ישנים מ-%(days)d ימים. להעבירם לאשפה?"
-
-#: .\agent\email_ai_agent.py:306
-#, python-format
-msgid "Trashed %(count)d emails older than %(days)d days"
-msgstr "הועברו לאשפה %(count)d מיילים ישנים מ-%(days)d ימים"
-
-#: .\agent\email_ai_agent.py:339
-#, python-format
-msgid "No emails found older than %(days)d days to archive."
-msgstr "לא נמצאו מיילים ישנים מ-%(days)d ימים לארכוב."
-
-#: .\agent\email_ai_agent.py:344
-#, python-format
-msgid ""
-"Found %(count)d emails older than %(days)d days. Do you want to archive them?"
-msgstr "נמצאו %(count)d מיילים ישנים מ-%(days)d ימים. לארכב אותם?"
-
-#: .\agent\email_ai_agent.py:380
-#, python-format
-msgid "Archived %(count)d emails older than %(days)d days."
-msgstr "נארכבו %(count)d מיילים ישנים מ-%(days)d ימים."
-
-#: .\agent\email_ai_agent.py:428
-msgid "No emails found for analysis"
-msgstr "לא נמצאו מיילים לניתוח"
-
-#: .\agent\email_ai_agent.py:493
-msgid "Unknown"
-msgstr "לא ידוע"
-
-#: .\agent\email_ai_agent.py:495 .\agent\email_ai_agent.py:844
-msgid "Inbox"
-msgstr "דואר נכנס"
-
-#: .\agent\email_ai_agent.py:495 .\agent\email_ai_agent.py:845
-msgid "Sent"
-msgstr "נשלחו"
-
-#: .\agent\email_ai_agent.py:495 .\agent\email_ai_agent.py:846
-msgid "Starred"
-msgstr "מסומנים בכוכב"
-
-#: .\agent\email_ai_agent.py:495 .\agent\email_ai_agent.py:847
-msgid "Important"
-msgstr "חשובים"
-
-#: .\agent\email_ai_agent.py:495 .\agent\email_ai_agent.py:848
-msgid "Drafts"
-msgstr "טיוטות"
-
-#: .\agent\email_ai_agent.py:495 .\agent\email_ai_agent.py:849
-msgid "Trash"
-msgstr "אשפה"
-
-#: .\agent\email_ai_agent.py:495 .\agent\email_ai_agent.py:850
-msgid "Spam"
-msgstr "ספאם"
-
-#: .\agent\email_ai_agent.py:495 .\agent\email_ai_agent.py:851
-msgid "Unread"
-msgstr "לא נקראו"
-
-#: .\agent\email_ai_agent.py:496 .\agent\email_ai_agent.py:852
-msgid "Personal"
-msgstr "אישי"
-
-#: .\agent\email_ai_agent.py:496 .\agent\email_ai_agent.py:853
-msgid "Social"
-msgstr "חברתי"
-
-#: .\agent\email_ai_agent.py:496 .\agent\email_ai_agent.py:854
-msgid "Promotions"
-msgstr "קידומי מכירות"
-
-#: .\agent\email_ai_agent.py:496 .\agent\email_ai_agent.py:855
-msgid "Updates"
-msgstr "עדכונים"
-
-#: .\agent\email_ai_agent.py:496 .\agent\email_ai_agent.py:856
-msgid "Forums"
-msgstr "פורומים"
-
-#: .\agent\email_ai_agent.py:512
-#, python-format
-msgid "Most active sender: %(sender)s (%(count)d emails)"
-msgstr "השולח הפעיל ביותר: %(sender)s (%(count)d מיילים)"
-
-#: .\agent\email_ai_agent.py:514
-#, python-format
-msgid "Most active domain: %(domain)s (%(count)d emails)"
-msgstr "הדומיין הפעיל ביותר: %(domain)s (%(count)d מיילים)"
-
-#: .\agent\email_ai_agent.py:518
-#, python-format
-msgid "Top sender accounts for %(pct).1f%% of analyzed emails"
-msgstr "השולח המוביל מהווה %(pct).1f%% מהמיילים שנותחו"
-
-#: .\agent\email_ai_agent.py:622
-msgid "for today"
-msgstr "עבור היום"
-
-#: .\agent\email_ai_agent.py:626
-msgid "for yesterday"
-msgstr "עבור אתמול"
-
-#: .\agent\email_ai_agent.py:631
-msgid "from last week"
-msgstr "משבוע שעבר"
-
-#: .\agent\email_ai_agent.py:638
-msgid "from last month"
-msgstr "מהחודש שעבר"
-
-#: .\agent\email_ai_agent.py:644
-msgid "from last year"
-msgstr "מהשנה שעברה"
-
-#: .\agent\email_ai_agent.py:663
-#, python-format
-msgid "in the 3 months starting around %(date)s"
-msgstr "בשלושת החודשים שמתחילים סביב %(date)s"
-
-#: .\agent\email_ai_agent.py:667
-#, python-format
-msgid "in the month starting around %(date)s"
-msgstr "בחודש שמתחיל סביב %(date)s"
-
-#: .\agent\email_ai_agent.py:671
-#, python-format
-msgid "in the 7 days starting around %(date)s"
-msgstr "בשבעה הימים שמתחילים סביב %(date)s"
-
-#: .\agent\email_ai_agent.py:674
-#, python-format
-msgid "on the day of %(date)s"
-msgstr "ביום %(date)s"
-
-#: .\agent\email_ai_agent.py:704
-#, python-format
-msgid "older than %(days)d days"
-msgstr "ישנים מ-%(days)d ימים"
-
-#: .\agent\email_ai_agent.py:723
-#, python-format
-msgid "No emails found %(description)s."
-msgstr "לא נמצאו מיילים %(description)s."
-
-#: .\agent\email_ai_agent.py:732
-#, python-format
-msgid "Found %(count)d emails %(description)s."
-msgstr "נמצאו %(count)d מיילים %(description)s."
-
-#: .\agent\email_ai_agent.py:827
-msgid "verification codes"
-msgstr "קודי אימות"
-
-#: .\agent\email_ai_agent.py:828
-msgid "shipping emails"
-msgstr "מיילי משלוח"
-
-#: .\agent\email_ai_agent.py:829
-msgid "account security emails"
-msgstr "מיילי אבטחת חשבון"
-
-#: .\agent\email_ai_agent.py:962 .\agent\email_ai_agent.py:1015
-#: .\agent\email_ai_agent.py:1961
-#, python-format
-msgid "No emails found for %(what)s."
-msgstr "לא נמצאו מיילים עבור %(what)s."
-
-#: .\agent\email_ai_agent.py:2006
-#, python-format
-msgid "No emails found for %(what)s%(time)s%(age)s."
-msgstr "לא נמצאו מיילים עבור %(what)s%(time)s%(age)s."
-
-#: .\agent\email_ai_agent.py:2007
-#, python-format
-msgid " from %(range)s"
-msgstr " מ-%(range)s"
-
-#: .\agent\email_ai_agent.py:964 .\agent\email_ai_agent.py:1017
-#: .\agent\email_ai_agent.py:1103 .\agent\email_ai_agent.py:1107
-#: .\agent\email_ai_agent.py:1180 .\agent\email_ai_agent.py:1184
-#: .\agent\email_ai_agent.py:1333 .\agent\email_ai_agent.py:1928
-#: .\agent\email_ai_agent.py:1968 .\agent\email_ai_agent.py:2085
-#: .\agent\email_ai_agent.py:2091 .\agent\email_ai_agent.py:2147
-#: .\agent\email_ai_agent.py:2153
-#, python-format
-msgid " older than %(days)d days"
-msgstr " ישנים מ-%(days)d ימים"
-
-#: .\agent\email_ai_agent.py:967 .\agent\email_ai_agent.py:1337
-#, python-format
-msgid ""
-"Found %(count)d emails in %(what)s%(age)s. Do you want to move them to Trash?"
-msgstr "נמצאו %(count)d מיילים ב-%(what)s%(age)s. להעבירם לאשפה?"
-
-#: .\agent\email_ai_agent.py:2427
-#, python-format
-msgid ""
-"Found %(count)d emails in %(what)s%(time)s%(age)s. Do you want to move them to Trash?"
-msgstr "נמצאו %(count)d מיילים ב-%(what)s%(time)s%(age)s. להעבירם לאשפה?"
-
-#: .\agent\email_ai_agent.py:992 .\agent\email_ai_agent.py:1376
-#, python-format
-msgid "Trashed %(count)d emails from %(what)s."
-msgstr "הועברו לאשפה %(count)d מיילים מ-%(what)s."
-
-#: .\agent\email_ai_agent.py:1020
-#, python-format
-msgid "Found %(count)d emails in %(what)s%(age)s. Do you want to archive them?"
-msgstr "נמצאו %(count)d מיילים ב-%(what)s%(age)s. לארכב אותם?"
-
-#: .\agent\email_ai_agent.py:2020
-#, python-format
-msgid "Found %(count)d emails in %(what)s%(time)s%(age)s. Do you want to archive them?"
-msgstr "נמצאו %(count)d מיילים ב-%(what)s%(time)s%(age)s. לארכב אותם?"
-
-#: .\agent\email_ai_agent.py:1045
-#, python-format
-msgid "Archived %(count)d emails from %(what)s."
-msgstr "נארכבו %(count)d מיילים מ-%(what)s."
-
-#: .\agent\email_ai_agent.py:1104 .\agent\email_ai_agent.py:2086 .\agent\email_ai_agent.py:3632
-#, python-format
-msgid "No emails found from %(sender)s%(age)s."
-msgstr "לא נמצאו מיילים מ-%(sender)s%(age)s."
-
-#: .\agent\email_ai_agent.py:1110
-#, python-format
-msgid ""
-"Found %(count)d emails from %(sender)s%(age)s. Do you want to move them to "
-"Trash?"
-msgstr "נמצאו %(count)d מיילים מ-%(sender)s%(age)s. להעבירם לאשפה?"
-
-#: .\agent\email_ai_agent.py:1148
-#, python-format
-msgid "Trashed %(count)d emails from %(sender)s."
-msgstr "הועברו לאשפה %(count)d מיילים מ-%(sender)s."
-
-#: .\agent\email_ai_agent.py:1181
-#, python-format
-msgid "No emails found from domain: %(domain)s%(age)s."
-msgstr "לא נמצאו מיילים מהדומיין: %(domain)s%(age)s."
-
-#: .\agent\email_ai_agent.py:1187
-#, python-format
-msgid ""
-"Found %(count)d emails from domain %(domain)s%(age)s. Do you want to move "
-"them to Trash?"
-msgstr "נמצאו %(count)d מיילים מהדומיין %(domain)s%(age)s. להעבירם לאשפה?"
-
-#: .\agent\email_ai_agent.py:1225
-#, python-format
-msgid "Trashed %(count)d emails from %(domain)s."
-msgstr "הועברו לאשפה %(count)d מיילים מ-%(domain)s."
-
-#: .\agent\email_ai_agent.py:1330 .\agent\email_ai_agent.py:1926
-#, python-format
-msgid "No emails found in category: %(category)s."
-msgstr "לא נמצאו מיילים בקטגוריה: %(category)s."
-
-#: .\agent\email_ai_agent.py:1873
-msgid "Command not understood."
-msgstr "הפקודה לא הובנה."
-
-msgid "Couldn't understand that. Try phrasing it differently, or check the command list below."
-msgstr "לא הבנתי את הפקודה. נסה לנסח אחרת או לבדוק את רשימת הפקודות למטה."
-
-#: .\agent\email_ai_agent.py:1910
-msgid "No archived emails found."
-msgstr "לא נמצאו מיילים בארכיון."
-
-#: .\agent\email_ai_agent.py:1915
-msgid "No emails found in All Mail."
-msgstr "לא נמצאו מיילים ב\"כל הדואר\"."
-
-#: .\agent\email_ai_agent.py:1919
-msgid "You have no custom labels."
-msgstr "אין לך תוויות מותאמות."
-
-#: .\agent\email_ai_agent.py:1929 .\agent\email_ai_agent.py:1969
-#, python-format
-msgid "Found %(count)d emails%(age)s in %(what)s."
-msgstr "נמצאו %(count)d מיילים%(age)s ב-%(what)s."
-
-#: .\agent\email_ai_agent.py:1929 .\agent\email_ai_agent.py:1969
-#, python-format
-msgid "Found %(count)d emails in %(what)s."
-msgstr "נמצאו %(count)d מיילים ב-%(what)s."
-
-#: .\agent\email_ai_agent.py:1936
-#, python-format
-msgid "No emails found from domain: %(domain)s."
-msgstr "לא נמצאו מיילים מהדומיין: %(domain)s."
-
-#: .\agent\email_ai_agent.py:1943
-#, python-format
-msgid "No emails found from sender: %(sender)s."
-msgstr "לא נמצאו מיילים מהשולח: %(sender)s."
-
-#: .\agent\email_ai_agent.py:1976
-#, python-format
-msgid "No emails found with subject: '%(subject)s'."
-msgstr "לא נמצאו מיילים עם נושא: '%(subject)s'."
-
-msgid "Found %(count)d emails with subject '%(subject)s'."
-msgstr "נמצאו %(count)d מיילים עם הנושא '%(subject)s'."
-
-# Paginated search message with shown/total
-msgid "Found %(total)d emails with subject '%(subject)s'. Showing %(shown)d."
-msgstr "נמצאו %(total)d מיילים עם הנושא '%(subject)s'. מציג %(shown)d."
-
-#: .\agent\email_ai_agent.py:2091 .\agent\email_ai_agent.py:3638
-#, python-format
-msgid ""
-"Found %(count)d emails from %(sender)s%(age)s. Do you want to archive them?"
-msgstr "נמצאו %(count)d מיילים מ-%(sender)s%(age)s. לארכב אותם?"
-
-#: .\agent\email_ai_agent.py:2119 .\agent\email_ai_agent.py:3682
-#, python-format
-msgid "Archived %(count)d emails from %(sender)s%(age)s."
-msgstr "נארכבו %(count)d מיילים מ-%(sender)s%(age)s."
-
-#: .\agent\email_ai_agent.py:4036 .\agent\email_ai_agent.py:4048
-#, python-format
-msgid "No emails found from %(sender)s from %(time)s."
-msgstr "לא נמצאו מיילים מ-%(sender)s מ-%(time)s."
-
-#: .\agent\email_ai_agent.py:4041 .\agent\email_ai_agent.py:4054
-#, python-format
-msgid ""
-"Found %(count)d emails from %(sender)s from %(time)s. Do you want to archive them?"
-msgstr "נמצאו %(count)d מיילים מ-%(sender)s מ-%(time)s. לארכב אותם?"
-
-#: .\agent\email_ai_agent.py:4084 .\agent\email_ai_agent.py:4119
-#, python-format
-msgid "Archived %(count)d emails from %(sender)s from %(time)s."
-msgstr "נארכבו %(count)d מיילים מ-%(sender)s מ-%(time)s."
-
-#: .\agent\email_ai_agent.py
-#, python-format
-msgid "No emails found from %(sender)s from %(duration)s to archive."
-msgstr "לא נמצאו מיילים מ-%(sender)s מלפני %(duration)s לארכיון."
-
-#: .\agent\email_ai_agent.py
-#, python-format
-msgid ""
-"Found %(count)d emails from %(sender)s from %(duration)s. Do you want to archive them?"
-msgstr "נמצאו %(count)d מיילים מ-%(sender)s מלפני %(duration)s. לארכב אותם?"
-
-#: .\agent\email_ai_agent.py
-#, python-format
-msgid "Archived %(count)d emails from %(sender)s from %(duration)s."
-msgstr "נארכבו %(count)d מיילים מ-%(sender)s מלפני %(duration)s."
-
-#: .\agent\email_ai_agent.py:2148
-#, python-format
-msgid "No emails found from %(domain)s%(age)s."
-msgstr "לא נמצאו מיילים מ-%(domain)s%(age)s."
-
-#: .\agent\email_ai_agent.py:2153
-#, python-format
-msgid ""
-"Found %(count)d emails from %(domain)s%(age)s. Do you want to archive them?"
-msgstr "נמצאו %(count)d מיילים מ-%(domain)s%(age)s. לארכב אותם?"
-
-#: .\agent\email_ai_agent.py:2179
-#, python-format
-msgid "Archived %(count)d emails from %(domain)s."
-msgstr "נארכבו %(count)d מיילים מ-%(domain)s."
-
-#: .\agent\email_ai_agent.py:2291
-#, python-format
-msgid "No emails found from %(sender)s to restore."
-msgstr "לא נמצאו מיילים מ-%(sender)s לשחזור."
-
-#: .\agent\email_ai_agent.py:2303
-#, python-format
-msgid "No archived emails found from %(sender)s."
-msgstr "לא נמצאו מיילים בארכיון מ-%(sender)s."
-
-#: .\agent\email_ai_agent.py:2308
-#, python-format
-msgid "Found %(count)d archived emails from %(sender)s. Restore to Inbox?"
-msgstr "נמצאו %(count)d מיילים בארכיון מ-%(sender)s. לשחזר לתיבת הנכנס?"
-
-#: .\agent\email_ai_agent.py:2323
-#, python-format
-msgid "Restored %(count)d emails from %(sender)s to Inbox."
-msgstr "שוחזרו %(count)d מיילים מ-%(sender)s לתיבת הנכנס."
-
-#: .\agent\email_ai_agent.py:2577
-msgid "Nothing to undo (expired or invalid)."
-msgstr "אין מה לבטל (פג תוקף או לא תקין)."
-
-#: .\agent\email_ai_agent.py:2590
-#, python-format
-msgid "Undo complete. Restored %(count)d emails to Inbox."
-msgstr "הביטול הושלם. שוחזרו %(count)d מיילים לתיבת הנכנס."
-
-#: .\agent\email_ai_agent.py:2602
-#, python-format
-msgid "Undo complete. Untrashed %(count)d emails."
-msgstr "הביטול הושלם. הוחזרו מהאשפה %(count)d מיילים."
-
-#: .\agent\email_ai_agent.py:2607
-msgid "Cannot undo labels (missing label id)."
-msgstr "לא ניתן לבטל תוויות (חסר מזהה תווית)."
-
-#: .\agent\email_ai_agent.py:2615
-#, python-format
-msgid "Removed label from %(count)d emails."
-msgstr "הוסרה תווית מ-%(count)d מיילים."
-
-#: .\agent\email_ai_agent.py:2617
-msgid "Undo not supported for this action."
-msgstr "לא נתמך ביטול עבור פעולה זו."
-
-#: .\agent\email_ai_agent.py:2619
-#, python-format
-msgid "Undo failed: %(err)s"
-msgstr "הביטול נכשל: %(err)s"
-
-#: .\agent\templates\agent\index.html:327
-msgid "View details"
-msgstr "הצגת פרטים"
-
-#: .\agent\templates\agent\index.html:328
-#: .\agent\templates\agent\index.html:493
-msgid "Loading…"
-msgstr "טוען…"
-
-#: .\agent\templates\agent\index.html:329
-msgid "No more results"
-msgstr "אין עוד תוצאות"
-
-#: .\agent\templates\agent\index.html:330
-#: .\agent\templates\agent\index.html:492
-msgid "Load more"
-msgstr "טען עוד"
-
-#: .\agent\templates\agent\index.html:331
-msgid "Analyzing..."
-msgstr "מנתח…"
-
-#: .\agent\templates\agent\index.html:332
-msgid "Undoing..."
-msgstr "מבטל..."
-
-#: .\agent\templates\agent\index.html:333
-#, python-brace-format
-msgid "Loaded {count} more"
-msgstr "נטענו עוד {count}"
-
-#: .\agent\templates\agent\index.html:334
-msgid "Failed to load more"
-msgstr "טעינת פריטים נוספים נכשלה"
-
-#: .\agent\templates\agent\index.html:335
-msgid "Clear all favorites?"
-msgstr "לנקות את כל המועדפים?"
-
-#: .\agent\templates\agent\index.html:339
-msgid "Processing…"
-msgstr "מעבד…"
-
-#: .\agent\templates\agent\index.html:345
-msgid "Email AI Agent"
-msgstr "סוכן דוא\"ל חכם"
-
-#: .\agent\templates\agent\index.html:351
-msgid "Language"
-msgstr "שפה"
-
-#: .\agent\templates\agent\index.html:363
-msgid "Connection Error:"
-msgstr "שגיאת חיבור:"
-
-#: .\agent\templates\agent\index.html:368
-msgid "e.g., list recent emails"
-msgstr "לדוגמה: רשום מיילים אחרונים"
-
-#: .\agent\templates\agent\index.html:369
-msgid "Process"
-msgstr "בצע"
-
-#: .\agent\templates\agent\index.html:373 .\agent\views.py:201
-msgid "Compose Email"
-msgstr "כתיבת הודעה"
-
-#: .\agent\templates\agent\index.html:378
-msgid "To"
-msgstr "אל"
-
-#: .\agent\templates\agent\index.html:382
-msgid "Subject"
-msgstr "נושא"
-
-#: .\agent\templates\agent\index.html:383
-msgid "Subject (optional)"
-msgstr "נושא (לא חובה)"
-
-#: .\agent\templates\agent\index.html:386
-msgid "Message"
-msgstr "הודעה"
-
-#: .\agent\templates\agent\index.html:387
-msgid "Write your message..."
-msgstr "כתבו את ההודעה..."
-
-#: .\agent\templates\agent\index.html:390
-msgid "Send"
-msgstr "שלח"
-
-#: .\agent\templates\agent\index.html:397
-msgid "Results per page:"
-msgstr "תוצאות בכל עמוד:"
-
-#: .\agent\templates\agent\index.html:408
-msgid "Quick Commands"
-msgstr "פקודות מהירות"
-
-#: .\agent\templates\agent\index.html:413
-msgid "Save current or custom command"
-msgstr "שמור פקודה נוכחית או מותאמת"
-
-#: .\agent\templates\agent\index.html:414
-msgid "Add Favorite"
-msgstr "הוסף למועדפים"
-
-#: .\agent\templates\agent\index.html:419
-msgid "Clear all"
-msgstr "נקה הכול"
-
-#: .\agent\templates\agent\index.html:432
-msgid "Remove"
-msgstr "הסר"
-
-#: .\agent\templates\agent\index.html:438
-msgid "No favorites yet. Add one above."
-msgstr "אין מועדפים עדיין. הוסף אחד למעלה."
-
-#: .\agent\templates\agent\index.html:444
-msgid "Confirmation Required:"
-msgstr "נדרש אישור:"
-
-#: .\agent\templates\agent\index.html:447
-msgid "Preview (first 10)"
-msgstr "תצוגה מקדימה (10 ראשונים)"
-
-#: .\agent\templates\agent\index.html:458
-msgid "Estimated total affected:"
-msgstr "הערכה של סך הפריטים שיושפעו:"
-
-#: .\agent\templates\agent\index.html:466
-msgid "Confirm"
-msgstr "אישור"
-
-#: .\agent\templates\agent\index.html:467
-msgid "Cancel"
-msgstr "ביטול"
-
-#: .\agent\templates\agent\index.html:498
-msgid "Your Labels"
-msgstr "התוויות שלך"
-
-#: .\agent\templates\agent\index.html:518
-msgid "Email Statistics"
-msgstr "סטטיסטיקות דוא\"ל"
-
-#: .\agent\templates\agent\index.html:522
-msgid "Full analysis"
-msgstr "ניתוח מלא"
-
-#: .\agent\templates\agent\index.html:525
-msgid "Total Inbox Emails:"
-msgstr "סך ההודעות בתיבת הדואר הנכנס:"
-
-#: .\agent\templates\agent\index.html:526
-msgid "Sample Analyzed:"
-msgstr "מדגם שנותח:"
-
-#: .\agent\templates\agent\index.html:526
-msgid "full"
-msgstr "מלא"
-
-#: .\agent\templates\agent\index.html:526
-msgid "sample"
-msgstr "מדגם"
-
-#: .\agent\templates\agent\index.html:528
-msgid "What is \"sample analyzed\"?"
-msgstr "מה זה \"מדגם שנותח\"?"
-
-#: .\agent\templates\agent\index.html:529
-msgid ""
-"Number of recent emails examined to compute stats quickly. Choose \"Full "
-"analysis\" to analyze all emails."
-msgstr ""
-"מספר ההודעות האחרונות שנבדקו כדי לחשב סטטיסטיקות במהירות. בחר \"ניתוח מלא\" "
-"כדי לנתח את כל ההודעות."
-
-#: .\agent\templates\agent\index.html:533
-msgid "Top Senders"
-msgstr "שולחים מובילים"
-
-#: .\agent\templates\agent\index.html:541
-msgid "Top Domains"
-msgstr "דומיינים מובילים"
-
-#: .\agent\templates\agent\index.html:551
-msgid "Top Subject Terms"
-msgstr "מונחי נושא מובילים"
-
-#: .\agent\templates\agent\index.html:559
-msgid "Emails by Hour"
-msgstr "הודעות לפי שעה"
-
-#: .\agent\templates\agent\index.html:561
-msgid "What is this?"
-msgstr "מה זה?"
-
-#: .\agent\templates\agent\index.html:562
-msgid ""
-"Count of analyzed emails by the hour of day they were received (local time)."
-msgstr "כמות ההודעות שנותחו לפי השעה ביום שבה התקבלו (זמן מקומי)."
-
-#: .\agent\templates\agent\index.html:577
-msgid "Label Distribution"
-msgstr "התפלגות תוויות"
-
-#: .\agent\templates\agent\index.html:579
-msgid "What does this show?"
-msgstr "מה זה מציג?"
-
-#: .\agent\templates\agent\index.html:580
-msgid ""
-"Friendly label names (e.g., Inbox, Promotions) and how many analyzed emails "
-"had each label."
-msgstr ""
-"שמות תוויות ידידותיים (למשל, דואר נכנס, קידומים) וכמה הודעות שנותחו היו עם "
-"כל תווית."
-
-#: .\agent\templates\agent\index.html:595
-msgid "Insights"
-msgstr "תובנות"
-
-#: .\agent\templates\agent\index.html:534
-msgid "Analysis Note:"
-msgstr "הערת ניתוח:"
-
-#: .\agent\templates\agent\index.html:1227
-msgid "This will perform a comprehensive analysis of your inbox emails."
-msgstr "זה יבצע ניתוח מקיף של הודעות הדואר הנכנס שלך."
-
-#: .\agent\templates\agent\index.html:1227
-msgid "IMPORTANT: You have"
-msgstr "חשוב: יש לך"
-
-#: .\agent\templates\agent\index.html:1227
-msgid "emails in your inbox."
-msgstr "הודעות בתיבת הדואר הנכנס שלך."
-
-#: .\agent\templates\agent\index.html:1227
-msgid "To ensure reasonable processing time, the analysis will be limited to the most recent 1000 emails."
-msgstr "כדי להבטיח זמן עיבוד סביר, הניתוח יוגבל ל-1000 ההודעות האחרונות."
-
-#: .\agent\templates\agent\index.html:1227
-msgid "Expected processing time: 2-3 minutes"
-msgstr "זמן עיבוד צפוי: 2-3 דקות"
-
-#: .\agent\templates\agent\index.html:1227
-msgid "This gives you comprehensive insights while keeping wait times manageable."
-msgstr "זה נותן לך תובנות מקיפות תוך שמירה על זמני המתנה סבירים."
-
-#: .\agent\templates\agent\index.html:1227
-msgid "Expected processing time: 1-2 minutes"
-msgstr "זמן עיבוד צפוי: 1-2 דקות"
-
-#: .\agent\templates\agent\index.html:1227
-msgid "This will analyze all"
-msgstr "זה ינתח את כל"
-
-#: .\agent\templates\agent\index.html:1227
-msgid "Do you want to proceed with the full analysis?"
-msgstr "האם אתה רוצה להמשיך עם הניתוח המלא?"
-
-#: .\agent\templates\agent\index.html:604
-msgid "Enter a command to get started."
-msgstr "הזן פקודה כדי להתחיל."
-
-#: .\agent\templates\agent\index.html:610
-msgid "Example Commands"
-msgstr "פקודות לדוגמה"
-
-#: .\agent\templates\agent\index.html:619
-msgid "Show All Commands"
-msgstr "הצג את כל הפקודות"
-
-#: .\agent\templates\agent\index.html:619
-msgid "Hide All Commands"
-msgstr "הסתר את כל הפקודות"
-
-#: .\agent\templates\agent\index.html:622 .\agent\views.py:238
-msgid "list recent emails"
-msgstr "רשום מיילים אחרונים"
-
-#: .\agent\templates\agent\index.html:622
-msgid "Shows the 10 most recent emails."
-msgstr "מציג את 10 ההודעות האחרונות."
-
-#: .\agent\templates\agent\index.html:623 .\agent\views.py:242
-#: .\agent\views.py:281
-msgid "list archived emails"
-msgstr "רשום מיילים בארכיון"
-
-#: agent/templates/agent/index.html
-msgid "list archived emails from [sender]"
-msgstr "רשום מיילים מארכיון מ[שולח]"
-
-#: agent/templates/agent/index.html
-msgid "Emails in All Mail from a specific sender (excluding Inbox)."
-msgstr "מיילים בתיבת כל הדואר (All Mail) משולח מסוים, בלי תיבת הנכנס."
-
-#: .\agent\templates\agent\index.html:623
-msgid "Emails not in Inbox."
-msgstr "הודעות שאינן בתיבת הדואר הנכנס."
-
-#: .\agent\templates\agent\index.html:624 .\agent\views.py:243
-#: .\agent\views.py:282
-msgid "list all mail"
-msgstr "רשום את כל הדואר"
-
-#: .\agent\templates\agent\index.html:624
-msgid "Everything in All Mail (excludes Spam/Trash)."
-msgstr "הכול ב'כל הדואר' (ללא ספאם/אשפה)."
-
-#: .\agent\templates\agent\index.html:625
-msgid "list emails from [sender/domain]"
-msgstr "רשום מיילים מ-[שולח/דומיין]"
-
-#: .\agent\templates\agent\index.html:625
-msgid "e.g., 'list emails from [domain]'"
-msgstr "לדוגמה: 'רשום מיילים מ-[דומיין]'"
-
-#: .\agent\templates\agent\index.html:626
-msgid "list emails from [timeframe]"
-msgstr "רשום מיילים מ-[מסגרת זמן]"
-
-#: .\agent\templates\agent\index.html:626
-msgid "e.g., 'last week', 'yesterday', '2 days ago'"
-msgstr "למשל: 'שבוע שעבר', 'אתמול', 'לפני 2 ימים'"
-
-#: .\agent\templates\agent\index.html:627 .\agent\views.py:276
-msgid "list emails before [duration]"
-msgstr "רשום מיילים לפני [משך]"
-
-#: .\agent\templates\agent\index.html:627
-msgid "e.g., '6 months', '2 weeks'"
-msgstr "למשל: '6 חודשים', 'שבועיים'"
-
-#: .\agent\templates\agent\index.html:628 .\agent\views.py:277
-msgid "list emails from [duration] ago"
-msgstr "רשום מיילים מלפני [משך]"
-
-#: .\agent\templates\agent\index.html:628
-msgid "e.g., '4 months ago'"
-msgstr "למשל: 'לפני 4 חודשים'"
-
-#: .\agent\templates\agent\index.html:629 .\agent\views.py:273
-msgid "list emails older than [duration]"
-msgstr "רשום מיילים ישנים מ-[משך]"
-
-#: .\agent\templates\agent\index.html:629
-msgid "e.g., '6 months', '1 year'"
-msgstr "למשל: '6 חודשים', 'שנה אחת'"
-
-## Removed specific dated examples from UI - keep for history only if needed
-
-#: .\agent\templates\agent\index.html:633 .\agent\views.py:244
-#: .\agent\views.py:305
-msgid "search emails with subject \"[keyword]\""
-msgstr "חפש מיילים עם נושא \"[מילת מפתח]\""
-
-#: .\agent\templates\agent\index.html:633
-msgid "Finds emails with a specific subject."
-msgstr "מאתר הודעות עם נושא מסוים."
-
-#: .\agent\templates\agent\index.html:634 .\agent\views.py:32
-#: .\agent\views.py:245
-msgid "show email stats"
-msgstr "הצג סטטיסטיקת דוא\"ל"
-
-#: .\agent\templates\agent\index.html:634
-msgid "Displays a report of top senders and domains."
-msgstr "מציג דוח של שולחים ודומיינים מובילים."
-
-#: .\agent\templates\agent\index.html:635
-msgid "delete emails from [sender/domain]"
-msgstr "מחק מיילים מ-[שולח/דומיין]"
-
-#: .\agent\templates\agent\index.html:635
-msgid "Moves emails to Trash."
-msgstr "מעביר את ההודעות לאשפה."
-
-#: .\agent\templates\agent\index.html:636
-msgid "delete all promotions older than [duration]"
-msgstr "מחק את כל קידומי המכירות ישנים מ-[משך]"
-
-#: .\agent\templates\agent\index.html:636
 msgid "Cleans up the Promotions tab."
 msgstr "מנקה את לשונית 'קידומים'."
 
-#: .\agent\templates\agent\index.html:637 .\agent\views.py:287
-msgid "archive emails from [sender] older than 6 months"
-msgstr "ארכב מיילים מ-[שולח] ישנים מ-6 חודשים"
+msgid "delete [category] emails older than [duration]"
+msgstr "מחק מיילי [קטגוריה] ישנים מ-[משך]"
 
-#: .\agent\templates\agent\index.html:637
-msgid "Archives messages from a sender with an age filter."
-msgstr "מארכב הודעות משולח עם סינון לפי גיל."
+msgid "Deletes category emails by age window."
+msgstr "מחיקת מיילי קטגוריה לפי חלון גיל."
 
-#: .\agent\templates\agent\index.html:638
-msgid "archive all emails older than [duration]"
-msgstr "ארכב את כל המיילים ישנים מ-[משך]"
+msgid "delete [category] emails from [duration] ago"
+msgstr "מחק מיילי [קטגוריה] מלפני [משך]"
 
-#: .\agent\templates\agent\index.html:638
-msgid "Bulk archives old emails."
-msgstr "ארכוב גורף של הודעות ישנות."
+msgid "Deletes category emails from a time period ago."
+msgstr "מחיקת מיילי קטגוריה מתקופת זמן מסוימת שעברה."
 
-#: .\agent\templates\agent\index.html:639 .\agent\views.py:289
-msgid "list verification codes"
-msgstr "רשום קודי אימות"
+msgid "delete [category] emails from [timeframe]"
+msgstr "מחק מיילי [קטגוריה] מ-[תקופה]"
 
-#: .\agent\views.py
-msgid "list emails from [sender]"
-msgstr "רשום מיילים מ-[שולח]"
+msgid ""
+"Deletes category emails by fixed time (today, yesterday, last week, etc.)."
+msgstr "מחיקת מיילי קטגוריה לפי זמן קבוע (היום, אתמול, שבוע שעבר וכו')."
 
-#: .\agent\views.py
-msgid "delete emails from [sender]"
-msgstr "מחק מיילים מ-[שולח]"
+msgid "label emails from [sender] as [label]"
+msgstr "תייג מיילים מ-[שולח] כתווית [תווית]"
 
-#: .\agent\views.py
-msgid "delete emails from [sender] older than [duration]"
-msgstr "מחק מיילים מ-[שולח] ישנים מ-[משך]"
-
-#: .\agent\templates\agent\index.html:639
-msgid "Finds login and 2FA codes."
-msgstr "מאתר קודי כניסה ו-2FA."
-
-#: .\agent\templates\agent\index.html:640 .\agent\views.py:292
-msgid "list verification codes older than [duration]"
-msgstr "רשום קודי אימות ישנים מ-[משך]"
-
-#: .\agent\templates\agent\index.html:640
-msgid "Lists codes by age window."
-msgstr "רשימה לפי חלון גיל."
-
-#: .\agent\templates\agent\index.html:640
-msgid "Lists codes from a specific time period ago."
-msgstr "רשימת קודים מתקופת זמן מסוימת שעברה."
-
-#: .\agent\templates\agent\index.html:641
-msgid "delete verification codes older than [duration]"
-msgstr "מחק קודי אימות ישנים מ-[משך]"
-
-#: .\agent\templates\agent\index.html:641
-msgid "Cleans codes past a safe window."
-msgstr "מנקה קודים שעברו את חלון הזמן הבטוח."
-
-#: .\agent\templates\agent\index.html:642
-msgid "archive verification codes older than [duration]"
-msgstr "ארכב קודי אימות ישנים מ-[משך]"
-
-#: .\agent\templates\agent\index.html:642
-msgid "Archives codes after a period."
-msgstr "מארכב קודים לאחר פרק זמן."
-
-#: .\agent\templates\agent\index.html:643 .\agent\views.py:288
-msgid "list shipping emails"
-msgstr "רשום מיילי משלוח"
-
-#: .\agent\templates\agent\index.html:643
-#: .\agent\templates\agent\index.html:644
-msgid "Carrier updates and delivery notices."
-msgstr "עדכוני חברת משלוח והודעות מסירה."
-
-#: .\agent\templates\agent\index.html:644
-msgid "Carrier updates and delivery notices from a specific time period ago."
-msgstr "עדכוני חברת משלוח והודעות מסירה מתקופת זמן מסוימת שעברה."
-
-#: .\agent\templates\agent\index.html:644 .\agent\views.py:295
-msgid "list shipping emails older than [duration]"
-msgstr "רשום מיילי משלוח ישנים מ-[משך]"
-
-#: .\agent\templates\agent\index.html:645
-msgid "archive shipping emails older than [duration]"
-msgstr "ארכב מיילי משלוח ישנים מ-[משך]"
-
-#: .\agent\templates\agent\index.html:645
-msgid "Archives old shipping updates."
-msgstr "מארכב עדכוני משלוח ישנים."
-
-#: .\agent\templates\agent\index.html:646
-msgid "delete shipping emails older than [duration]"
-msgstr "מחק מיילי משלוח ישנים מ-[משך]"
-
-#: .\agent\templates\agent\index.html:646
-msgid "Deletes stale shipping updates."
-msgstr "מוחק עדכוני משלוח מיושנים."
-
-#: .\agent\templates\agent\index.html:647 .\agent\views.py:300
-msgid "list account security emails"
-msgstr "רשום מיילי אבטחת חשבון"
-
-#: .\agent\templates\agent\index.html:647
-msgid "Security alerts and sign-in notices."
-msgstr "התראות אבטחה והודעות כניסה."
-
-#: .\agent\templates\agent\index.html:648 .\agent\views.py:301
-msgid "list account security emails older than [duration]"
-msgstr "רשום מיילי אבטחת חשבון ישנים מ-[משך]"
-
-#: .\agent\templates\agent\index.html:648
-msgid "Older security notices."
-msgstr "הודעות אבטחה ישנות."
-
-#: .\agent\templates\agent\index.html:648
-msgid "Security alerts and sign-in notices from a specific time period ago."
-msgstr "התראות אבטחה והודעות כניסה מתקופת זמן מסוימת שעברה."
-
-#: .\agent\templates\agent\index.html:649
-msgid "archive account security emails older than [duration]"
-msgstr "ארכב מיילי אבטחת חשבון ישנים מ-[משך]"
-
-#: .\agent\templates\agent\index.html:649
-msgid "Archives older security alerts."
-msgstr "מארכב התראות אבטחה ישנות."
-
-#: .\agent\templates\agent\index.html:650
-msgid "delete account security emails older than [duration]"
-msgstr "מחק מיילי אבטחת חשבון ישנים מ-[משך]"
-
-#: .\agent\templates\agent\index.html:650
-msgid "Deletes stale security alerts."
-msgstr "מוחק התראות אבטחה מיושנות."
-
-#: .\agent\templates\agent\index.html:651
-msgid "label emails from [sender] as \"[label]\""
-msgstr "תייג מיילים מ-[שולח] כתווית \"[תווית]\""
-
-#: .\agent\templates\agent\index.html:651
 msgid "Organizes emails with a label."
 msgstr "מארגן הודעות באמצעות תווית."
 
-#: .\agent\templates\agent\index.html
 msgid "label emails with [keyword] as [label]"
 msgstr "תייג מיילים עם [מילת מפתח] כ\"[תווית]\""
 
-#: .\agent\templates\agent\index.html
 msgid "Labels emails containing specific keywords in subject."
 msgstr "מתייג מיילים המכילים מילות מפתח ספציפיות בנושא."
 
-#: .\agent\email_ai_agent.py:6478
-msgid "No emails found with keywords: %(keywords)s."
-msgstr "לא נמצאו מיילים עם מילות מפתח: %(keywords)s."
-
-#: .\agent\email_ai_agent.py:6483
-msgid "Found %(count)d emails with keywords %(keywords)s. Do you want to label them as '%(label)s'?"
-msgstr "נמצאו %(count)d מיילים עם מילות מפתח %(keywords)s. האם ברצונך לתייג אותם כ-'%(label)s'?"
-
-#: .\agent\email_ai_agent.py:6519
-msgid "Labeled %(count)d emails with keywords %(keywords)s as '%(label)s'."
-msgstr "תויגו %(count)d מיילים עם מילות מפתח %(keywords)s כ-'%(label)s'."
-
-#: .\agent\email_ai_agent.py:6551
-msgid "Found %(count)d emails from %(sender)s. Do you want to label them as '%(label)s'?"
-msgstr "נמצאו %(count)d מיילים מ-%(sender)s. האם ברצונך לתייג אותם כ-'%(label)s'?"
-
-#: .\agent\email_ai_agent.py:6593
-msgid "Labeled %(count)d emails from %(sender)s as '%(label)s'."
-msgstr "תויגו %(count)d מיילים מ-%(sender)s כ-'%(label)s'."
-
-#: .\agent\email_ai_agent.py:6625
-msgid "Found %(count)d emails from domain %(domain)s. Do you want to label them as '%(label)s'?"
-msgstr "נמצאו %(count)d מיילים מהדומיין %(domain)s. האם ברצונך לתייג אותם כ-'%(label)s'?"
-
-#: .\agent\email_ai_agent.py:6667
-msgid "Labeled %(count)d emails from domain %(domain)s as '%(label)s'."
-msgstr "תויגו %(count)d מיילים מהדומיין %(domain)s כ-'%(label)s'."
-
-#: .\agent\templates\agent\index.html:652 .\agent\views.py:250
 msgid "list labels"
 msgstr "רשום תוויות"
 
-#: .\agent\templates\agent\index.html:652
 msgid "Shows all your custom Gmail labels."
 msgstr "מציג את כל התוויות המותאמות שלך ב-Gmail."
 
-#: .\agent\templates\agent\index.html:653 .\agent\views.py:251
 msgid "show label \"[label]\""
 msgstr "הצג תווית \"[תווית]\""
 
-#: .\agent\templates\agent\index.html:653
 msgid "Displays all emails with a specific label."
 msgstr "מציג את כל ההודעות עם תווית מסוימת."
 
-#: .\agent\templates\agent\index.html:654 .\agent\views.py:252
+msgid "show email stats"
+msgstr "הצג סטטיסטיקת דוא\"ל"
+
+msgid "Displays a report of top senders and domains."
+msgstr "מציג דוח של שולחים ודומיינים מובילים."
+
+msgid "search emails with subject [keyword]"
+msgstr "חפש מיילים עם נושא [מילת מפתח]"
+
+msgid "Finds emails with a specific subject."
+msgstr "מאתר הודעות עם נושא מסוים."
+
 msgid "restore emails from [sender]"
 msgstr "שחזר מיילים מ-[שולח]"
 
-#: .\agent\templates\agent\index.html:654
 msgid "Moves archived emails back to the inbox."
 msgstr "מעביר הודעות מארכיון בחזרה לתיבת הנכנס."
 
-#: .\agent\templates\agent\index.html:655 .\agent\views.py:33
-#: .\agent\views.py:253 .\agent\views.py:306
 msgid "send email"
 msgstr "שלח מייל"
 
-#: .\agent\templates\agent\index.html:655
 msgid "Composes and sends an email."
 msgstr "מחבר ושולח הודעת דוא\"ל."
 
-#: .\agent\templates\agent\index.html:660
 msgid "Undo Recent Actions"
 msgstr "בטל פעולות אחרונות"
 
-#: .\agent\templates\agent\index.html:668
 msgid "Undo"
 msgstr "בטל"
 
-#: .\agent\templates\agent\index.html:675
 msgid "No recent undoable actions."
 msgstr "אין פעולות אחרונות שניתן לבטל."
 
-#: .\agent\templates\agent\index.html:680
 msgid "About this app"
 msgstr "על האפליקציה"
 
-#: .\agent\templates\agent\index.html:682
 msgid ""
 "Manage your Gmail with natural-language commands: list, delete, archive, "
 "label, restore, and view stats."
@@ -1395,7 +1215,6 @@ msgstr ""
 "נהלו את ה-Gmail שלכם באמצעות פקודות בשפה טבעית: רשימה, מחיקה, ארכוב, תיוג, "
 "שחזור והצגת סטטיסטיקות."
 
-#: .\agent\templates\agent\index.html:683
 msgid ""
 "Works in English and Hebrew. No data is stored on this server; actions run "
 "via your Google account."
@@ -1403,268 +1222,21 @@ msgstr ""
 "פועל באנגלית ובעברית. לא נשמרים נתונים בשרת זה; הפעולות מתבצעות דרך חשבון "
 "Google שלכם."
 
-#: .\agent\views.py:30 .\agent\views.py:247
-msgid "delete all promotions older than 30 days"
-msgstr "מחק את כל קידומי המכירות ישנים מ-30 ימים"
+msgid "Found an issue or a bug? Contact me at"
+msgstr ""
 
-#: .\agent\views.py:31
-msgid "list emails from google.com"
-msgstr "רשום מיילים מ-google.com"
+msgid "Command not understood."
+msgstr "הפקודה לא הובנה."
 
-#: .\agent\views.py:34
-msgid "label emails from amazon.com as Shopping"
-msgstr "תייג מיילים מ-amazon.com כ-\"Shopping\""
-
-#: .\agent\views.py:121
-msgid "Favorite too long (max 200 chars)."
-msgstr "מועדף ארוך מדי (עד 200 תווים)."
-
-#: .\agent\views.py:129
-msgid "Added to favorites."
-msgstr "נוסף למועדפים."
-
-#: .\agent\views.py:136
-msgid "Removed from favorites."
-msgstr "הוסר מהמועדפים."
-
-#: .\agent\views.py:139
-msgid "Cleared all favorites."
-msgstr "נוקו כל המועדפים."
-
-#: .\agent\views.py:172
-msgid "Recipient is required."
-msgstr "יש להזין כתובת נמען."
-
-#: .\agent\views.py:176
-msgid "Email sent."
-msgstr "הודעה נשלחה."
-
-#: .\agent\views.py:181
-#, python-format
-msgid "Failed to send email: %(err)s"
-msgstr "שליחת ההודעה נכשלה: %(err)s"
-
-#: .\agent\views.py:239
-msgid "list emails from [domain]"
-msgstr "רשום מיילים מ-[דומיין]"
-
-#: .\agent\views.py:240 .\agent\views.py:267
-msgid "list emails from last week"
-msgstr "רשום מיילים משבוע שעבר"
-
-#: .\agent\views.py:241
-msgid "list emails older than 6 months"
-msgstr "רשום מיילים ישנים מ-6 חודשים"
-
-#: .\agent\views.py:246
-msgid "delete emails from [domain]"
-msgstr "מחק מיילים מ-[דומיין]"
-
-#: .\agent\views.py:248
-msgid "archive all emails older than 1 year"
-msgstr "ארכב את כל המיילים ישנים משנה"
-
-# New example commands (Hebrew translations)
-#: .\agent\views.py
-msgid "delete emails from [sender] older than 30 days"
-msgstr "מחק מיילים מ-[שולח] ישנים מ-30 ימים"
-
-#: .\agent\views.py
-msgid "delete all emails older than 2 years"
-msgstr "מחק את כל המיילים ישנים מ-2 שנים"
-
-#: .\agent\views.py
-msgid "archive emails from [sender] from [time period]"
-msgstr "ארכב מיילים מ-[שולח] מ-[תקופת זמן]"
-
-#: .\agent\views.py
-msgid "archive emails older than [duration]"
-msgstr "ארכב מיילים ישנים מ-[משך]"
-
-#: .\agent\views.py:249 .\agent\views.py:304
-msgid "label emails from [domain] as \"[label]\""
-msgstr "תייג מיילים מ-[דומיין] כתווית \"[תווית]\""
-
-#: .\agent\views.py:265
-msgid "list emails from today"
-msgstr "רשום מיילים מהיום"
-
-#: .\agent\views.py:266
-msgid "list emails from yesterday"
-msgstr "רשום מיילים מאתמול"
-
-#: .\agent\views.py:268
-msgid "list emails from last month"
-msgstr "רשום מיילים מהחודש שעבר"
-
-#: .\agent\views.py:269
-msgid "list emails from last year"
-msgstr "רשום מיילים מהשנה שעברה"
-
-#: .\agent\views.py:270
-msgid "list emails before a week"
-msgstr "רשום מיילים לפני שבוע"
-
-#: .\agent\views.py:271
-msgid "list emails before a month"
-msgstr "רשום מיילים לפני חודש"
-
-#: .\agent\views.py:272
-msgid "list emails before a year"
-msgstr "רשום מיילים לפני שנה"
-
-#: .\agent\views.py:274
-msgid "list emails older than 1 year"
-msgstr "רשום מיילים ישנים משנה"
-
-#: .\agent\views.py:275
-msgid "list emails older than 30 days"
-msgstr "רשום מיילים ישנים מ-30 ימים"
-
-#: .\agent\views.py:283
-msgid "list emails from [domain] older than [duration]"
-msgstr "רשום מיילים מ-[דומיין] ישנים מ-[משך]"
-
-#: .\agent\views.py
-msgid "delete emails from [domain] older than [duration]"
-msgstr "מחק מיילים מ-[דומיין] ישנים מ-[משך]"
-
-#: .\agent\views.py:284
-msgid "list emails from [sender] older than [duration]"
-msgstr "רשום מיילים מ-[שולח] ישנים מ-[משך]"
-
-#: .\agent\views.py:285
-msgid "delete emails from [domain] older than 30 days"
-msgstr "מחק מיילים מ-[דומיין] ישנים מ-30 ימים"
-
-#: .\agent\views.py:286
-msgid "archive emails from [sender]"
-msgstr "ארכב מיילים מ-[שולח]"
-
-#: .\agent\views.py:290
-msgid "archive verification codes"
-msgstr "ארכב קודי אימות"
-
-#: .\agent\views.py:291
-msgid "delete verification codes"
-msgstr "מחק קודי אימות"
-
-#: .\agent\views.py:293
-msgid "delete verification codes older than 14 days"
-msgstr "מחק קודי אימות ישנים מ-14 ימים"
-
-#: .\agent\views.py:294
-msgid "archive verification codes older than 30 days"
-msgstr "ארכב קודי אימות ישנים מ-30 ימים"
-
-#: .\agent\views.py:296
-msgid "archive shipping emails"
-msgstr "ארכב מיילי משלוח"
-
-#: .\agent\views.py:297
-msgid "delete shipping emails"
-msgstr "מחק מיילי משלוח"
-
-#: .\agent\views.py:298
-msgid "archive shipping emails older than 90 days"
-msgstr "ארכב מיילי משלוח ישנים מ-90 ימים"
-
-#: .\agent\views.py:299
-msgid "delete shipping emails older than 180 days"
-msgstr "מחק מיילי משלוח ישנים מ-180 ימים"
-
-#: .\agent\views.py:302
-msgid "archive account security emails older than 90 days"
-msgstr "ארכב מיילי אבטחת חשבון ישנים מ-90 ימים"
-
-#: .\agent\views.py:303
-msgid "delete account security emails older than 180 days"
-msgstr "מחק מיילי אבטחת חשבון ישנים מ-180 ימים"
-
-#: .\web_project\settings.py:120
-msgid "English"
-msgstr "אנגלית"
-
-#: .\web_project\settings.py:121
-msgid "Hebrew"
-msgstr "עברית"
-
-#~ msgid "send email to [address]..."
-#~ msgstr "שלח דוא\"ל אל [כתובת]..."
-
-#~ msgid ""
-#~ "send email to user@example.com with subject \"Hi\" and message \"Hello "
-#~ "there!\""
-#~ msgstr ""
-#~ "שלח דוא\"ל אל user@example.com עם נושא \"Hi\" והודעה \"Hello there!\""
-
-#~ msgid ""
-#~ "To empty trash: Go to Gmail → Trash folder → 'Empty Trash now' button"
-#~ msgstr ""
-#~ "כדי לרוקן את האשפה: עבור ל-Gmail → תיקיית אשפה → הכפתור 'רוקן אשפה כעת'"
-
-msgid "Save custom command"
-msgstr "שמור פקודה מותאמת אישית"
-
-#: .\agent\email_ai_agent.py:4129
-#, python-format
-msgid "No emails found from %(time)s to archive."
-msgstr "לא נמצאו מיילים מ-%(time)s לארכוב."
-
-#: .\agent\email_ai_agent.py:4133
-#, python-format
-msgid "Found %(count)d emails from %(time)s. Do you want to archive them?"
-msgstr "נמצאו %(count)d מיילים מ-%(time)s. לארכב אותם?"
-
-#: .\agent\email_ai_agent.py:4187
-#, python-format
-msgid "Archived %(count)d emails from %(time)s."
-msgstr "נארכבו %(count)d מיילים מ-%(time)s."
-
-#: .\agent\email_ai_agent.py:4240
-#, python-format
-msgid "No emails found from %(duration)s to archive."
-msgstr "לא נמצאו מיילים מ-%(duration)s לארכוב."
-
-#: .\agent\email_ai_agent.py:4244
-#, python-format
-msgid "Found %(count)d emails from %(duration)s. Do you want to archive them?"
-msgstr "נמצאו %(count)d מיילים מ-%(duration)s. לארכב אותם?"
-
-#: .\agent\email_ai_agent.py:4296
-#, python-format
-msgid "Archived %(count)d emails from %(duration)s."
-msgstr "נארכבו %(count)d מיילים מ-%(duration)s."
-
-msgid "Processing..."
+#, fuzzy
+#| msgid "Processing..."
+msgid "Processing emails..."
 msgstr "מעבד..."
 
-msgid "Please wait while we process your request"
-msgstr "אנא המתן בזמן שאנו מעבדים את הבקשה שלך"
-
-msgid "Analyzing Your Emails"
-msgstr "מנתח את המיילים שלך"
-
-msgid "Fetching email data..."
-msgstr "מביא נתוני מיילים..."
-
-msgid "Initializing analysis..."
-msgstr "מאתחל ניתוח..."
-
-msgid "Fetching emails..."
+#, fuzzy
+#| msgid "Fetching emails..."
+msgid "Searching emails..."
 msgstr "מביא מיילים..."
-
-msgid "Analyzing data..."
-msgstr "מנתח נתונים..."
-
-msgid "Generating insights..."
-msgstr "יוצר תובנות..."
-
-msgid "Analysis limited to most recent 1000 emails (out of %(total)d total) to ensure reasonable processing time"
-msgstr "הניתוח מוגבל ל-1000 המיילים האחרונים (מתוך %(total)d סה\"כ) כדי להבטיח זמן עיבוד סביר"
-
-msgid "Analyzing email content..."
-msgstr "מנתח תוכן מיילים..."
 
 msgid "Fetching your emails..."
 msgstr "מביא את המיילים שלך..."
@@ -1690,30 +1262,2897 @@ msgstr "משחזר מיילים..."
 msgid "Processing your request..."
 msgstr "מעבד את הבקשה שלך..."
 
-msgid "Connection issues detected. Your VPN/firewall/antivirus may be slowing things down. Try temporarily disabling your VPN or checking firewall settings if loading is slow."
-msgstr "זוהו בעיות חיבור. ה-VPN/חומת האש/אנטי-וירוס שלך עלול להאט את התהליך. נסה להשבית זמנית את ה-VPN או לבדוק את הגדרות חומת האש אם הטעינה איטית."
+msgid "Processing..."
+msgstr "מעבד..."
 
-# Settings modal UI
-msgid "Settings"
-msgstr "הגדרות"
+msgid "Initializing analysis..."
+msgstr "מאתחל ניתוח..."
 
-msgid "Account"
-msgstr "חשבון"
+#, fuzzy
+#| msgid "Restoring emails..."
+msgid "Starting email search..."
+msgstr "משחזר מיילים..."
 
-msgid "Sign in with Google"
-msgstr "התחבר באמצעות Google"
+msgid "Please wait while we process your request"
+msgstr "אנא המתן בזמן שאנו מעבדים את הבקשה שלך"
 
-msgid "Sign out"
-msgstr "התנתק"
+msgid ""
+"Connection issues detected. Your VPN/firewall/antivirus may be slowing "
+"things down. Try temporarily disabling your VPN or checking firewall "
+"settings if loading is slow."
+msgstr ""
+"זוהו בעיות חיבור. ה-VPN/חומת האש/אנטי-וירוס שלך עלול להאט את התהליך. נסה "
+"להשבית זמנית את ה-VPN או לבדוק את הגדרות חומת האש אם הטעינה איטית."
 
-msgid "Changing language reloads the page."
-msgstr "שינוי השפה יטען את הדף מחדש."
+#, fuzzy
+#| msgid "Fetching emails..."
+msgid "Collecting emails..."
+msgstr "מביא מיילים..."
 
-msgid "Theme"
-msgstr "ערכת עיצוב"
+#, fuzzy
+#| msgid "Analyzing email content..."
+msgid "Analyzing content..."
+msgstr "מנתח תוכן מיילים..."
 
-msgid "Toggle theme"
-msgstr "החלף ערכת עיצוב"
+msgid "Generating insights..."
+msgstr "יוצר תובנות..."
 
-msgid "Coming soon"
-msgstr "בקרוב"
+msgid "Analyzing Your Emails"
+msgstr "מנתח את המיילים שלך"
+
+msgid "Fetching email data..."
+msgstr "מביא נתוני מיילים..."
+
+msgid "Fetching emails..."
+msgstr "מביא מיילים..."
+
+msgid "Analyzing data..."
+msgstr "מנתח נתונים..."
+
+msgid "delete all promotions older than 30 days"
+msgstr "מחק את כל קידומי המכירות ישנים מ-30 ימים"
+
+msgid "list emails from google.com"
+msgstr "רשום מיילים מ-google.com"
+
+msgid "label emails from amazon.com as Shopping"
+msgstr "תייג מיילים מ-amazon.com כ-\"Shopping\""
+
+msgid "Failed to load image. Click \"Open in Gmail\" to view."
+msgstr "נכשל בטעינת התמונה. לחץ על \"פתח ב-Gmail\" כדי לצפות."
+
+msgid "Favorite too long (max 200 chars)."
+msgstr "מועדף ארוך מדי (עד 200 תווים)."
+
+msgid "Added to favorites."
+msgstr "נוסף למועדפים."
+
+msgid "Removed from favorites."
+msgstr "הוסר מהמועדפים."
+
+msgid "Cleared all favorites."
+msgstr "נוקו כל המועדפים."
+
+msgid "Recipient is required."
+msgstr "יש להזין כתובת נמען."
+
+msgid "Email sent."
+msgstr "הודעה נשלחה."
+
+#, python-format
+msgid "Failed to send email: %(err)s"
+msgstr "שליחת ההודעה נכשלה: %(err)s"
+
+msgid "Showing"
+msgstr ""
+
+#, fuzzy
+#| msgid "send email"
+msgid "emails"
+msgstr "שלח מייל"
+
+#, fuzzy
+#| msgid "from last week"
+msgid "from label:"
+msgstr "משבוע שעבר"
+
+# Example Commands (specific brand/value examples)
+msgid "list emails from google"
+msgstr "רשום מיילים מ-google"
+
+msgid "list emails from last week"
+msgstr "רשום מיילים משבוע שעבר"
+
+msgid "list emails older than 6 months"
+msgstr "רשום מיילים ישנים מ-6 חודשים"
+
+msgid "search emails with subject \"sale\""
+msgstr "חפש מיילים עם נושא \"sale\""
+
+msgid "delete emails from netflix"
+msgstr "מחק מיילים מ-netflix"
+
+msgid "archive emails older than 1 year"
+msgstr "ארכב מיילים ישנים משנה"
+
+msgid "archive emails from google older than 90 days"
+msgstr "ארכב מיילים מ-google ישנים מ-90 ימים"
+
+msgid "archive emails from youtube from last month"
+msgstr "ארכב מיילים מ-youtube מהחודש שעבר"
+
+msgid "label emails from amazon as \"shopping\""
+msgstr "תייג מיילים מ-amazon כ-\"קניות\""
+
+msgid "show label \"shopping\""
+msgstr "הצג תווית \"קניות\""
+
+msgid "restore emails from netflix"
+msgstr "שחזר מיילים מ-netflix"
+
+msgid "list emails from today"
+msgstr "רשום מיילים מהיום"
+
+msgid "list emails from yesterday"
+msgstr "רשום מיילים מאתמול"
+
+msgid "list emails from last month"
+msgstr "רשום מיילים מהחודש שעבר"
+
+msgid "list emails from last year"
+msgstr "רשום מיילים מהשנה שעברה"
+
+msgid "list emails from this week"
+msgstr "רשום מיילים מהשבוע"
+
+msgid "list emails from this month"
+msgstr "רשום מיילים מהחודש"
+
+msgid "list emails from this year"
+msgstr "רשום מיילים מהשנה"
+
+msgid "list emails from [sender]"
+msgstr "רשום מיילים מ-[שולח]"
+
+#, fuzzy
+#| msgid "list emails from [sender] from today"
+msgid "delete emails from [sender] from today"
+msgstr "רשום מיילים מ-[שולח] מהיום"
+
+#, fuzzy
+#| msgid "list emails from [sender] from yesterday"
+msgid "delete emails from [sender] from yesterday"
+msgstr "רשום מיילים מ-[שולח] מאתמול"
+
+#, fuzzy
+#| msgid "list emails from [sender] from this week"
+msgid "delete emails from [sender] from this week"
+msgstr "רשום מיילים מ-[שולח] מהשבוע"
+
+#, fuzzy
+#| msgid "list emails from [sender] from last week"
+msgid "delete emails from [sender] from last week"
+msgstr "רשום מיילים מ-[שולח] מהשבוע שעבר"
+
+#, fuzzy
+#| msgid "list emails from [sender] from this month"
+msgid "delete emails from [sender] from this month"
+msgstr "רשום מיילים מ-[שולח] מהחודש"
+
+#, fuzzy
+#| msgid "list emails from [sender] from last month"
+msgid "delete emails from [sender] from last month"
+msgstr "רשום מיילים מ-[שולח] מהחודש שעבר"
+
+#, fuzzy
+#| msgid "list emails from [sender] from this year"
+msgid "delete emails from [sender] from this year"
+msgstr "רשום מיילים מ-[שולח] מהשנה"
+
+#, fuzzy
+#| msgid "list emails from [sender] from last year"
+msgid "delete emails from [sender] from last year"
+msgstr "רשום מיילים מ-[שולח] מהשנה שעברה"
+
+#, fuzzy
+#| msgid "list emails from today"
+msgid "delete emails from today"
+msgstr "רשום מיילים מהיום"
+
+#, fuzzy
+#| msgid "list emails from yesterday"
+msgid "delete emails from yesterday"
+msgstr "רשום מיילים מאתמול"
+
+#, fuzzy
+#| msgid "list emails from this week"
+msgid "delete emails from this week"
+msgstr "רשום מיילים מהשבוע"
+
+#, fuzzy
+#| msgid "list emails from last week"
+msgid "delete emails from last week"
+msgstr "רשום מיילים משבוע שעבר"
+
+#, fuzzy
+#| msgid "list emails from this month"
+msgid "delete emails from this month"
+msgstr "רשום מיילים מהחודש"
+
+#, fuzzy
+#| msgid "list emails from last month"
+msgid "delete emails from last month"
+msgstr "רשום מיילים מהחודש שעבר"
+
+#, fuzzy
+#| msgid "list emails from this year"
+msgid "delete emails from this year"
+msgstr "רשום מיילים מהשנה"
+
+#, fuzzy
+#| msgid "list emails from last year"
+msgid "delete emails from last year"
+msgstr "רשום מיילים מהשנה שעברה"
+
+msgid "list emails from [sender] from today"
+msgstr "רשום מיילים מ-[שולח] מהיום"
+
+msgid "list emails from [sender] from yesterday"
+msgstr "רשום מיילים מ-[שולח] מאתמול"
+
+msgid "list emails from [sender] from this week"
+msgstr "רשום מיילים מ-[שולח] מהשבוע"
+
+msgid "list emails from [sender] from this month"
+msgstr "רשום מיילים מ-[שולח] מהחודש"
+
+msgid "list emails from [sender] from this year"
+msgstr "רשום מיילים מ-[שולח] מהשנה"
+
+msgid "list emails from [sender] from last week"
+msgstr "רשום מיילים מ-[שולח] מהשבוע שעבר"
+
+msgid "list emails from [sender] from last month"
+msgstr "רשום מיילים מ-[שולח] מהחודש שעבר"
+
+msgid "list emails from [sender] from last year"
+msgstr "רשום מיילים מ-[שולח] מהשנה שעברה"
+
+msgid "list emails from [sender] from [duration] ago"
+msgstr "רשום מיילים מ-[שולח] מ-[משך זמן] שעבר"
+
+msgid "archive emails from [sender]"
+msgstr "ארכב מיילים מ-[שולח]"
+
+msgid "delete emails from [sender]"
+msgstr "מחק מיילים מ-[שולח]"
+
+#, fuzzy
+#| msgid "list emails from [sender] from this week"
+msgid "archive emails from [sender] from this week"
+msgstr "רשום מיילים מ-[שולח] מהשבוע"
+
+#, fuzzy
+#| msgid "list emails from [sender] from this month"
+msgid "archive emails from [sender] from this month"
+msgstr "רשום מיילים מ-[שולח] מהחודש"
+
+#, fuzzy
+#| msgid "list emails from [sender] from this year"
+msgid "archive emails from [sender] from this year"
+msgstr "רשום מיילים מ-[שולח] מהשנה"
+
+#, fuzzy
+#| msgid "list emails from [sender] from last week"
+msgid "archive emails from [sender] from last week"
+msgstr "רשום מיילים מ-[שולח] מהשבוע שעבר"
+
+#, fuzzy
+#| msgid "list emails from [sender] from last month"
+msgid "archive emails from [sender] from last month"
+msgstr "רשום מיילים מ-[שולח] מהחודש שעבר"
+
+#, fuzzy
+#| msgid "list emails from [sender] from last year"
+msgid "archive emails from [sender] from last year"
+msgstr "רשום מיילים מ-[שולח] מהשנה שעברה"
+
+#, fuzzy
+#| msgid "list emails from [sender] from today"
+msgid "archive emails from [sender] from today"
+msgstr "רשום מיילים מ-[שולח] מהיום"
+
+#, fuzzy
+#| msgid "list emails from [sender] from yesterday"
+msgid "archive emails from [sender] from yesterday"
+msgstr "רשום מיילים מ-[שולח] מאתמול"
+
+msgid "list shipping emails"
+msgstr "רשום מיילי משלוח"
+
+#, fuzzy
+#| msgid "list emails from today"
+msgid "list shipping emails from today"
+msgstr "רשום מיילים מהיום"
+
+#, fuzzy
+#| msgid "list emails from yesterday"
+msgid "list shipping emails from yesterday"
+msgstr "רשום מיילים מאתמול"
+
+#, fuzzy
+#| msgid "list emails from this week"
+msgid "list shipping emails from this week"
+msgstr "רשום מיילים מהשבוע"
+
+#, fuzzy
+#| msgid "list emails from this month"
+msgid "list shipping emails from this month"
+msgstr "רשום מיילים מהחודש"
+
+#, fuzzy
+#| msgid "list emails from this year"
+msgid "list shipping emails from this year"
+msgstr "רשום מיילים מהשנה"
+
+#, fuzzy
+#| msgid "list emails from last week"
+msgid "list shipping emails from last week"
+msgstr "רשום מיילים משבוע שעבר"
+
+#, fuzzy
+#| msgid "list emails from last month"
+msgid "list shipping emails from last month"
+msgstr "רשום מיילים מהחודש שעבר"
+
+#, fuzzy
+#| msgid "list emails from last year"
+msgid "list shipping emails from last year"
+msgstr "רשום מיילים מהשנה שעברה"
+
+msgid "list shipping emails from [duration] ago"
+msgstr "רשום מיילי משלוח מלפני [משך]"
+
+msgid "list shipping emails older than [duration]"
+msgstr "רשום מיילי משלוח ישנים מ-[משך]"
+
+msgid "archive shipping emails"
+msgstr "ארכב מיילי משלוח"
+
+msgid "delete shipping emails"
+msgstr "מחק מיילי משלוח"
+
+msgid "archive shipping emails older than [duration]"
+msgstr "ארכב מיילי משלוח ישנים מ-[משך]"
+
+msgid "delete shipping emails older than [duration]"
+msgstr "מחק מיילי משלוח ישנים מ-[משך]"
+
+msgid "list account security emails"
+msgstr "רשום מיילי אבטחת חשבון"
+
+#, fuzzy
+#| msgid "list account security emails from [timeframe]"
+msgid "list account security emails from today"
+msgstr "רשום מיילי אבטחת חשבון מ-[תקופה]"
+
+#, fuzzy
+#| msgid "list account security emails from [timeframe]"
+msgid "list account security emails from yesterday"
+msgstr "רשום מיילי אבטחת חשבון מ-[תקופה]"
+
+#, fuzzy
+#| msgid "list account security emails from [timeframe]"
+msgid "list account security emails from this week"
+msgstr "רשום מיילי אבטחת חשבון מ-[תקופה]"
+
+#, fuzzy
+#| msgid "list account security emails from [timeframe]"
+msgid "list account security emails from this month"
+msgstr "רשום מיילי אבטחת חשבון מ-[תקופה]"
+
+#, fuzzy
+#| msgid "list account security emails from [timeframe]"
+msgid "list account security emails from this year"
+msgstr "רשום מיילי אבטחת חשבון מ-[תקופה]"
+
+#, fuzzy
+#| msgid "list account security emails from [timeframe]"
+msgid "list account security emails from last week"
+msgstr "רשום מיילי אבטחת חשבון מ-[תקופה]"
+
+#, fuzzy
+#| msgid "list account security emails from [duration] ago"
+msgid "list account security emails from last month"
+msgstr "רשום מיילי אבטחת חשבון מלפני [משך]"
+
+#, fuzzy
+#| msgid "list account security emails from [timeframe]"
+msgid "list account security emails from last year"
+msgstr "רשום מיילי אבטחת חשבון מ-[תקופה]"
+
+msgid "list account security emails from [duration] ago"
+msgstr "רשום מיילי אבטחת חשבון מלפני [משך]"
+
+msgid "list account security emails older than [duration]"
+msgstr "רשום מיילי אבטחת חשבון ישנים מ-[משך]"
+
+#, fuzzy
+#| msgid "list account security emails"
+msgid "delete account security emails"
+msgstr "רשום מיילי אבטחת חשבון"
+
+#, fuzzy
+#| msgid "account security emails"
+msgid "archive account security emails"
+msgstr "מיילי אבטחת חשבון"
+
+msgid "archive account security emails older than [duration]"
+msgstr "ארכב מיילי אבטחת חשבון ישנים מ-[משך]"
+
+msgid "delete account security emails older than [duration]"
+msgstr "מחק מיילי אבטחת חשבון ישנים מ-[משך]"
+
+msgid "list verification codes"
+msgstr "רשום קודי אימות"
+
+#, fuzzy
+#| msgid "list verification codes from [timeframe]"
+msgid "list verification codes from today"
+msgstr "רשום קודי אימות מ-[תקופה]"
+
+#, fuzzy
+#| msgid "list verification codes from [timeframe]"
+msgid "list verification codes from yesterday"
+msgstr "רשום קודי אימות מ-[תקופה]"
+
+#, fuzzy
+#| msgid "list verification codes from [timeframe]"
+msgid "list verification codes from this week"
+msgstr "רשום קודי אימות מ-[תקופה]"
+
+#, fuzzy
+#| msgid "list verification codes from [timeframe]"
+msgid "list verification codes from this month"
+msgstr "רשום קודי אימות מ-[תקופה]"
+
+#, fuzzy
+#| msgid "list verification codes from [timeframe]"
+msgid "list verification codes from this year"
+msgstr "רשום קודי אימות מ-[תקופה]"
+
+#, fuzzy
+#| msgid "list verification codes from [timeframe]"
+msgid "list verification codes from last week"
+msgstr "רשום קודי אימות מ-[תקופה]"
+
+#, fuzzy
+#| msgid "list verification codes from [duration] ago"
+msgid "list verification codes from last month"
+msgstr "רשום קודי אימות מלפני [משך]"
+
+#, fuzzy
+#| msgid "list verification codes from [timeframe]"
+msgid "list verification codes from last year"
+msgstr "רשום קודי אימות מ-[תקופה]"
+
+msgid "list verification codes from [duration] ago"
+msgstr "רשום קודי אימות מלפני [משך]"
+
+msgid "list verification codes older than [duration]"
+msgstr "רשום קודי אימות ישנים מ-[משך]"
+
+msgid "delete verification codes"
+msgstr "מחק קודי אימות"
+
+msgid "archive verification codes"
+msgstr "ארכב קודי אימות"
+
+msgid "archive verification codes older than [duration]"
+msgstr "ארכב קודי אימות ישנים מ-[משך]"
+
+msgid "delete verification codes older than [duration]"
+msgstr "מחק קודי אימות ישנים מ-[משך]"
+
+#, fuzzy
+#| msgid "delete shipping emails from [timeframe]"
+msgid "delete shipping emails from today"
+msgstr "מחק מיילי משלוח מ-[תקופה]"
+
+#, fuzzy
+#| msgid "delete shipping emails from [timeframe]"
+msgid "delete shipping emails from yesterday"
+msgstr "מחק מיילי משלוח מ-[תקופה]"
+
+#, fuzzy
+#| msgid "delete shipping emails from [timeframe]"
+msgid "delete shipping emails from this week"
+msgstr "מחק מיילי משלוח מ-[תקופה]"
+
+#, fuzzy
+#| msgid "delete shipping emails from [timeframe]"
+msgid "delete shipping emails from last week"
+msgstr "מחק מיילי משלוח מ-[תקופה]"
+
+#, fuzzy
+#| msgid "delete shipping emails from [timeframe]"
+msgid "delete shipping emails from this month"
+msgstr "מחק מיילי משלוח מ-[תקופה]"
+
+#, fuzzy
+#| msgid "delete shipping emails from [duration] ago"
+msgid "delete shipping emails from last month"
+msgstr "מחק מיילי משלוח מלפני [משך]"
+
+#, fuzzy
+#| msgid "delete shipping emails from [timeframe]"
+msgid "delete shipping emails from this year"
+msgstr "מחק מיילי משלוח מ-[תקופה]"
+
+#, fuzzy
+#| msgid "delete shipping emails from [timeframe]"
+msgid "delete shipping emails from last year"
+msgstr "מחק מיילי משלוח מ-[תקופה]"
+
+msgid "delete shipping emails from [duration] ago"
+msgstr "מחק מיילי משלוח מלפני [משך]"
+
+#, fuzzy
+#| msgid "delete verification codes from [timeframe]"
+msgid "delete verification codes from today"
+msgstr "מחק קודי אימות מ-[תקופה]"
+
+#, fuzzy
+#| msgid "delete verification codes from [timeframe]"
+msgid "delete verification codes from yesterday"
+msgstr "מחק קודי אימות מ-[תקופה]"
+
+#, fuzzy
+#| msgid "delete verification codes from [timeframe]"
+msgid "delete verification codes from this week"
+msgstr "מחק קודי אימות מ-[תקופה]"
+
+#, fuzzy
+#| msgid "delete verification codes from [timeframe]"
+msgid "delete verification codes from last week"
+msgstr "מחק קודי אימות מ-[תקופה]"
+
+#, fuzzy
+#| msgid "delete verification codes from [timeframe]"
+msgid "delete verification codes from this month"
+msgstr "מחק קודי אימות מ-[תקופה]"
+
+#, fuzzy
+#| msgid "delete verification codes from [duration] ago"
+msgid "delete verification codes from last month"
+msgstr "מחק קודי אימות מלפני [משך]"
+
+#, fuzzy
+#| msgid "delete verification codes from [timeframe]"
+msgid "delete verification codes from this year"
+msgstr "מחק קודי אימות מ-[תקופה]"
+
+#, fuzzy
+#| msgid "delete verification codes from [timeframe]"
+msgid "delete verification codes from last year"
+msgstr "מחק קודי אימות מ-[תקופה]"
+
+msgid "delete verification codes from [duration] ago"
+msgstr "מחק קודי אימות מלפני [משך]"
+
+#, fuzzy
+#| msgid "delete account security emails from [timeframe]"
+msgid "delete account security emails from today"
+msgstr "מחק מיילי אבטחת חשבון מ-[תקופה]"
+
+#, fuzzy
+#| msgid "delete account security emails from [timeframe]"
+msgid "delete account security emails from yesterday"
+msgstr "מחק מיילי אבטחת חשבון מ-[תקופה]"
+
+#, fuzzy
+#| msgid "delete account security emails from [timeframe]"
+msgid "delete account security emails from this week"
+msgstr "מחק מיילי אבטחת חשבון מ-[תקופה]"
+
+#, fuzzy
+#| msgid "delete account security emails from [timeframe]"
+msgid "delete account security emails from last week"
+msgstr "מחק מיילי אבטחת חשבון מ-[תקופה]"
+
+#, fuzzy
+#| msgid "delete account security emails from [timeframe]"
+msgid "delete account security emails from this month"
+msgstr "מחק מיילי אבטחת חשבון מ-[תקופה]"
+
+#, fuzzy
+#| msgid "delete account security emails from [duration] ago"
+msgid "delete account security emails from last month"
+msgstr "מחק מיילי אבטחת חשבון מלפני [משך]"
+
+#, fuzzy
+#| msgid "delete account security emails from [timeframe]"
+msgid "delete account security emails from this year"
+msgstr "מחק מיילי אבטחת חשבון מ-[תקופה]"
+
+#, fuzzy
+#| msgid "delete account security emails from [timeframe]"
+msgid "delete account security emails from last year"
+msgstr "מחק מיילי אבטחת חשבון מ-[תקופה]"
+
+msgid "delete account security emails from [duration] ago"
+msgstr "מחק מיילי אבטחת חשבון מלפני [משך]"
+
+msgid "label emails from [sender] as \"[label]\""
+msgstr "תייג מיילים מ-[שולח] כתווית \"[תווית]\""
+
+#, fuzzy
+#| msgid "label emails with [keyword] as [label]"
+msgid "label emails with [keyword] as \"[label]\""
+msgstr "תייג מיילים עם [מילת מפתח] כ\"[תווית]\""
+
+# # Removed specific dated examples from UI - keep for history only if needed
+msgid "search emails with subject \"[keyword]\""
+msgstr "חפש מיילים עם נושא \"[מילת מפתח]\""
+
+#, fuzzy
+#| msgid "Message"
+msgid "Messages"
+msgstr "הודעה"
+
+msgid "Site Maps"
+msgstr ""
+
+msgid "Static Files"
+msgstr ""
+
+msgid "Syndication"
+msgstr ""
+
+#. Translators: String used to replace omitted page numbers in elided page
+#. range generated by paginators, e.g. [1, 2, '…', 5, 6, 7, '…', 9, 10].
+msgid "…"
+msgstr ""
+
+msgid "That page number is not an integer"
+msgstr ""
+
+msgid "That page number is less than 1"
+msgstr ""
+
+msgid "That page contains no results"
+msgstr ""
+
+msgid "Enter a valid value."
+msgstr ""
+
+msgid "Enter a valid domain name."
+msgstr ""
+
+msgid "Enter a valid URL."
+msgstr ""
+
+#, fuzzy
+#| msgid "Enter a command to get started."
+msgid "Enter a valid integer."
+msgstr "הזן פקודה כדי להתחיל."
+
+#, fuzzy
+#| msgid "send email to [address]..."
+msgid "Enter a valid email address."
+msgstr "שלח דוא\"ל אל [כתובת]..."
+
+#. Translators: "letters" means latin letters: a-z and A-Z.
+msgid ""
+"Enter a valid “slug” consisting of letters, numbers, underscores or hyphens."
+msgstr ""
+
+msgid ""
+"Enter a valid “slug” consisting of Unicode letters, numbers, underscores, or "
+"hyphens."
+msgstr ""
+
+#, python-format
+msgid "Enter a valid %(protocol)s address."
+msgstr ""
+
+msgid "IPv4"
+msgstr ""
+
+msgid "IPv6"
+msgstr ""
+
+msgid "IPv4 or IPv6"
+msgstr ""
+
+msgid "Enter only digits separated by commas."
+msgstr ""
+
+#, python-format
+msgid "Ensure this value is %(limit_value)s (it is %(show_value)s)."
+msgstr ""
+
+#, python-format
+msgid "Ensure this value is less than or equal to %(limit_value)s."
+msgstr ""
+
+#, python-format
+msgid "Ensure this value is greater than or equal to %(limit_value)s."
+msgstr ""
+
+#, python-format
+msgid "Ensure this value is a multiple of step size %(limit_value)s."
+msgstr ""
+
+#, python-format
+msgid ""
+"Ensure this value is a multiple of step size %(limit_value)s, starting from "
+"%(offset)s, e.g. %(offset)s, %(valid_value1)s, %(valid_value2)s, and so on."
+msgstr ""
+
+#, python-format
+msgid ""
+"Ensure this value has at least %(limit_value)d character (it has "
+"%(show_value)d)."
+msgid_plural ""
+"Ensure this value has at least %(limit_value)d characters (it has "
+"%(show_value)d)."
+msgstr[0] ""
+msgstr[1] ""
+msgstr[2] ""
+msgstr[3] ""
+
+#, python-format
+msgid ""
+"Ensure this value has at most %(limit_value)d character (it has "
+"%(show_value)d)."
+msgid_plural ""
+"Ensure this value has at most %(limit_value)d characters (it has "
+"%(show_value)d)."
+msgstr[0] ""
+msgstr[1] ""
+msgstr[2] ""
+msgstr[3] ""
+
+msgid "Enter a number."
+msgstr ""
+
+#, python-format
+msgid "Ensure that there are no more than %(max)s digit in total."
+msgid_plural "Ensure that there are no more than %(max)s digits in total."
+msgstr[0] ""
+msgstr[1] ""
+msgstr[2] ""
+msgstr[3] ""
+
+#, python-format
+msgid "Ensure that there are no more than %(max)s decimal place."
+msgid_plural "Ensure that there are no more than %(max)s decimal places."
+msgstr[0] ""
+msgstr[1] ""
+msgstr[2] ""
+msgstr[3] ""
+
+#, python-format
+msgid ""
+"Ensure that there are no more than %(max)s digit before the decimal point."
+msgid_plural ""
+"Ensure that there are no more than %(max)s digits before the decimal point."
+msgstr[0] ""
+msgstr[1] ""
+msgstr[2] ""
+msgstr[3] ""
+
+#, python-format
+msgid ""
+"File extension “%(extension)s” is not allowed. Allowed extensions are: "
+"%(allowed_extensions)s."
+msgstr ""
+
+msgid "Null characters are not allowed."
+msgstr ""
+
+msgid "and"
+msgstr ""
+
+#, python-format
+msgid "%(model_name)s with this %(field_labels)s already exists."
+msgstr ""
+
+#, python-format
+msgid "Constraint “%(name)s” is violated."
+msgstr ""
+
+#, python-format
+msgid "Value %(value)r is not a valid choice."
+msgstr ""
+
+msgid "This field cannot be null."
+msgstr ""
+
+msgid "This field cannot be blank."
+msgstr ""
+
+#, python-format
+msgid "%(model_name)s with this %(field_label)s already exists."
+msgstr ""
+
+#. Translators: The 'lookup_type' is one of 'date', 'year' or
+#. 'month'. Eg: "Title must be unique for pub_date year"
+#, python-format
+msgid ""
+"%(field_label)s must be unique for %(date_field_label)s %(lookup_type)s."
+msgstr ""
+
+#, python-format
+msgid "Field of type: %(field_type)s"
+msgstr ""
+
+#, python-format
+msgid "“%(value)s” value must be either True or False."
+msgstr ""
+
+#, python-format
+msgid "“%(value)s” value must be either True, False, or None."
+msgstr ""
+
+msgid "Boolean (Either True or False)"
+msgstr ""
+
+#, python-format
+msgid "String (up to %(max_length)s)"
+msgstr ""
+
+msgid "String (unlimited)"
+msgstr ""
+
+msgid "Comma-separated integers"
+msgstr ""
+
+#, python-format
+msgid ""
+"“%(value)s” value has an invalid date format. It must be in YYYY-MM-DD "
+"format."
+msgstr ""
+
+#, python-format
+msgid ""
+"“%(value)s” value has the correct format (YYYY-MM-DD) but it is an invalid "
+"date."
+msgstr ""
+
+msgid "Date (without time)"
+msgstr ""
+
+#, python-format
+msgid ""
+"“%(value)s” value has an invalid format. It must be in YYYY-MM-DD "
+"HH:MM[:ss[.uuuuuu]][TZ] format."
+msgstr ""
+
+#, python-format
+msgid ""
+"“%(value)s” value has the correct format (YYYY-MM-DD HH:MM[:ss[.uuuuuu]]"
+"[TZ]) but it is an invalid date/time."
+msgstr ""
+
+msgid "Date (with time)"
+msgstr ""
+
+#, python-format
+msgid "“%(value)s” value must be a decimal number."
+msgstr ""
+
+msgid "Decimal number"
+msgstr ""
+
+#, python-format
+msgid ""
+"“%(value)s” value has an invalid format. It must be in [DD] "
+"[[HH:]MM:]ss[.uuuuuu] format."
+msgstr ""
+
+msgid "Duration"
+msgstr ""
+
+#, fuzzy
+#| msgid "Email Statistics"
+msgid "Email address"
+msgstr "סטטיסטיקות דוא\"ל"
+
+msgid "File path"
+msgstr ""
+
+#, python-format
+msgid "“%(value)s” value must be a float."
+msgstr ""
+
+msgid "Floating point number"
+msgstr ""
+
+#, python-format
+msgid "“%(value)s” value must be an integer."
+msgstr ""
+
+msgid "Integer"
+msgstr ""
+
+msgid "Big (8 byte) integer"
+msgstr ""
+
+msgid "Small integer"
+msgstr ""
+
+msgid "IPv4 address"
+msgstr ""
+
+msgid "IP address"
+msgstr ""
+
+#, python-format
+msgid "“%(value)s” value must be either None, True or False."
+msgstr ""
+
+msgid "Boolean (Either True, False or None)"
+msgstr ""
+
+msgid "Positive big integer"
+msgstr ""
+
+msgid "Positive integer"
+msgstr ""
+
+msgid "Positive small integer"
+msgstr ""
+
+#, python-format
+msgid "Slug (up to %(max_length)s)"
+msgstr ""
+
+msgid "Text"
+msgstr ""
+
+#, python-format
+msgid ""
+"“%(value)s” value has an invalid format. It must be in HH:MM[:ss[.uuuuuu]] "
+"format."
+msgstr ""
+
+#, python-format
+msgid ""
+"“%(value)s” value has the correct format (HH:MM[:ss[.uuuuuu]]) but it is an "
+"invalid time."
+msgstr ""
+
+msgid "Time"
+msgstr ""
+
+msgid "URL"
+msgstr ""
+
+msgid "Raw binary data"
+msgstr ""
+
+#, python-format
+msgid "“%(value)s” is not a valid UUID."
+msgstr ""
+
+msgid "Universally unique identifier"
+msgstr ""
+
+msgid "File"
+msgstr ""
+
+msgid "Image"
+msgstr ""
+
+#, fuzzy
+#| msgid "Subject"
+msgid "A JSON object"
+msgstr "נושא"
+
+msgid "Value must be valid JSON."
+msgstr ""
+
+#, python-format
+msgid "%(model)s instance with %(field)s %(value)r is not a valid choice."
+msgstr ""
+
+msgid "Foreign Key (type determined by related field)"
+msgstr ""
+
+msgid "One-to-one relationship"
+msgstr ""
+
+#, python-format
+msgid "%(from)s-%(to)s relationship"
+msgstr ""
+
+#, python-format
+msgid "%(from)s-%(to)s relationships"
+msgstr ""
+
+msgid "Many-to-many relationship"
+msgstr ""
+
+#. Translators: If found as last label character, these punctuation
+#. characters will prevent the default label_suffix to be appended to the label
+msgid ":?.!"
+msgstr ""
+
+#, fuzzy
+#| msgid "Recipient is required."
+msgid "This field is required."
+msgstr "יש להזין כתובת נמען."
+
+msgid "Enter a whole number."
+msgstr ""
+
+#, fuzzy
+#| msgid "Enter a command to get started."
+msgid "Enter a valid date."
+msgstr "הזן פקודה כדי להתחיל."
+
+msgid "Enter a valid time."
+msgstr ""
+
+msgid "Enter a valid date/time."
+msgstr ""
+
+msgid "Enter a valid duration."
+msgstr ""
+
+#, python-brace-format
+msgid "The number of days must be between {min_days} and {max_days}."
+msgstr ""
+
+msgid "No file was submitted. Check the encoding type on the form."
+msgstr ""
+
+msgid "No file was submitted."
+msgstr ""
+
+msgid "The submitted file is empty."
+msgstr ""
+
+#, python-format
+msgid "Ensure this filename has at most %(max)d character (it has %(length)d)."
+msgid_plural ""
+"Ensure this filename has at most %(max)d characters (it has %(length)d)."
+msgstr[0] ""
+msgstr[1] ""
+msgstr[2] ""
+msgstr[3] ""
+
+msgid "Please either submit a file or check the clear checkbox, not both."
+msgstr ""
+
+msgid ""
+"Upload a valid image. The file you uploaded was either not an image or a "
+"corrupted image."
+msgstr ""
+
+#, python-format
+msgid "Select a valid choice. %(value)s is not one of the available choices."
+msgstr ""
+
+msgid "Enter a list of values."
+msgstr ""
+
+#, fuzzy
+#| msgid "Enter a command to get started."
+msgid "Enter a complete value."
+msgstr "הזן פקודה כדי להתחיל."
+
+msgid "Enter a valid UUID."
+msgstr ""
+
+msgid "Enter a valid JSON."
+msgstr ""
+
+#. Translators: This is the default suffix added to form field labels
+msgid ":"
+msgstr ""
+
+#, python-format
+msgid "(Hidden field %(name)s) %(error)s"
+msgstr ""
+
+#, python-format
+msgid ""
+"ManagementForm data is missing or has been tampered with. Missing fields: "
+"%(field_names)s. You may need to file a bug report if the issue persists."
+msgstr ""
+
+#, python-format
+msgid "Please submit at most %(num)d form."
+msgid_plural "Please submit at most %(num)d forms."
+msgstr[0] ""
+msgstr[1] ""
+msgstr[2] ""
+msgstr[3] ""
+
+#, python-format
+msgid "Please submit at least %(num)d form."
+msgid_plural "Please submit at least %(num)d forms."
+msgstr[0] ""
+msgstr[1] ""
+msgstr[2] ""
+msgstr[3] ""
+
+msgid "Order"
+msgstr ""
+
+msgid "Delete"
+msgstr ""
+
+#, python-format
+msgid "Please correct the duplicate data for %(field)s."
+msgstr ""
+
+#, python-format
+msgid "Please correct the duplicate data for %(field)s, which must be unique."
+msgstr ""
+
+#, python-format
+msgid ""
+"Please correct the duplicate data for %(field_name)s which must be unique "
+"for the %(lookup)s in %(date_field)s."
+msgstr ""
+
+msgid "Please correct the duplicate values below."
+msgstr ""
+
+msgid "The inline value did not match the parent instance."
+msgstr ""
+
+msgid "Select a valid choice. That choice is not one of the available choices."
+msgstr ""
+
+#, python-format
+msgid "“%(pk)s” is not a valid value."
+msgstr ""
+
+#, python-format
+msgid ""
+"%(datetime)s couldn’t be interpreted in time zone %(current_timezone)s; it "
+"may be ambiguous or it may not exist."
+msgstr ""
+
+#, fuzzy
+#| msgid "Clear all"
+msgid "Clear"
+msgstr "נקה הכול"
+
+msgid "Currently"
+msgstr ""
+
+msgid "Change"
+msgstr ""
+
+msgid "Yes"
+msgstr ""
+
+msgid "No"
+msgstr ""
+
+#. Translators: Please do not add spaces around commas.
+msgid "yes,no,maybe"
+msgstr ""
+
+#, python-format
+msgid "%(size)d byte"
+msgid_plural "%(size)d bytes"
+msgstr[0] ""
+msgstr[1] ""
+msgstr[2] ""
+msgstr[3] ""
+
+#, python-format
+msgid "%s KB"
+msgstr ""
+
+#, python-format
+msgid "%s MB"
+msgstr ""
+
+#, python-format
+msgid "%s GB"
+msgstr ""
+
+#, python-format
+msgid "%s TB"
+msgstr ""
+
+#, python-format
+msgid "%s PB"
+msgstr ""
+
+msgid "p.m."
+msgstr ""
+
+msgid "a.m."
+msgstr ""
+
+msgid "PM"
+msgstr ""
+
+msgid "AM"
+msgstr ""
+
+#, fuzzy
+#| msgid "Insights"
+msgid "midnight"
+msgstr "תובנות"
+
+msgid "noon"
+msgstr ""
+
+msgid "Monday"
+msgstr ""
+
+msgid "Tuesday"
+msgstr ""
+
+msgid "Wednesday"
+msgstr ""
+
+msgid "Thursday"
+msgstr ""
+
+msgid "Friday"
+msgstr ""
+
+msgid "Saturday"
+msgstr ""
+
+msgid "Sunday"
+msgstr ""
+
+msgid "Mon"
+msgstr ""
+
+msgid "Tue"
+msgstr ""
+
+msgid "Wed"
+msgstr ""
+
+msgid "Thu"
+msgstr ""
+
+msgid "Fri"
+msgstr ""
+
+msgid "Sat"
+msgstr ""
+
+msgid "Sun"
+msgstr ""
+
+msgid "January"
+msgstr ""
+
+msgid "February"
+msgstr ""
+
+msgid "March"
+msgstr ""
+
+msgid "April"
+msgstr ""
+
+msgid "May"
+msgstr ""
+
+msgid "June"
+msgstr ""
+
+msgid "July"
+msgstr ""
+
+msgid "August"
+msgstr ""
+
+msgid "September"
+msgstr ""
+
+msgid "October"
+msgstr ""
+
+msgid "November"
+msgstr ""
+
+msgid "December"
+msgstr ""
+
+msgid "jan"
+msgstr ""
+
+msgid "feb"
+msgstr ""
+
+msgid "mar"
+msgstr ""
+
+msgid "apr"
+msgstr ""
+
+msgid "may"
+msgstr ""
+
+msgid "jun"
+msgstr ""
+
+msgid "jul"
+msgstr ""
+
+msgid "aug"
+msgstr ""
+
+msgid "sep"
+msgstr ""
+
+msgid "oct"
+msgstr ""
+
+msgid "nov"
+msgstr ""
+
+msgid "dec"
+msgstr ""
+
+msgctxt "abbrev. month"
+msgid "Jan."
+msgstr ""
+
+msgctxt "abbrev. month"
+msgid "Feb."
+msgstr ""
+
+msgctxt "abbrev. month"
+msgid "March"
+msgstr ""
+
+msgctxt "abbrev. month"
+msgid "April"
+msgstr ""
+
+msgctxt "abbrev. month"
+msgid "May"
+msgstr ""
+
+msgctxt "abbrev. month"
+msgid "June"
+msgstr ""
+
+msgctxt "abbrev. month"
+msgid "July"
+msgstr ""
+
+msgctxt "abbrev. month"
+msgid "Aug."
+msgstr ""
+
+msgctxt "abbrev. month"
+msgid "Sept."
+msgstr ""
+
+msgctxt "abbrev. month"
+msgid "Oct."
+msgstr ""
+
+msgctxt "abbrev. month"
+msgid "Nov."
+msgstr ""
+
+msgctxt "abbrev. month"
+msgid "Dec."
+msgstr ""
+
+msgctxt "alt. month"
+msgid "January"
+msgstr ""
+
+msgctxt "alt. month"
+msgid "February"
+msgstr ""
+
+msgctxt "alt. month"
+msgid "March"
+msgstr ""
+
+msgctxt "alt. month"
+msgid "April"
+msgstr ""
+
+msgctxt "alt. month"
+msgid "May"
+msgstr ""
+
+msgctxt "alt. month"
+msgid "June"
+msgstr ""
+
+msgctxt "alt. month"
+msgid "July"
+msgstr ""
+
+msgctxt "alt. month"
+msgid "August"
+msgstr ""
+
+msgctxt "alt. month"
+msgid "September"
+msgstr ""
+
+msgctxt "alt. month"
+msgid "October"
+msgstr ""
+
+msgctxt "alt. month"
+msgid "November"
+msgstr ""
+
+msgctxt "alt. month"
+msgid "December"
+msgstr ""
+
+msgid "This is not a valid IPv6 address."
+msgstr ""
+
+#, python-format
+msgctxt "String to return when truncating text"
+msgid "%(truncated_text)s…"
+msgstr ""
+
+msgid "or"
+msgstr ""
+
+#. Translators: This string is used as a separator between list elements
+msgid ", "
+msgstr ""
+
+#, python-format
+msgid "%(num)d year"
+msgid_plural "%(num)d years"
+msgstr[0] ""
+msgstr[1] ""
+msgstr[2] ""
+msgstr[3] ""
+
+#, python-format
+msgid "%(num)d month"
+msgid_plural "%(num)d months"
+msgstr[0] ""
+msgstr[1] ""
+msgstr[2] ""
+msgstr[3] ""
+
+#, python-format
+msgid "%(num)d week"
+msgid_plural "%(num)d weeks"
+msgstr[0] ""
+msgstr[1] ""
+msgstr[2] ""
+msgstr[3] ""
+
+#, python-format
+msgid "%(num)d day"
+msgid_plural "%(num)d days"
+msgstr[0] ""
+msgstr[1] ""
+msgstr[2] ""
+msgstr[3] ""
+
+#, python-format
+msgid "%(num)d hour"
+msgid_plural "%(num)d hours"
+msgstr[0] ""
+msgstr[1] ""
+msgstr[2] ""
+msgstr[3] ""
+
+#, python-format
+msgid "%(num)d minute"
+msgid_plural "%(num)d minutes"
+msgstr[0] ""
+msgstr[1] ""
+msgstr[2] ""
+msgstr[3] ""
+
+msgid "Forbidden"
+msgstr ""
+
+msgid "CSRF verification failed. Request aborted."
+msgstr ""
+
+msgid ""
+"You are seeing this message because this HTTPS site requires a “Referer "
+"header” to be sent by your web browser, but none was sent. This header is "
+"required for security reasons, to ensure that your browser is not being "
+"hijacked by third parties."
+msgstr ""
+
+msgid ""
+"If you have configured your browser to disable “Referer” headers, please re-"
+"enable them, at least for this site, or for HTTPS connections, or for “same-"
+"origin” requests."
+msgstr ""
+
+msgid ""
+"If you are using the <meta name=\"referrer\" content=\"no-referrer\"> tag or "
+"including the “Referrer-Policy: no-referrer” header, please remove them. The "
+"CSRF protection requires the “Referer” header to do strict referer checking. "
+"If you’re concerned about privacy, use alternatives like <a "
+"rel=\"noreferrer\" …> for links to third-party sites."
+msgstr ""
+
+msgid ""
+"You are seeing this message because this site requires a CSRF cookie when "
+"submitting forms. This cookie is required for security reasons, to ensure "
+"that your browser is not being hijacked by third parties."
+msgstr ""
+
+msgid ""
+"If you have configured your browser to disable cookies, please re-enable "
+"them, at least for this site, or for “same-origin” requests."
+msgstr ""
+
+msgid "More information is available with DEBUG=True."
+msgstr ""
+
+msgid "No year specified"
+msgstr ""
+
+msgid "Date out of range"
+msgstr ""
+
+msgid "No month specified"
+msgstr ""
+
+msgid "No day specified"
+msgstr ""
+
+msgid "No week specified"
+msgstr ""
+
+#, python-format
+msgid "No %(verbose_name_plural)s available"
+msgstr ""
+
+#, python-format
+msgid ""
+"Future %(verbose_name_plural)s not available because "
+"%(class_name)s.allow_future is False."
+msgstr ""
+
+#, python-format
+msgid "Invalid date string “%(datestr)s” given format “%(format)s”"
+msgstr ""
+
+#, python-format
+msgid "No %(verbose_name)s found matching the query"
+msgstr ""
+
+msgid "Page is not “last”, nor can it be converted to an int."
+msgstr ""
+
+#, python-format
+msgid "Invalid page (%(page_number)s): %(message)s"
+msgstr ""
+
+#, python-format
+msgid "Empty list and “%(class_name)s.allow_empty” is False."
+msgstr ""
+
+msgid "Directory indexes are not allowed here."
+msgstr ""
+
+#, python-format
+msgid "“%(path)s” does not exist"
+msgstr ""
+
+#, python-format
+msgid "Index of %(directory)s"
+msgstr ""
+
+msgid "The install worked successfully! Congratulations!"
+msgstr ""
+
+#, python-format
+msgid ""
+"View <a href=\"https://docs.djangoproject.com/en/%(version)s/releases/\" "
+"target=\"_blank\" rel=\"noopener\">release notes</a> for Django %(version)s"
+msgstr ""
+
+#, python-format
+msgid ""
+"You are seeing this page because <a href=\"https://docs.djangoproject.com/en/"
+"%(version)s/ref/settings/#debug\" target=\"_blank\" "
+"rel=\"noopener\">DEBUG=True</a> is in your settings file and you have not "
+"configured any URLs."
+msgstr ""
+
+msgid "Django Documentation"
+msgstr ""
+
+msgid "Topics, references, &amp; how-to’s"
+msgstr ""
+
+msgid "Tutorial: A Polling App"
+msgstr ""
+
+msgid "Get started with Django"
+msgstr ""
+
+msgid "Django Community"
+msgstr ""
+
+msgid "Connect, get help, or contribute"
+msgstr ""
+
+#, python-format
+msgid "Error: Cannot handle glob %s"
+msgstr ""
+
+#, python-format
+msgid "Cannot read %s"
+msgstr ""
+
+#, python-format
+msgid "Unimplemented function: %s"
+msgstr ""
+
+#, python-format
+msgid "new name needed for rename of %s"
+msgstr ""
+
+#, python-format
+msgid "Unhandled filechange type: %s"
+msgstr ""
+
+msgid "Couldn't parse rename source"
+msgstr ""
+
+#, python-format
+msgid "Malformed %(refname)s line: '%(line)s'"
+msgstr ""
+
+#, python-format
+msgid "Unsupported command: '%s'"
+msgstr ""
+
+#, python-format
+msgid "Could not parse line: '%s'"
+msgstr ""
+
+#, python-format
+msgid ""
+"\n"
+"NEXT STEPS FOR YOUR SENSITIVE DATA REMOVAL:\n"
+"  * If you are doing your rewrite in multiple steps, ignore these next "
+"steps\n"
+"    until you have completed all your invocations of git-filter-repo.\n"
+"  * See the \"Sensitive Data Removal\" subsection of the \"DISCUSSION\" "
+"section\n"
+"    of the manual for more details about any of the steps below.\n"
+"  * Inspect this repository and verify that the sensitive data is indeed\n"
+"    completely removed from all commits.\n"
+"  * Force push the rewritten history to the server:\n"
+"      %s\n"
+"  * Contact the server admins for additional steps they need to take; the\n"
+"    First Changed Commit(s)%s may come in handy here.\n"
+"  * Have other colleagues with a clone either discard their clone and "
+"reclone\n"
+"    OR follow the detailed steps in the manual to repeatedly rebase and\n"
+"    purge the sensitive data from their copy.  Again, the First Changed\n"
+"    Commit(s)%s may come in handy.\n"
+"  * See the \"Prevent repeats and avoid future sensitive data spills\" "
+"section\n"
+"    of the manual.\n"
+msgstr ""
+
+#, python-format
+msgid "%s does not appear to be a valid git repository"
+msgstr ""
+
+#, python-format
+msgid "Processed %d blob sizes"
+msgstr ""
+
+#, python-format
+msgid "Error: unexpected `git cat-file` output: \"%s\"\n"
+msgstr ""
+
+msgid ""
+"Error: --path-rename expects one colon in its argument: <old_name:new_name>."
+msgstr ""
+
+msgid ""
+"Error: With --path-rename, if OLD_NAME and NEW_NAME are both non-empty and "
+"either ends with a slash then both must."
+msgstr ""
+
+msgid "Error: Pathnames cannot begin with a '/'"
+msgstr ""
+
+#, python-format
+msgid "Error: Invalid path component '%s' found in '%s'"
+msgstr ""
+
+#, python-format
+msgid "Error: HelperFilter given invalid option_string: %s"
+msgstr ""
+
+msgid ""
+"Rewrite (or analyze) repository history\n"
+"\n"
+"    git-filter-repo destructively rewrites history (unless --analyze or\n"
+"    --dry-run are given) according to specified rules.  It refuses to do "
+"any\n"
+"    rewriting unless either run from a clean fresh clone, or --force was\n"
+"    given.\n"
+"\n"
+"    Basic Usage:\n"
+"      git-filter-repo --analyze\n"
+"      git-filter-repo [FILTER/RENAME/CONTROL OPTIONS]\n"
+"\n"
+"    See EXAMPLES section for details.\n"
+"    "
+msgstr ""
+
+msgid ""
+"CALLBACKS\n"
+"\n"
+"    Most callback functions are of the same general format.  For a command "
+"line\n"
+"    argument like\n"
+"      --foo-callback 'BODY'\n"
+"\n"
+"    the following code will be compiled and called:\n"
+"      def foo_callback(foo):\n"
+"        BODY\n"
+"\n"
+"    The exception on callbacks is the --file-info-callback, which will be\n"
+"    discussed further below.\n"
+"\n"
+"    Given the callback style, we can thus make a simple callback to replace\n"
+"    'Jon' with 'John' in author/committer/tagger names:\n"
+"      git filter-repo --name-callback 'return name.replace(b\"Jon\", "
+"b\"John\")'\n"
+"\n"
+"    To remove all 'Tested-by' tags in commit (or tag) messages:\n"
+"      git filter-repo --message-callback 'return re.sub(br\"\\nTested-"
+"by:.*\", \"\", message)'\n"
+"\n"
+"    To remove all .DS_Store files:\n"
+"      git filter-repo --filename-callback 'return None if "
+"os.path.basename(filename) == b\".DS_Store\" else filename'\n"
+"\n"
+"    Note that if BODY resolves to a filename, then the contents of that "
+"file\n"
+"    will be used as the BODY in the callback function.\n"
+"\n"
+"    The --file-info-callback has a more involved function callback; for it "
+"the\n"
+"    following code will be compiled and called:\n"
+"      def file_info_callback(filename, mode, blob_id, value):\n"
+"        BODY\n"
+"\n"
+"    It is designed to be used in cases where filtering depends on both\n"
+"    filename and contents (and maybe mode).  It is called for file changes\n"
+"    other than deletions (since deletions have no file contents to operate\n"
+"    on).  This callback is expected to return a tuple of (filename, mode,\n"
+"    blob_id).  It can make use of the following functions from the value\n"
+"    instance:\n"
+"      value.get_contents_by_identifier(blob_id) -> contents (bytestring)\n"
+"      value.get_size_by_identifier(blob_id) -> size_of_blob (int)\n"
+"      value.insert_file_with_contents(contents) -> blob_id\n"
+"      value.is_binary(contents) -> bool\n"
+"      value.apply_replace_text(contents) -> new_contents (bytestring)\n"
+"    and can read/write the following data member from the value instance:\n"
+"      value.data (dict)\n"
+"\n"
+"    The filename can be used for renaming the file similar to\n"
+"    --filename-callback (or None to drop the change), and mode is one\n"
+"    of b'100644', b'100755', b'120000', or b'160000'.\n"
+"\n"
+"    For more detailed examples and explanations AND caveats, see\n"
+"      https://htmlpreview.github.io/?https://github.com/newren/git-filter-"
+"repo/blob/docs/html/git-filter-repo.html#CALLBACKS\n"
+"\n"
+"EXAMPLES\n"
+"\n"
+"    To get a bunch of reports mentioning renames that have occurred in\n"
+"    your repo and listing sizes of objects aggregated by any of path,\n"
+"    directory, extension, or blob-id:\n"
+"      git filter-repo --analyze\n"
+"\n"
+"    (These reports can help you choose how to filter your repo; it can\n"
+"    be useful to re-run this command after filtering to regenerate the\n"
+"    report and verify the changes look correct.)\n"
+"\n"
+"    To extract the history that touched just 'guides' and 'tools/releases':\n"
+"      git filter-repo --path guides/ --path tools/releases\n"
+"\n"
+"    To remove foo.zip and bar/baz/zips from every revision in history:\n"
+"      git filter-repo --path foo.zip --path bar/baz/zips/ --invert-paths\n"
+"\n"
+"    To replace the text 'password' with 'p455w0rd':\n"
+"      git filter-repo --replace-text <(echo \"password==>p455w0rd\")\n"
+"\n"
+"    To use the current version of the .mailmap file to update authors,\n"
+"    committers, and taggers throughout history and make it permanent:\n"
+"      git filter-repo --use-mailmap\n"
+"\n"
+"    To extract the history of 'src/', rename all files to have a new "
+"leading\n"
+"    directory 'my-module' (e.g. src/foo.java -> my-module/src/foo.java), "
+"and\n"
+"    add a 'my-module-' prefix to all tags:\n"
+"      git filter-repo --path src/ --to-subdirectory-filter my-module --tag-"
+"rename '':'my-module-'\n"
+"\n"
+"    For more detailed examples and explanations, see\n"
+"      https://htmlpreview.github.io/?https://github.com/newren/git-filter-"
+"repo/blob/docs/html/git-filter-repo.html#EXAMPLES"
+msgstr ""
+
+#, fuzzy
+#| msgid "Analysis Note:"
+msgid "Analysis"
+msgstr "הערת ניתוח:"
+
+msgid ""
+"Analyze repository history and create a report that may be useful in "
+"determining what to filter in a subsequent run. Will not modify your repo."
+msgstr ""
+
+msgid ""
+"Directory to write report, defaults to GIT_DIR/filter_repo/analysis,refuses "
+"to run if exists, --force delete existing dir first."
+msgstr ""
+
+msgid "Filtering based on paths (see also --filename-callback)"
+msgstr ""
+
+msgid ""
+"\n"
+"           These options specify the paths to select.  Note that much like "
+"git\n"
+"           itself, renames are NOT followed so you may need to specify "
+"multiple\n"
+"           paths, e.g. `--path olddir/ --path newdir/`\n"
+"           "
+msgstr ""
+
+msgid ""
+"Invert the selection of files from the specified --path-{match,glob,regex} "
+"options below, i.e. only select files matching none of those options."
+msgstr ""
+
+msgid ""
+"Exact paths (files or directories) to include in filtered history.  Multiple "
+"--path options can be specified to get a union of paths."
+msgstr ""
+
+msgid ""
+"Glob of paths to include in filtered history. Multiple --path-glob options "
+"can be specified to get a union of paths."
+msgstr ""
+
+msgid ""
+"Regex of paths to include in filtered history. Multiple --path-regex options "
+"can be specified to get a union of paths"
+msgstr ""
+
+msgid ""
+"Match on file base name instead of full path from the top of the repo.  "
+"Incompatible with --path-rename, and incompatible with matching against "
+"directory names."
+msgstr ""
+
+msgid "Renaming based on paths (see also --filename-callback)"
+msgstr ""
+
+msgid ""
+"Path to rename; if filename or directory matches OLD_NAME rename to "
+"NEW_NAME.  Multiple --path-rename options can be specified.  NOTE: If you "
+"combine filtering options with renaming ones, do not rely on a rename "
+"argument to select paths; you also need a filter to select them."
+msgstr ""
+
+msgid "Path shortcuts"
+msgstr ""
+
+msgid ""
+"Specify several path filtering and renaming directives, one per line.  Lines "
+"with '==>' in them specify path renames, and lines can begin with 'literal:' "
+"(the default), 'glob:', or 'regex:' to specify different matching styles.  "
+"Blank lines and lines starting with a '#' are ignored."
+msgstr ""
+
+msgid ""
+"Only look at history that touches the given subdirectory and treat that "
+"directory as the project root.  Equivalent to using '--path DIRECTORY/ --"
+"path-rename DIRECTORY/:'"
+msgstr ""
+
+msgid ""
+"Treat the project root as if it were under DIRECTORY. Equivalent to using '--"
+"path-rename :DIRECTORY/'"
+msgstr ""
+
+msgid "Content editing filters (see also --blob-callback)"
+msgstr ""
+
+#, python-brace-format
+msgid ""
+"A file with expressions that, if found, will be replaced. By default, each "
+"expression is treated as literal text, but 'regex:' and 'glob:' prefixes are "
+"supported.  You can end the line with '==>' and some replacement text to "
+"choose a replacement choice other than the default of '{}'."
+msgstr ""
+
+msgid "Strip blobs (files) bigger than specified size (e.g. '5M', '2G', etc)"
+msgstr ""
+
+msgid ""
+"Read git object ids from each line of the given file, and strip all of them "
+"from history"
+msgstr ""
+
+msgid "Renaming of refs (see also --refname-callback)"
+msgstr ""
+
+msgid ""
+"Rename tags starting with OLD to start with NEW.  For example, --tag-rename "
+"foo:bar will rename tag foo-1.2.3 to bar-1.2.3; either OLD or NEW can be "
+"empty."
+msgstr ""
+
+msgid "Filtering of commit messages (see also --message-callback)"
+msgstr ""
+
+msgid ""
+"A file with expressions that, if found in commit or tag messages, will be "
+"replaced. This file uses the same syntax as --replace-text."
+msgstr ""
+
+msgid ""
+"By default, since commits are rewritten and thus gain new hashes, references "
+"to old commit hashes in commit messages are replaced with new commit hashes "
+"(abbreviated to the same length as the old reference).  Use this flag to "
+"turn off updating commit hashes in commit messages."
+msgstr ""
+
+msgid ""
+"Do not reencode commit messages into UTF-8.  By default, if the commit "
+"object specifies an encoding for the commit message, the message is re-"
+"encoded into UTF-8."
+msgstr ""
+
+msgid ""
+"Filtering of names & emails (see also --name-callback and --email-callback)"
+msgstr ""
+
+msgid ""
+"Use specified mailmap file (see git-shortlog(1) for details on the format) "
+"when rewriting author, committer, and tagger names and emails.  If the "
+"specified file is part of git history, historical versions of the file will "
+"be ignored; only the current contents are consulted."
+msgstr ""
+
+msgid "Same as: '--mailmap .mailmap' "
+msgstr ""
+
+msgid "Parent rewriting"
+msgstr ""
+
+msgid ""
+"How to handle replace refs (see git-replace(1)).  Replace refs can be added "
+"during the history rewrite as a way to allow users to pass old commit IDs "
+"(from before git-filter-repo was run) to git commands and have git know how "
+"to translate those old commit IDs to the new (post-rewrite) commit IDs.  "
+"Also, replace refs that existed before the rewrite can either be deleted or "
+"updated.  The choices to pass to --replace-refs thus need to specify both "
+"what to do with existing refs and what to do with commit rewrites.  Thus "
+"'update-and-add' means to update existing replace refs, and for any commit "
+"rewrite (even if already pointed at by a replace ref) add a new refs/"
+"replace/ reference to map from the old commit ID to the new commit ID.  The "
+"default is update-no-add, meaning update existing replace refs but do not "
+"add any new ones.  There is also a special 'old-default' option for picking "
+"the default used in versions prior to git-filter-repo-2.45, namely 'update-"
+"and-add' upon the first run of git-filter-repo in a repository and 'update-"
+"or-add' if running git-filter-repo again on a repository."
+msgstr ""
+
+msgid ""
+"Whether to prune empty commits.  'auto' (the default) means only prune "
+"commits which become empty (not commits which were empty in the original "
+"repo, unless their parent was pruned). When the parent of a commit is "
+"pruned, the first non-pruned ancestor becomes the new parent."
+msgstr ""
+
+msgid ""
+"Since merge commits are needed for history topology, they are typically "
+"exempt from pruning.  However, they can become degenerate with the pruning "
+"of other commits (having fewer than two parents, having one commit serve as "
+"both parents, or having one parent as the ancestor of the other.)  If such "
+"merge commits have no file changes, they can be pruned.  The default "
+"('auto') is to only prune empty merge commits which become degenerate (not "
+"which started as such)."
+msgstr ""
+
+msgid ""
+"Even if the first parent is or becomes an ancestor of another parent, do not "
+"prune it.  This modifies how --prune-degenerate behaves, and may be useful "
+"in projects who always use merge --no-ff."
+msgstr ""
+
+msgid "Generic callback code snippets"
+msgstr ""
+
+msgid ""
+"Python code body for processing filenames; see CALLBACKS sections below."
+msgstr ""
+
+msgid ""
+"Python code body for processing file and metadata; see CALLBACKS sections "
+"below."
+msgstr ""
+
+msgid ""
+"Python code body for processing messages (both commit messages and tag "
+"messages); see CALLBACKS section below."
+msgstr ""
+
+msgid ""
+"Python code body for processing names of people; see CALLBACKS section below."
+msgstr ""
+
+msgid ""
+"Python code body for processing emails addresses; see CALLBACKS section "
+"below."
+msgstr ""
+
+msgid "Python code body for processing refnames; see CALLBACKS section below."
+msgstr ""
+
+msgid ""
+"Python code body for processing blob objects; see CALLBACKS section below."
+msgstr ""
+
+msgid ""
+"Python code body for processing commit objects; see CALLBACKS section below."
+msgstr ""
+
+msgid ""
+"Python code body for processing tag objects.  Note that lightweight tags "
+"have no tag object and are thus not handled by this callback. See CALLBACKS "
+"section below."
+msgstr ""
+
+msgid ""
+"Python code body for processing reset objects; see CALLBACKS section below."
+msgstr ""
+
+msgid "Sensitive Data Removal Handling"
+msgstr ""
+
+msgid ""
+"This rewrite is intended to remove sensitive data from a repository.  Gather "
+"extra information from the rewrite needed to provide additional instructions "
+"on how to clean up other copies."
+msgstr ""
+
+msgid ""
+"By default, --sensitive-data-removal will trigger a mirror-like fetch of all "
+"refs from origin, discarding local changes, but ensuring that _all_ "
+"fetchable refs that hold on to the sensitve data are rewritten.  This flag "
+"removes that fetch, risking that other refs continue holding on to the "
+"sensitive data.  This option is implied by --partial or any flag that "
+"implies --partial."
+msgstr ""
+
+msgid ""
+"Specifying alternate source or target locations implies --partial,\n"
+"except that the normal default for --replace-refs is used.  However,\n"
+"unlike normal uses of --partial, this doesn't risk mixing old and new\n"
+"history since the old and new histories are in different repositories."
+msgstr ""
+
+msgid "Location to filter from/to"
+msgstr ""
+
+msgid "Git repository to read from"
+msgstr ""
+
+msgid "Git repository to overwrite with filtered history"
+msgstr ""
+
+msgid "Ordering of commits"
+msgstr ""
+
+msgid "Processes commits in commit timestamp order."
+msgstr ""
+
+msgid "Miscellaneous options"
+msgstr ""
+
+msgid "Show this help message and exit."
+msgstr ""
+
+msgid "Display filter-repo's version and exit."
+msgstr ""
+
+msgid "Avoid triggering the no-arguments-specified check."
+msgstr ""
+
+msgid ""
+"Rewrite repository history even if the current repo does not look like a "
+"fresh clone.  History rewriting is irreversible (and includes immediate "
+"pruning of reflogs and old objects), so be cautious about using this flag."
+msgstr ""
+
+msgid ""
+"Do a partial history rewrite, resulting in the mixture of old and new "
+"history.  This disables rewriting refs/remotes/origin/* to refs/heads/*, "
+"disables removing of the 'origin' remote, disables removing unexported refs, "
+"disables expiring the reflog, and disables the automatic post-filter gc.  "
+"Also, this modifies --tag-rename and --refname-callback options such that "
+"instead of replacing old refs with new refnames, it will instead create new "
+"refs and keep the old ones around.  Use with caution."
+msgstr ""
+
+msgid "Do not run 'git gc' after filtering."
+msgstr ""
+
+msgid ""
+"Limit history rewriting to the specified refs.  Implies --partial.  In "
+"addition to the normal caveats of --partial (mixing old and new history, no "
+"automatic remapping of refs/remotes/origin/* to refs/heads/*, etc.), this "
+"also may cause problems for pruning of degenerate empty merge commits when "
+"negative revisions are specified."
+msgstr ""
+
+msgid ""
+"Do not change the repository.  Run `git fast-export` and filter its output, "
+"and save both the original and the filtered version for comparison.  This "
+"also disables rewriting commit messages due to not knowing new commit IDs "
+"and disables filtering of some empty commits due to inability to query the "
+"fast-import backend."
+msgstr ""
+
+msgid ""
+"Print additional information about operations being performed and commands "
+"being run.  When used together with --dry-run, also show extra information "
+"about what would be run."
+msgstr ""
+
+msgid ""
+"Instead of running `git fast-export` and filtering its output, filter the "
+"fast-export stream from stdin.    The stdin must be in the expected input "
+"format (e.g. it needs to include original-oid directives)."
+msgstr ""
+
+msgid "Pass --quiet to other git commands called"
+msgstr ""
+
+msgid ""
+"Error: --analyze is incompatible with --path* flags; it's a read-only "
+"operation."
+msgstr ""
+
+msgid "Error: --analyze is incompatible with --stdin."
+msgstr ""
+
+msgid "Error: --use-base-name and --path-rename are incompatible."
+msgstr ""
+
+msgid "Error: need git >= 2.24.0"
+msgstr ""
+
+msgid "Error: need git >= 2.23.0"
+msgstr ""
+
+msgid "Error: need git >= 2.22.0"
+msgstr ""
+
+#, python-format
+msgid "Error: could not parse --strip-blobs-bigger-than argument %s"
+msgstr ""
+
+msgid ""
+"Error: --file-info-callback is incompatible with --stdin, --blob-callback,\n"
+"and --filename-callback."
+msgstr ""
+
+#, python-format
+msgid ""
+"Error: In %s, 'glob:' and '==>' are incompatible (renaming globs makes no "
+"sense)"
+msgstr ""
+
+msgid ""
+"Error: When rename directories, if OLDNAME and NEW_NAME are both non-empty "
+"and either ends with a slash then both must."
+msgstr ""
+
+msgid "No arguments specified."
+msgstr ""
+
+#, python-format
+msgid "Unhandled change type(s): %(change_type)s (in commit %(commit)s)"
+msgstr ""
+
+#, python-format
+msgid "Processed %d commits"
+msgstr ""
+
+msgid "Nothing to analyze; repository is empty."
+msgstr ""
+
+msgid "Error: rev-list|diff-tree pipeline failed; see above."
+msgstr ""
+
+msgid "<present>"
+msgstr ""
+
+#, fuzzy
+#| msgid "Email Statistics"
+msgid "Overall Statistics"
+msgstr "סטטיסטיקות דוא\"ל"
+
+msgid "Number of commits"
+msgstr ""
+
+msgid "Number of filenames"
+msgstr ""
+
+msgid "Number of directories"
+msgstr ""
+
+msgid "Number of file extensions"
+msgstr ""
+
+msgid "Total unpacked size (bytes)"
+msgstr ""
+
+msgid "Total packed size (bytes)"
+msgstr ""
+
+msgid "Caveats"
+msgstr ""
+
+msgid "Sizes"
+msgstr ""
+
+msgid ""
+"\n"
+"        Packed size represents what size your repository would be if no\n"
+"        trees, commits, tags, or other metadata were included (though it "
+"may\n"
+"        fail to represent de-duplication; see below).  It also represents "
+"the\n"
+"        current packing, which may be suboptimal if you haven't gc'ed for a\n"
+"        while.\n"
+"\n"
+"        Unpacked size represents what size your repository would be if no\n"
+"        trees, commits, tags, or other metadata were included AND if no\n"
+"        files were packed; i.e., without delta-ing or compression.\n"
+"\n"
+"        Both unpacked and packed sizes can be slightly misleading.  "
+"Deleting\n"
+"        a blob from history not save as much space as the unpacked size,\n"
+"        because it is obviously normally stored in packed form.  Also,\n"
+"        deleting a blob from history may not save as much space as its "
+"packed\n"
+"        size either, because another blob could be stored as a delta "
+"against\n"
+"        that blob, so when you remove one blob another blob's packed size "
+"may\n"
+"        grow.\n"
+"\n"
+"        Also, the sum of the packed sizes can add up to more than the\n"
+"        repository size; if the same contents appeared in the repository in\n"
+"        multiple places, git will automatically de-dupe and store only one\n"
+"        copy, while the way sizes are added in this analysis adds the size\n"
+"        for each file path that has those contents.  Further, if a file is\n"
+"        ever reverted to a previous version's contents, the previous\n"
+"        version's size will be counted multiple times in this analysis, "
+"even\n"
+"        though git will only store it once.\n"
+"        "
+msgstr ""
+
+msgid "Deletions"
+msgstr ""
+
+msgid ""
+"\n"
+"        Whether a file is deleted is not a binary quality, since it can be\n"
+"        deleted on some branches but still exist in others.  Also, it might\n"
+"        exist in an old tag, but have been deleted in versions newer than\n"
+"        that.  More thorough tracking could be done, including looking at\n"
+"        merge commits where one side of history deleted and the other "
+"modified,\n"
+"        in order to give a more holistic picture of deletions.  However, "
+"that\n"
+"        algorithm would not only be more complex to implement, it'd also be\n"
+"        quite difficult to present and interpret by users.  Since --analyze\n"
+"        is just about getting a high-level rough picture of history, it "
+"instead\n"
+"        implements the simplistic rule that is good enough for 98% of "
+"cases:\n"
+"          A file is marked as deleted if the last commit in the fast-export\n"
+"          stream that mentions the file lists it as deleted.\n"
+"        This makes it dependent on topological ordering, but generally "
+"gives\n"
+"        the \"right\" answer.\n"
+"        "
+msgstr ""
+
+msgid "Renames"
+msgstr ""
+
+msgid ""
+"\n"
+"        Renames share the same non-binary nature that deletions do, plus\n"
+"        additional challenges:\n"
+"          * If the renamed file is renamed again, instead of just two names "
+"for\n"
+"            a path you can have three or more.\n"
+"          * Rename pairs of the form (oldname, newname) that we consider to "
+"be\n"
+"            different names of the \"same file\" might only be valid over "
+"certain\n"
+"            commit ranges.  For example, if a new commit reintroduces a "
+"file\n"
+"            named oldname, then new versions of oldname aren't the \"same "
+"file\"\n"
+"            anymore.  We could try to portray this to the user, but it's "
+"easier\n"
+"            for the user to just break the pairing and only report unbroken\n"
+"            rename pairings to the user.\n"
+"          * The ability for users to rename files differently in different\n"
+"            branches means that our chains of renames will not necessarily "
+"be\n"
+"            linear but may branch out.\n"
+"        "
+msgstr ""
+
+msgid "Deleted directories by reverse size"
+msgstr ""
+
+msgid "Format: unpacked size, packed size, date deleted, directory name\n"
+msgstr ""
+
+msgid "<toplevel>"
+msgstr ""
+
+msgid "All directories by reverse size"
+msgstr ""
+
+msgid "Deleted extensions by reverse size"
+msgstr ""
+
+msgid "Format: unpacked size, packed size, date deleted, extension name\n"
+msgstr ""
+
+msgid "<no extension>"
+msgstr ""
+
+msgid "All extensions by reverse size"
+msgstr ""
+
+msgid "Deleted paths by reverse accumulated size"
+msgstr ""
+
+msgid "Format: unpacked size, packed size, date deleted, path name(s)\n"
+msgstr ""
+
+msgid "All paths by reverse accumulated size"
+msgstr ""
+
+msgid "Format: unpacked size, packed size, date deleted, path name\n"
+msgstr ""
+
+msgid "Files by sha and associated pathnames in reverse size"
+msgstr ""
+
+msgid "Format: sha, unpacked size, packed size, filename(s) object stored as\n"
+msgstr ""
+
+#, python-format
+msgid "Warning: Removing recursively: \"%s\""
+msgstr ""
+
+#, python-format
+msgid "Error: dir already exists (use --force to delete): \"%s\"\n"
+msgstr ""
+
+#, python-format
+msgid "Writing reports to %s..."
+msgstr ""
+
+msgid "done.\n"
+msgstr ""
+
+#, python-format
+msgid "Parsed %d commits"
+msgstr ""
+
+#, python-format
+msgid "Error: Cannot pass a %s_callback to RepoFilter AND pass --%s-callback"
+msgstr ""
+
+#, python-format
+msgid "Error: --%s-callback should have a return statement"
+msgstr ""
+
+msgid ""
+"      Error: Cannot specify --sensitive-data-removal on a follow-up "
+"invocation\n"
+"             of git-filter-repo unless it was specified in previously runs."
+msgstr ""
+
+msgid "Error: sensitive data removal is incompatible with --stdin"
+msgstr ""
+
+msgid ""
+"Error: sensitive data removal is incompatible with --source and --target"
+msgstr ""
+
+msgid ""
+"Note: when cloning local repositories, you need to pass\n"
+"      --no-local to git clone to avoid this issue.\n"
+msgstr ""
+
+#, python-format
+msgid ""
+"Aborting: Refusing to destructively overwrite repo history since\n"
+"this does not look like a fresh clone.\n"
+"  (%s)\n"
+"%sPlease operate on a fresh clone instead.  If you want to proceed\n"
+"anyway, use --force."
+msgstr ""
+
+msgid "GIT_DIR must be ."
+msgstr ""
+
+msgid "GIT_DIR must be .git"
+msgstr ""
+
+#, python-format
+msgid ""
+"Aborting: Cannot rewrite history on a case insensitive\n"
+"filesystem since you have refs that differ in case only:\n"
+"%s"
+msgstr ""
+
+#, python-format
+msgid ""
+"Aborting: Cannot rewrite history on a character normalizing\n"
+"filesystem since you have refs that differ in normalization:\n"
+"%s"
+msgstr ""
+
+msgid "expected freshly packed repo"
+msgstr ""
+
+msgid "expected one remote, origin"
+msgstr ""
+
+#, python-format
+msgid "expected at most one entry in the reflog for %s"
+msgstr ""
+
+msgid "has stashed changes"
+msgstr ""
+
+msgid "you have uncommitted changes"
+msgstr ""
+
+msgid "you have unstaged changes"
+msgstr ""
+
+msgid "you have untracked changes"
+msgstr ""
+
+#, python-format
+msgid "%s exists, but %s not found"
+msgstr ""
+
+#, python-format
+msgid "%s does not match %s"
+msgstr ""
+
+msgid "you have multiple worktrees"
+msgstr ""
+
+msgid "Repacking your repo and cleaning out old unneeded objects"
+msgstr ""
+
+msgid "File renaming caused colliding pathnames!\n"
+msgstr ""
+
+#, python-brace-format
+msgid "  Commit: {}\n"
+msgstr ""
+
+#, python-brace-format
+msgid "  Filename: {}"
+msgstr ""
+
+#, python-format
+msgid "Failed loading %s from %s"
+msgstr ""
+
+#, python-format
+msgid "Failed to find %s to save to %s"
+msgstr ""
+
+msgid "Rewrote the stash."
+msgstr ""
+
+msgid "git update-ref failed; see above"
+msgstr ""
+
+msgid ""
+"NOTICE: Fetching all refs from origin to make sure we rewrite\n"
+"        all history that may reference the sensitive data, via\n"
+"      "
+msgstr ""
+
+msgid "WARNING: Fetching all refs from origin failed"
+msgstr ""
+
+#, python-format
+msgid ""
+"NOTICE: Removing 'origin' remote; see 'Why is my origin removed?'\n"
+"        in the manual if you want to push back there.\n"
+"        (was %s)"
+msgstr ""
+
+msgid "old"
+msgstr ""
+
+msgid "new"
+msgstr ""
+
+msgid "ref"
+msgstr ""
+
+msgid ""
+"\n"
+"          The following commits used to be merge commits but due to "
+"filtering\n"
+"          are now regular commits; they likely have suboptimal commit "
+"messages\n"
+"          (e.g. \"Merge branch next into master\").  Original commit hash on "
+"the\n"
+"          left, commit hash after filtering/rewriting on the right:\n"
+"          "
+msgstr ""
+
+msgid ""
+"\n"
+"          The following commits were filtered out, but referenced in "
+"another\n"
+"          commit message.  The reference to the now-nonexistent commit hash\n"
+"          (or a substring thereof) was left as-is in any commit messages:\n"
+"          "
+msgstr ""
+
+msgid "No filtering problems encountered.\n"
+msgstr ""
+
+msgid ""
+"This file exists to allow you to filter again without --force,\n"
+"and to specify that metadata files should be updated instead\n"
+"of rewritten"
+msgstr ""
+
+msgid "Error: fast-export failed; see above."
+msgstr ""
+
+msgid "Error: fast-import failed; see above."
+msgstr ""
+
+msgid "NOTE: Not running fast-import or cleaning up; --dry-run passed."
+msgstr ""
+
+msgid "      Requested filtering can be seen by comparing:"
+msgstr ""
+
+msgid "      Requested filtering can be seen at:"
+msgstr ""
+
+#, python-brace-format
+msgid "Completely finished after {:.2f} seconds."
+msgstr ""
+
+msgid " and LFS Objects Orphaned"
+msgstr ""
+
+#, python-format
+msgid "Content purported to be compressed with %s but failed to decompress."
+msgstr ""
+
+#, python-format
+msgid "Unsupported value for qop: %s."
+msgstr ""
+
+#, python-format
+msgid "Unsupported value for algorithm: %s."
+msgstr ""
+
+msgid "The challenge doesn't contain a server nonce, or this one is empty."
+msgstr ""
+
+#, python-format
+msgid "Unsupported value for pw-algorithm: %s."
+msgstr ""
+
+msgid "Redirected but the response is missing a Location: header."
+msgstr ""
+
+msgid "English"
+msgstr "אנגלית"
+
+msgid "Hebrew"
+msgstr "עברית"
+
+#~ msgid "archive verification codes from [timeframe]"
+#~ msgstr "ארכב קודי אימות מ-[תקופה]"
+
+#~ msgid "Archives codes by fixed time (today, yesterday, last week, etc.)."
+#~ msgstr "מארכב קודים לפי זמן קבוע (היום, אתמול, שבוע שעבר וכו')."
+
+#~ msgid "archive verification codes from [duration] ago"
+#~ msgstr "ארכב קודי אימות מלפני [משך]"
+
+#~ msgid "Archives codes from a time period ago."
+#~ msgstr "מארכב קודים מתקופת זמן מסוימת שעברה."
+
+#~ msgid "archive shipping emails from [timeframe]"
+#~ msgstr "ארכב מיילי משלוח מ-[תקופה]"
+
+#~ msgid ""
+#~ "Archives shipping updates by fixed time (today, yesterday, last week, "
+#~ "etc.)."
+#~ msgstr "מארכב עדכוני משלוח לפי זמן קבוע (היום, אתמול, שבוע שעבר וכו')."
+
+#~ msgid "archive shipping emails from [duration] ago"
+#~ msgstr "ארכב מיילי משלוח מלפני [משך]"
+
+#~ msgid "Archives shipping updates from a time period ago."
+#~ msgstr "מארכב עדכוני משלוח מתקופת זמן מסוימת שעברה."
+
+#~ msgid "archive account security emails from [timeframe]"
+#~ msgstr "ארכב מיילי אבטחת חשבון מ-[תקופה]"
+
+#~ msgid ""
+#~ "Archives security alerts by fixed time (today, yesterday, last week, "
+#~ "etc.)."
+#~ msgstr "מארכב התראות אבטחה לפי זמן קבוע (היום, אתמול, שבוע שעבר וכו')."
+
+#~ msgid "archive account security emails from [duration] ago"
+#~ msgstr "ארכב מיילי אבטחת חשבון מלפני [משך]"
+
+#~ msgid "Archives security alerts from a time period ago."
+#~ msgstr "מארכב התראות אבטחה מתקופת זמן מסוימת שעברה."
+
+#~ msgid "Deletes codes by fixed time (today, yesterday, last week, etc.)."
+#~ msgstr "מוחק קודים לפי זמן קבוע (היום, אתמול, שבוע שעבר וכו')."
+
+#~ msgid "Deletes codes from a time period ago."
+#~ msgstr "מוחק קודים מתקופת זמן מסוימת שעברה."
+
+#~ msgid ""
+#~ "Deletes shipping updates by fixed time (today, yesterday, last week, "
+#~ "etc.)."
+#~ msgstr "מוחק עדכוני משלוח לפי זמן קבוע (היום, אתמול, שבוע שעבר וכו')."
+
+#~ msgid "Deletes shipping updates from a time period ago."
+#~ msgstr "מוחק עדכוני משלוח מתקופת זמן מסוימת שעברה."
+
+#~ msgid ""
+#~ "Deletes security alerts by fixed time (today, yesterday, last week, etc.)."
+#~ msgstr "מוחק התראות אבטחה לפי זמן קבוע (היום, אתמול, שבוע שעבר וכו')."
+
+#~ msgid "Deletes security alerts from a time period ago."
+#~ msgstr "מוחק התראות אבטחה מתקופת זמן מסוימת שעברה."
+
+# Custom category timeframe autocomplete entries
+#~ msgid "list shipping emails from [timeframe]"
+#~ msgstr "רשום מיילי משלוח מ-[תקופה]"
+
+#, python-format
+#~ msgid "in the month starting around %(date)s"
+#~ msgstr "בחודש שמתחיל סביב %(date)s"
+
+#, python-format
+#~ msgid "in the 7 days starting around %(date)s"
+#~ msgstr "בשבעה הימים שמתחילים סביב %(date)s"
+
+#, python-format
+#~ msgid "on the day of %(date)s"
+#~ msgstr "ביום %(date)s"
+
+#, python-format
+#~ msgid "No emails found %(description)s."
+#~ msgstr "לא נמצאו מיילים %(description)s."
+
+#, python-format
+#~ msgid ""
+#~ "Found %(count)d emails in %(what)s%(age)s. Do you want to archive them?"
+#~ msgstr "נמצאו %(count)d מיילים ב-%(what)s%(age)s. לארכב אותם?"
+
+#, python-format
+#~ msgid "No emails found from sender: %(sender)s."
+#~ msgstr "לא נמצאו מיילים מהשולח: %(sender)s."
+
+# Paginated search message with shown/total
+#~ msgid ""
+#~ "Found %(total)d emails with subject '%(subject)s'. Showing %(shown)d."
+#~ msgstr "נמצאו %(total)d מיילים עם הנושא '%(subject)s'. מציג %(shown)d."
+
+#~ msgid "Save current or custom command"
+#~ msgstr "שמור פקודה נוכחית או מותאמת"
+
+#~ msgid "This will perform a comprehensive analysis of your inbox emails."
+#~ msgstr "זה יבצע ניתוח מקיף של הודעות הדואר הנכנס שלך."
+
+#~ msgid "IMPORTANT: You have"
+#~ msgstr "חשוב: יש לך"
+
+#~ msgid "emails in your inbox."
+#~ msgstr "הודעות בתיבת הדואר הנכנס שלך."
+
+#~ msgid ""
+#~ "To ensure reasonable processing time, the analysis will be limited to the "
+#~ "most recent 1000 emails."
+#~ msgstr "כדי להבטיח זמן עיבוד סביר, הניתוח יוגבל ל-1000 ההודעות האחרונות."
+
+#~ msgid "Expected processing time: 2-3 minutes"
+#~ msgstr "זמן עיבוד צפוי: 2-3 דקות"
+
+#~ msgid ""
+#~ "This gives you comprehensive insights while keeping wait times manageable."
+#~ msgstr "זה נותן לך תובנות מקיפות תוך שמירה על זמני המתנה סבירים."
+
+#~ msgid "Expected processing time: 1-2 minutes"
+#~ msgstr "זמן עיבוד צפוי: 1-2 דקות"
+
+#~ msgid "This will analyze all"
+#~ msgstr "זה ינתח את כל"
+
+#~ msgid "Do you want to proceed with the full analysis?"
+#~ msgstr "האם אתה רוצה להמשיך עם הניתוח המלא?"
+
+#~ msgid "delete all promotions older than [duration]"
+#~ msgstr "מחק את כל קידומי המכירות ישנים מ-[משך]"
+
+#~ msgid "archive emails from [sender] older than 6 months"
+#~ msgstr "ארכב מיילים מ-[שולח] ישנים מ-6 חודשים"
+
+#~ msgid "archive all emails older than [duration]"
+#~ msgstr "ארכב את כל המיילים ישנים מ-[משך]"
+
+#~ msgid "Finds login and 2FA codes."
+#~ msgstr "מאתר קודי כניסה ו-2FA."
+
+#~ msgid "Lists codes by age window."
+#~ msgstr "רשימה לפי חלון גיל."
+
+#~ msgid "Lists codes from a specific time period ago."
+#~ msgstr "רשימת קודים מתקופת זמן מסוימת שעברה."
+
+#~ msgid "Cleans codes past a safe window."
+#~ msgstr "מנקה קודים שעברו את חלון הזמן הבטוח."
+
+#~ msgid "Archives codes after a period."
+#~ msgstr "מארכב קודים לאחר פרק זמן."
+
+#~ msgid "Carrier updates and delivery notices."
+#~ msgstr "עדכוני חברת משלוח והודעות מסירה."
+
+#~ msgid ""
+#~ "Carrier updates and delivery notices from a specific time period ago."
+#~ msgstr "עדכוני חברת משלוח והודעות מסירה מתקופת זמן מסוימת שעברה."
+
+#~ msgid "Archives old shipping updates."
+#~ msgstr "מארכב עדכוני משלוח ישנים."
+
+#~ msgid "Deletes stale shipping updates."
+#~ msgstr "מוחק עדכוני משלוח מיושנים."
+
+#~ msgid "Security alerts and sign-in notices."
+#~ msgstr "התראות אבטחה והודעות כניסה."
+
+#~ msgid "Older security notices."
+#~ msgstr "הודעות אבטחה ישנות."
+
+#~ msgid "Security alerts and sign-in notices from a specific time period ago."
+#~ msgstr "התראות אבטחה והודעות כניסה מתקופת זמן מסוימת שעברה."
+
+#~ msgid "Archives older security alerts."
+#~ msgstr "מארכב התראות אבטחה ישנות."
+
+#~ msgid "Deletes stale security alerts."
+#~ msgstr "מוחק התראות אבטחה מיושנות."
+
+#~ msgid "list emails from [domain]"
+#~ msgstr "רשום מיילים מ-[דומיין]"
+
+#~ msgid "delete emails from [domain]"
+#~ msgstr "מחק מיילים מ-[דומיין]"
+
+#~ msgid "archive all emails older than 1 year"
+#~ msgstr "ארכב את כל המיילים ישנים משנה"
+
+# New example commands (Hebrew translations)
+#~ msgid "delete emails from [sender] older than 30 days"
+#~ msgstr "מחק מיילים מ-[שולח] ישנים מ-30 ימים"
+
+#~ msgid "delete all emails older than 2 years"
+#~ msgstr "מחק את כל המיילים ישנים מ-2 שנים"
+
+#~ msgid "label emails from [domain] as \"[label]\""
+#~ msgstr "תייג מיילים מ-[דומיין] כתווית \"[תווית]\""
+
+#~ msgid "list emails before a week"
+#~ msgstr "רשום מיילים לפני שבוע"
+
+#~ msgid "list emails before a month"
+#~ msgstr "רשום מיילים לפני חודש"
+
+#~ msgid "list emails before a year"
+#~ msgstr "רשום מיילים לפני שנה"
+
+#~ msgid "list emails older than 1 year"
+#~ msgstr "רשום מיילים ישנים משנה"
+
+#~ msgid "list emails older than 30 days"
+#~ msgstr "רשום מיילים ישנים מ-30 ימים"
+
+#~ msgid "list emails from [domain] older than [duration]"
+#~ msgstr "רשום מיילים מ-[דומיין] ישנים מ-[משך]"
+
+#~ msgid "delete emails from [domain] older than [duration]"
+#~ msgstr "מחק מיילים מ-[דומיין] ישנים מ-[משך]"
+
+#~ msgid "delete emails from [domain] older than 30 days"
+#~ msgstr "מחק מיילים מ-[דומיין] ישנים מ-30 ימים"
+
+#~ msgid "delete verification codes older than 14 days"
+#~ msgstr "מחק קודי אימות ישנים מ-14 ימים"
+
+#~ msgid "archive verification codes older than 30 days"
+#~ msgstr "ארכב קודי אימות ישנים מ-30 ימים"
+
+#~ msgid "archive shipping emails older than 90 days"
+#~ msgstr "ארכב מיילי משלוח ישנים מ-90 ימים"
+
+#~ msgid "delete shipping emails older than 180 days"
+#~ msgstr "מחק מיילי משלוח ישנים מ-180 ימים"
+
+#~ msgid "archive account security emails older than 90 days"
+#~ msgstr "ארכב מיילי אבטחת חשבון ישנים מ-90 ימים"
+
+#~ msgid "delete account security emails older than 180 days"
+#~ msgstr "מחק מיילי אבטחת חשבון ישנים מ-180 ימים"
+
+#~ msgid ""
+#~ "send email to user@example.com with subject \"Hi\" and message \"Hello "
+#~ "there!\""
+#~ msgstr ""
+#~ "שלח דוא\"ל אל user@example.com עם נושא \"Hi\" והודעה \"Hello there!\""
+
+#~ msgid ""
+#~ "To empty trash: Go to Gmail → Trash folder → 'Empty Trash now' button"
+#~ msgstr ""
+#~ "כדי לרוקן את האשפה: עבור ל-Gmail → תיקיית אשפה → הכפתור 'רוקן אשפה כעת'"
