@@ -541,6 +541,15 @@
         .btn-danger { background: #e74c3c; color: #fff; }
         .btn-danger:hover { filter: brightness(0.95); }
         [data-theme="dark"] .btn { border-color: #444; }
+        /* Settings modal theming */
+        #settings-overlay .overlay-content { color: var(--settings-fg, #333); }
+        #settings-overlay select,
+        #settings-overlay input,
+        #settings-overlay textarea { background-color: #fff; color: #333; border-color: #ccc; }
+        [data-theme="dark"] #settings-overlay { --settings-bg: #1f1f1f; --settings-fg: #e6e6e6; }
+        [data-theme="dark"] #settings-overlay select,
+        [data-theme="dark"] #settings-overlay input,
+        [data-theme="dark"] #settings-overlay textarea { background-color: #2a2a2a; color: #e6e6e6; border-color: #555; }
         /* Material icon sizing for settings button */
         .icon-btn .material-symbols-outlined { font-size: 24px; line-height: 1; }
         .switch-track { position: relative; width: 60px; height: 30px; background: #ececec; border-radius: 999px; display: inline-flex; align-items: center; justify-content: space-between; padding: 0 10px; box-sizing: border-box; overflow: hidden; }
@@ -1166,7 +1175,7 @@
     </div>
     <!-- Settings overlay -->
     <div id="settings-overlay" class="overlay" style="display:none;">
-        <div class="overlay-content" style="max-width:520px; width:96%; display:flex; flex-direction:column; background:#fff; border-radius:10px; box-shadow:0 10px 30px rgba(0,0,0,0.25); padding:16px; position:relative;">
+        <div class="overlay-content" style="max-width:520px; width:96%; display:flex; flex-direction:column; background:var(--settings-bg, #fff); border-radius:10px; box-shadow:0 10px 30px rgba(0,0,0,0.25); padding:16px; position:relative; color:var(--settings-fg, #333);">
             <h2 style="margin:0 0 12px 0; font-size:1.2rem;" id="settings-title">{% trans "Settings" %}</h2>
             <button type="button" id="settings-close" class="cancel-btn" style="position:absolute; top:14px; right:14px;">{% trans "Close" %}</button>
             <!-- Theme (now first) -->
