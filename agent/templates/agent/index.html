@@ -733,6 +733,18 @@
             border: 1px solid var(--error-color);
             background-color: #f2dede;
             border-radius: 4px;
+            overflow-x: hidden;            /* keep content inside box */
+            word-wrap: break-word;         /* legacy */
+            overflow-wrap: anywhere;       /* modern wrap for long tokens/URLs */
+            word-break: break-word;        /* break very long words if needed */
+            max-width: 100%;
+        }
+        .error-message pre,
+        .error-message code { white-space: pre-wrap; word-break: break-word; }
+        .error-message a { word-break: break-all; }
+        @media (max-width: 640px) {
+            .error-message { padding: 12px; }
+            .results .error-message { max-width: 100%; }
         }
         .example-commands {
             margin-top: 20px;
