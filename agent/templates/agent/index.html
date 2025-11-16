@@ -534,6 +534,13 @@
         .icon-btn:hover { background: #f5f5f5; }
         [data-theme="dark"] .icon-btn { background: #1e1e1e; color: #e6e6e6; border-color: #444; }
         [data-theme="dark"] .icon-btn:hover { background: #2a2a2a; }
+        /* Email viewer - dark theme support */
+        [data-theme="dark"] #email-viewer-overlay .overlay-content { background:#1f1f1f !important; color:#e6e6e6 !important; }
+        [data-theme="dark"] #email-viewer-iframe { border-color:#444 !important; }
+        [data-theme="dark"] #email-viewer-text { background:#121212 !important; border-color:#333 !important; color:#e6e6e6 !important; }
+        [data-theme="dark"] #email-viewer-attachments { background:#121212 !important; border-color:#333 !important; }
+        [data-theme="dark"] #email-viewer-attachments-title { color:#ddd !important; }
+        [data-theme="dark"] #email-viewer-meta { color:#ccc !important; }
         /* Simple button styles for Settings actions */
         .btn { cursor: pointer; border: 1px solid transparent; border-radius: 8px; padding: 8px 12px; font-weight: 600; }
         .btn-primary { background: var(--primary-color); color: #fff; }
@@ -1159,14 +1166,14 @@
     <div id="snackbar" class="snackbar" role="status" aria-live="polite"></div>
     <!-- Email viewer overlay -->
     <div id="email-viewer-overlay" class="overlay" style="display:none;">
-        <div class="overlay-content" style="max-width:1100px; width:96%; max-height:90vh; overflow:auto; display:flex; flex-direction:column; background:#fff; border-radius:10px; box-shadow:0 10px 30px rgba(0,0,0,0.25); padding:14px; position:relative;">
+        <div class="overlay-content" style="max-width:1100px; width:96%; max-height:90vh; overflow-y:auto; overflow-x:hidden; display:flex; flex-direction:column; background:#fff; border-radius:10px; box-shadow:0 10px 30px rgba(0,0,0,0.25); padding:14px; position:relative;">
             <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px; padding-right:120px;">
                 <div id="email-viewer-title" style="font-weight:650; font-size:1.1rem; flex:1; word-break:break-word; overflow-wrap:anywhere;" dir="auto"></div>
             </div>
             <button type="button" id="email-viewer-close" class="cancel-btn" style="position:absolute; top:14px; right:14px; z-index:10;">{% trans "Close" %}</button>
-            <iframe id="email-viewer-iframe" sandbox="allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts" referrerpolicy="no-referrer" style="display:none; width:100%; height:72vh; border:1px solid #ddd; border-radius:6px;"></iframe>
-            <div id="email-viewer-text" style="display:none; white-space:pre-wrap; background:#f7f7f7; border:1px solid #eee; border-radius:6px; padding:10px; height:72vh; overflow:auto;"></div>
-            <div id="email-viewer-attachments" style="display:none; margin-top:12px; padding:12px; background:#f7f7f7; border:1px solid #ddd; border-radius:6px; box-sizing:border-box; max-width:100%;">
+            <iframe id="email-viewer-iframe" sandbox="allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts" referrerpolicy="no-referrer" style="display:none; width:100%; height:72vh; border:1px solid #ddd; border-radius:6px; display:block;"></iframe>
+            <div id="email-viewer-text" style="display:none; white-space:pre-wrap; background:#f7f7f7; border:1px solid #eee; border-radius:6px; padding:10px; height:72vh; overflow-y:auto; overflow-x:hidden;"></div>
+            <div id="email-viewer-attachments" style="display:none; margin-top:12px; padding:12px; background:#f7f7f7; border:1px solid #ddd; border-radius:6px; box-sizing:border-box; max-width:100%; overflow-x:hidden;">
                 <div id="email-viewer-attachments-title" style="font-weight:600; font-size:0.95em; margin-bottom:8px; color:#333;"></div>
                 <div id="email-viewer-attachments-list" style="display:flex; flex-direction:column; gap:6px;"></div>
             </div>
@@ -7050,7 +7057,10 @@
                     });
                     // Base CSS and click interceptor script - force all links to open in parent window
                     const clickScript = '<script>(function(){document.addEventListener(\'click\',function(e){var target=e.target;var a=target.closest(\'a[href]\');if(a&&a.href){e.preventDefault();e.stopPropagation();try{window.parent.postMessage({type:\'open_link\',url:a.href},\'*\');}catch(_){try{window.open(a.href,\'_blank\',\'noopener\');}catch(e2){}}return false;}if(target.tagName===\'IMG\'||target.tagName===\'BUTTON\'||target.tagName===\'DIV\'||target.tagName===\'SPAN\'){var parentA=target.closest(\'a[href]\');if(parentA&&parentA.href){e.preventDefault();e.stopPropagation();try{window.parent.postMessage({type:\'open_link\',url:parentA.href},\'*\');}catch(_){try{window.open(parentA.href,\'_blank\',\'noopener\');}catch(e2){}}return false;}}});window.addEventListener(\'message\',function(e){if(e.data&&e.data.type===\'open_link\'){window.open(e.data.url,\'_blank\',\'noopener\');}});})();<\/script>';
-                    const baseStyle = '<style>body{margin:0;padding:16px;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#222;background:#fff;line-height:1.5;}img{max-width:100%;height:auto;}table{max-width:100%;}a{color:#1a73e8;text-decoration:none;}a:hover{text-decoration:underline;} .container{max-width:800px;margin:0 auto;}blockquote{margin:0 0 0 12px;border-left:3px solid #e0e0e0;padding-left:10px;color:#555;}</style>';
+                    const isDarkTheme = document.body && document.body.getAttribute('data-theme') === 'dark';
+                    const baseStyle = isDarkTheme
+                        ? '<style>body{margin:0;padding:16px;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#e6e6e6;background:#121212;line-height:1.6;}img{max-width:100%;height:auto;}table{max-width:100%;}a{color:#8ab4f8;text-decoration:none;}a:hover{text-decoration:underline;} .container{max-width:800px;margin:0 auto;}blockquote{margin:0 0 0 12px;border-left:3px solid #333;padding-left:10px;color:#aaa;}</style>'
+                        : '<style>body{margin:0;padding:16px;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#222;background:#fff;line-height:1.5;}img{max-width:100%;height:auto;}table{max-width:100%;}a{color:#1a73e8;text-decoration:none;}a:hover{text-decoration:underline;} .container{max-width:800px;margin:0 auto;}blockquote{margin:0 0 0 12px;border-left:3px solid #e0e0e0;padding-left:10px;color:#555;}</style>';
                     if (!/<!doctype/i.test(s)) {
                         s = '<!doctype html><html><head><meta charset="utf-8">' + baseStyle + '</head><body><div class="container">' + s + '</div>' + clickScript + '</body></html>';
                     } else {
