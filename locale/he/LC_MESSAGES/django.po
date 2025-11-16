@@ -613,6 +613,9 @@ msgstr "לא נמצאו מיילים בקטגוריה: %(category)s."
 msgid "Command not understood."
 msgstr "הפקודה לא הובנה."
 
+msgid "Couldn't understand that. Try phrasing it differently, or check the command list below."
+msgstr "לא הבנתי את הפקודה. נסה לנסח אחרת או לבדוק את רשימת הפקודות למטה."
+
 #: .\agent\email_ai_agent.py:1910
 msgid "No archived emails found."
 msgstr "לא נמצאו מיילים בארכיון."
