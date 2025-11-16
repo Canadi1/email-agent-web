@@ -133,6 +133,7 @@
             background-color: #fafafa;
             max-height: 70vh; /* Allow long results to be scrollable */
             overflow-y: auto;
+            overflow-x: hidden; /* Prevent sideways scroll on mobile */
         }
         [data-theme="dark"] .results { background-color: #121212; border-color: #333; }
         .confirmation-dialog {
@@ -196,6 +197,10 @@
         }
         .email-subject {
             color: #555;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            max-width: 100%;
         }
         .email-date {
             color: #888;
@@ -204,6 +209,18 @@
         }
         [data-theme="dark"] .email-subject { color: #ccc; }
         [data-theme="dark"] .email-date { color: #888; }
+        /* Mobile: ensure long sender/subject don't cause horizontal scroll */
+        @media (max-width: 640px) {
+            .email-list { overflow-x: hidden; }
+            .email-item { max-width: 100%; overflow-x: hidden; }
+            .email-sender, .email-subject {
+                display: block;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+                max-width: 100%;
+            }
+        }
         .stats-grid {
             display: grid;
             grid-template-columns: 1fr;
