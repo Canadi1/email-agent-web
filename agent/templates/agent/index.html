@@ -1579,9 +1579,6 @@
                         {% elif result.status == 'error' %}
                             <div class="error-message">
                                 <p>{{ result.message }}</p>
-                                {% if result.debug_info %}
-                                <pre style="font-size: 0.8em; margin-top: 10px;">Debug Info: {{ result.debug_info }}</pre>
-                                {% endif %}
                             </div>
                         {% elif result.status == 'info' %}
                             <div class="info-message">{{ result.message }}</div>
@@ -2325,6 +2322,8 @@
         try {
             const initialStatus = "{{ result.status|default_if_none:'' }}".trim();
             const initialMsg = "{{ result.message|default_if_none:''|escapejs }}".trim();
+            const initialErrorCode = "{{ result.error_code|default_if_none:'' }}".trim();
+            const snackbarUnknown = "{% trans 'Command not understood.' %}";
             // Localize/synthesize message for email lists; prefer Hebrew when lang=he (even if backend sent English)
             let synthesizedMsg = initialMsg;
             if (initialStatus) {
@@ -2372,7 +2371,11 @@
                 }
             }
             if (initialStatus && (synthesizedMsg || initialMsg)) {
-                showSnackbar(synthesizedMsg || initialMsg, initialStatus, {details: true});
+                let snackbarMsg = synthesizedMsg || initialMsg;
+                if (initialStatus === 'error' && initialErrorCode === 'unrecognized_command') {
+                    snackbarMsg = snackbarUnknown;
+                }
+                showSnackbar(snackbarMsg, initialStatus, {details: true});
                 // Also normalize the banner text at the top for Hebrew archived-from-sender
                 try {
                     const isHeb = (document.documentElement.getAttribute('lang') || '').toLowerCase().startsWith('he');

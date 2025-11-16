@@ -3999,7 +3999,12 @@ class GmailAIAgent:
 
         # Handle empty or None commands (only if no confirmation data)
         if not command:
-            return {"status": "error", "message": _("Command not understood."), "debug_info": "Empty command provided."}
+            return {
+                "status": "error",
+                "message": _("Couldn't understand that. Try phrasing it differently, or check the command list below."),
+                "error_code": "unrecognized_command",
+                "debug_info": "Empty command provided."
+            }
         
         # Regular command processing
         # Use manual parsing
@@ -4008,10 +4013,20 @@ class GmailAIAgent:
         print(f"DEBUG: Parsed result: {parsed}")
         
         if not parsed:
-            return {"status": "error", "message": _("Command not understood."), "debug_info": "Parser returned empty."}
+            return {
+                "status": "error",
+                "message": _("Couldn't understand that. Try phrasing it differently, or check the command list below."),
+                "error_code": "unrecognized_command",
+                "debug_info": "Parser returned empty."
+            }
         
         if parsed.get("debug_info"):
-            return {"status": "error", "message": _("Command not understood."), "debug_info": parsed.get("debug_info")}
+            return {
+                "status": "error",
+                "message": _("Couldn't understand that. Try phrasing it differently, or check the command list below."),
+                "error_code": "unrecognized_command",
+                "debug_info": parsed.get("debug_info")
+            }
         
         # Log key routing info to server console for debugging
         print(f"DEBUG: action={parsed.get('action')}, target_type={parsed.get('target_type')}, time_period={parsed.get('time_period')}, older_than_days={parsed.get('older_than_days')}")
