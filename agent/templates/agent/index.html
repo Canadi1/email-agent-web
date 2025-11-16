@@ -6,6 +6,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Email AI Agent</title>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" />
+    <script>
+        // Apply saved theme ASAP to avoid white flash on mobile reloads
+        (function() {
+            try {
+                var theme = localStorage.getItem('theme');
+                if (!theme && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                    theme = 'dark';
+                }
+                if (theme === 'dark') {
+                    document.documentElement.setAttribute('data-theme', 'dark');
+                }
+            } catch (e) {}
+        })();
+    </script>
     <style>
         :root {
             --primary-color: #4a90e2;
@@ -2017,12 +2031,12 @@
         try {
             const savedTheme = localStorage.getItem('theme');
             if (savedTheme === 'dark') {
-                document.body.setAttribute('data-theme', 'dark');
+                document.documentElement.setAttribute('data-theme', 'dark');
             }
             const toggleBtn = document.getElementById('theme-toggle');
             const label = document.getElementById('theme-label');
             function applyThemeUI() {
-                const isDark = document.body.getAttribute('data-theme') === 'dark';
+                const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
                 if (label) label.textContent = isDark ? (document.documentElement.dir === 'rtl' ? 'כהה' : 'Dark') : (document.documentElement.dir === 'rtl' ? 'בהיר' : 'Light');
                 
                 // Fix Hebrew switch positioning
@@ -2046,12 +2060,12 @@
             applyThemeUI();
             if (toggleBtn) {
                 toggleBtn.addEventListener('click', function(){
-                    const isDark = document.body.getAttribute('data-theme') === 'dark';
+                    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
                     if (isDark) {
-                        document.body.removeAttribute('data-theme');
+                        document.documentElement.removeAttribute('data-theme');
                         localStorage.setItem('theme', 'light');
                     } else {
-                        document.body.setAttribute('data-theme', 'dark');
+                        document.documentElement.setAttribute('data-theme', 'dark');
                         localStorage.setItem('theme', 'dark');
                     }
                     applyThemeUI();
@@ -7057,7 +7071,7 @@
                     });
                     // Base CSS and click interceptor script - force all links to open in parent window
                     const clickScript = '<script>(function(){document.addEventListener(\'click\',function(e){var target=e.target;var a=target.closest(\'a[href]\');if(a&&a.href){e.preventDefault();e.stopPropagation();try{window.parent.postMessage({type:\'open_link\',url:a.href},\'*\');}catch(_){try{window.open(a.href,\'_blank\',\'noopener\');}catch(e2){}}return false;}if(target.tagName===\'IMG\'||target.tagName===\'BUTTON\'||target.tagName===\'DIV\'||target.tagName===\'SPAN\'){var parentA=target.closest(\'a[href]\');if(parentA&&parentA.href){e.preventDefault();e.stopPropagation();try{window.parent.postMessage({type:\'open_link\',url:parentA.href},\'*\');}catch(_){try{window.open(parentA.href,\'_blank\',\'noopener\');}catch(e2){}}return false;}}});window.addEventListener(\'message\',function(e){if(e.data&&e.data.type===\'open_link\'){window.open(e.data.url,\'_blank\',\'noopener\');}});})();<\/script>';
-                    const isDarkTheme = document.body && document.body.getAttribute('data-theme') === 'dark';
+                    const isDarkTheme = (document.documentElement && document.documentElement.getAttribute('data-theme') === 'dark') || (document.body && document.body.getAttribute('data-theme') === 'dark');
                     const baseStyle = isDarkTheme
                         ? '<style>body{margin:0;padding:16px;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#e6e6e6;background:#121212;line-height:1.6;}img{max-width:100%;height:auto;}table{max-width:100%;}a{color:#8ab4f8;text-decoration:none;}a:hover{text-decoration:underline;} .container{max-width:800px;margin:0 auto;}blockquote{margin:0 0 0 12px;border-left:3px solid #333;padding-left:10px;color:#aaa;}</style>'
                         : '<style>body{margin:0;padding:16px;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#222;background:#fff;line-height:1.5;}img{max-width:100%;height:auto;}table{max-width:100%;}a{color:#1a73e8;text-decoration:none;}a:hover{text-decoration:underline;} .container{max-width:800px;margin:0 auto;}blockquote{margin:0 0 0 12px;border-left:3px solid #e0e0e0;padding-left:10px;color:#555;}</style>';
