@@ -534,6 +534,13 @@
         .icon-btn:hover { background: #f5f5f5; }
         [data-theme="dark"] .icon-btn { background: #1e1e1e; color: #e6e6e6; border-color: #444; }
         [data-theme="dark"] .icon-btn:hover { background: #2a2a2a; }
+        /* Simple button styles for Settings actions */
+        .btn { cursor: pointer; border: 1px solid transparent; border-radius: 8px; padding: 8px 12px; font-weight: 600; }
+        .btn-primary { background: var(--primary-color); color: #fff; }
+        .btn-primary:hover { filter: brightness(0.95); }
+        .btn-danger { background: #e74c3c; color: #fff; }
+        .btn-danger:hover { filter: brightness(0.95); }
+        [data-theme="dark"] .btn { border-color: #444; }
         /* Material icon sizing for settings button */
         .icon-btn .material-symbols-outlined { font-size: 24px; line-height: 1; }
         .switch-track { position: relative; width: 60px; height: 30px; background: #ececec; border-radius: 999px; display: inline-flex; align-items: center; justify-content: space-between; padding: 0 10px; box-sizing: border-box; overflow: hidden; }
@@ -1159,30 +1166,11 @@
     </div>
     <!-- Settings overlay -->
     <div id="settings-overlay" class="overlay" style="display:none;">
-        <div class="overlay-content" style="max-width:480px; width:96%; display:flex; flex-direction:column; background:#fff; border-radius:10px; box-shadow:0 10px 30px rgba(0,0,0,0.25); padding:16px; position:relative;">
+        <div class="overlay-content" style="max-width:520px; width:96%; display:flex; flex-direction:column; background:#fff; border-radius:10px; box-shadow:0 10px 30px rgba(0,0,0,0.25); padding:16px; position:relative;">
             <h2 style="margin:0 0 12px 0; font-size:1.2rem;" id="settings-title">{% trans "Settings" %}</h2>
             <button type="button" id="settings-close" class="cancel-btn" style="position:absolute; top:14px; right:14px;">{% trans "Close" %}</button>
-            
-            <section style="margin-bottom:14px;">
-                <h3 style="margin:0 0 8px 0; font-size:1rem;">{% trans "Account" %}</h3>
-                <div style="display:flex; gap:8px; flex-wrap:wrap;">
-                    <button id="settings-signin" type="button" class="theme-toggle-btn" disabled title="{% trans 'Coming soon' %}">{% trans "Sign in with Google" %}</button>
-                    <button id="settings-signout" type="button" class="theme-toggle-btn" disabled title="{% trans 'Coming soon' %}">{% trans "Sign out" %}</button>
-                </div>
-            </section>
-            
-            <section style="margin-bottom:14px;">
-                <h3 style="margin:0 0 8px 0; font-size:1rem;">{% trans "Language" %}</h3>
-                <div>
-                    <select id="settings-language-select" style="padding:6px 8px;border:1px solid #ccc;border-radius:4px; min-width:160px;">
-                        <option value="en">English</option>
-                        <option value="he">עברית</option>
-                    </select>
-                    <div style="font-size:0.85em; color:#666; margin-top:6px;">{% trans "Changing language reloads the page." %}</div>
-                </div>
-            </section>
-            
-            <section>
+            <!-- Theme (now first) -->
+            <section style="margin-bottom:16px;">
                 <h3 style="margin:0 0 8px 0; font-size:1rem;">{% trans "Theme" %}</h3>
                 <div style="display:flex; align-items:center; gap:10px;">
                     <button id="settings-theme-toggle" type="button" class="theme-toggle-btn" aria-label="{% trans 'Toggle theme' %}">
@@ -1196,6 +1184,28 @@
                             <span class="switch-thumb"></span>
                         </span>
                     </button>
+                </div>
+            </section>
+            <!-- Language (middle) -->
+            <section style="margin-bottom:16px;">
+                <h3 style="margin:0 0 8px 0; font-size:1rem; display:flex; align-items:center; gap:8px;">
+                    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm7.93 9h-3.14a16.2 16.2 0 0 0-1.07-4.02A8.03 8.03 0 0 1 19.93 11zM12 4a14.2 14.2 0 0 1 2.07 5H9.93A14.2 14.2 0 0 1 12 4zM4.07 13h3.14c.22 1.42.6 2.76 1.07 4.02A8.03 8.03 0 0 1 4.07 13zM7.21 11H4.07a8.03 8.03 0 0 1 4.21-4.02A16.2 16.2 0 0 0 7.21 11zm2.72 6.98A14.2 14.2 0 0 1 9.93 13h4.14a14.2 14.2 0 0 1-.99 4.98A7.96 7.96 0 0 1 12 20a7.96 7.96 0 0 1-2.07-.02zm6.79-1.96c.47-1.26.85-2.6 1.07-4.02h3.14a8.03 8.03 0 0 1-4.21 4.02z"/></svg>
+                    <span>{% trans "Language" %}</span>
+                </h3>
+                <div>
+                    <select id="settings-language-select" style="padding:6px 8px;border:1px solid #ccc;border-radius:4px; min-width:160px;">
+                        <option value="en">English</option>
+                        <option value="he">עברית</option>
+                    </select>
+                    <div style="font-size:0.85em; color:#666; margin-top:6px;">{% trans "Changing language reloads the page." %}</div>
+                </div>
+            </section>
+            <!-- Account (now last) -->
+            <section>
+                <h3 style="margin:0 0 8px 0; font-size:1rem;">{% trans "Account" %}</h3>
+                <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                    <button id="settings-signin" type="button" class="btn btn-primary" title="{% trans 'Coming soon' %}">{% trans "Sign in with Google" %}</button>
+                    <button id="settings-signout" type="button" class="btn btn-danger" title="{% trans 'Coming soon' %}">{% trans "Sign out" %}</button>
                 </div>
             </section>
         </div>
@@ -2055,6 +2065,8 @@
             const headerLangSelect = document.getElementById('language-select');
             const settingsThemeToggle = document.getElementById('settings-theme-toggle');
             const headerThemeToggle = document.getElementById('theme-toggle');
+            const settingsSignin = document.getElementById('settings-signin');
+            const settingsSignout = document.getElementById('settings-signout');
             
             function openSettings() {
                 if (settingsOverlay) {
@@ -2087,6 +2099,16 @@
             if (settingsThemeToggle) {
                 settingsThemeToggle.addEventListener('click', function(){
                     if (headerThemeToggle) headerThemeToggle.click();
+                });
+            }
+            if (settingsSignin) {
+                settingsSignin.addEventListener('click', function(){
+                    try { showSnackbar("{% trans 'Coming soon' %}", 'info'); } catch(e) {}
+                });
+            }
+            if (settingsSignout) {
+                settingsSignout.addEventListener('click', function(){
+                    try { showSnackbar("{% trans 'Coming soon' %}", 'info'); } catch(e) {}
                 });
             }
         } catch(e) {}
