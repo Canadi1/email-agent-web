@@ -1317,7 +1317,7 @@
             {% else %}
                 <form method="post" class="command-form" id="command-form" autocomplete="off">
                     {% csrf_token %}
-                    <input type="text" id="command-input" name="command" dir="{% if LANGUAGE_BIDI %}rtl{% else %}ltr{% endif %}" placeholder="{% trans 'e.g., list recent emails' %}" autofocus autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+                    <input type="text" id="command-input" name="command" dir="{% if LANGUAGE_BIDI %}rtl{% else %}ltr{% endif %}" placeholder="{% trans 'e.g., list recent emails' %}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
                     <button type="submit" id="command-submit">{% trans 'Process' %}</button>
                 </form>
                 {% if show_compose %}
@@ -2282,6 +2282,36 @@
             // Try again after a short delay in case DOM isn't fully ready
             setTimeout(showSnackbarOnLoad, 100);
             setTimeout(showSnackbarOnLoad, 500);
+            
+            // Auto-focus input only on desktop (not mobile)
+            // Mobile keyboards should only appear when user taps the input
+            function isMobileDevice() {
+                return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+                       (window.matchMedia && window.matchMedia('(max-width: 768px)').matches && 'ontouchstart' in window);
+            }
+            
+            // Helper function to focus input only on desktop
+            window.focusCommandInputIfDesktop = function() {
+                if (!isMobileDevice()) {
+                    const commandInput = document.getElementById('command-input');
+                    if (commandInput) {
+                        try {
+                            commandInput.focus();
+                        } catch(e) {}
+                    }
+                }
+            };
+            
+            // Auto-focus on page load only for desktop
+            if (!isMobileDevice()) {
+                const commandInput = document.getElementById('command-input');
+                if (commandInput) {
+                    // Only focus on desktop after a short delay to ensure page is fully loaded
+                    setTimeout(function() {
+                        window.focusCommandInputIfDesktop();
+                    }, 100);
+                }
+            }
         });
         
         // Also try on window load as a fallback
