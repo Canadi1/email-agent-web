@@ -1689,3 +1689,28 @@ msgstr "מעבד את הבקשה שלך..."
 
 msgid "Connection issues detected. Your VPN/firewall/antivirus may be slowing things down. Try temporarily disabling your VPN or checking firewall settings if loading is slow."
 msgstr "זוהו בעיות חיבור. ה-VPN/חומת האש/אנטי-וירוס שלך עלול להאט את התהליך. נסה להשבית זמנית את ה-VPN או לבדוק את הגדרות חומת האש אם הטעינה איטית."
+
+# Settings modal UI
+msgid "Settings"
+msgstr "הגדרות"
+
+msgid "Account"
+msgstr "חשבון"
+
+msgid "Sign in with Google"
+msgstr "התחבר באמצעות Google"
+
+msgid "Sign out"
+msgstr "התנתק"
+
+msgid "Changing language reloads the page."
+msgstr "שינוי השפה יטען את הדף מחדש."
+
+msgid "Theme"
+msgstr "ערכת עיצוב"
+
+msgid "Toggle theme"
+msgstr "החלף ערכת עיצוב"
+
+msgid "Coming soon"
+msgstr "בקרוב"
