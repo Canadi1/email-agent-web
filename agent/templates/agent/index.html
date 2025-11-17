@@ -94,8 +94,10 @@
             position: relative;
         }
         header h1 {
+            cursor: pointer;
             margin: 0;
             font-size: 1.8em;
+            display: inline-block;
         }
         main {
             padding: 20px;
@@ -1271,7 +1273,7 @@
     </div>
     <div class="container">
         <header>
-            <h1>{% trans "DoarBox" %}</h1>
+            <h1 id="app-title" style="cursor: pointer;">{% trans "DoarBox" %}</h1>
             <form action="{% url 'set_language' %}" method="post" style="margin-top:8px; display:none;">
                 {% csrf_token %}
                 <input type="hidden" name="next" value="{{ request.get_full_path }}">
@@ -18509,6 +18511,32 @@
             });
             window.addEventListener('resize', positionContacts);
         }
+        // Reset to home page (clear results and show initial state)
+        window.resetToHome = function() {
+            // Simply reload the page to the base URL (without query params) to show initial state
+            window.location.href = window.location.pathname;
+        };
+        
+        // Make title clickable - run immediately since script is at end of body
+        (function() {
+            const titleElement = document.getElementById('app-title');
+            if (titleElement) {
+                titleElement.addEventListener('click', function() {
+                    window.resetToHome();
+                });
+            } else {
+                // Fallback: wait for DOM if element not found
+                document.addEventListener('DOMContentLoaded', function() {
+                    const titleEl = document.getElementById('app-title');
+                    if (titleEl) {
+                        titleEl.addEventListener('click', function() {
+                            window.resetToHome();
+                        });
+                    }
+                });
+            }
+        })();
+
         // Enhanced form submission with loading screens
         document.getElementById('command-form').addEventListener('submit', function(e) {
             console.log('Form submitted!'); // Debug log
