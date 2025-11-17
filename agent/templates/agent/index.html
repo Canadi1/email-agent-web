@@ -573,6 +573,7 @@
         [data-theme="dark"] #email-viewer-text { background:#121212 !important; border-color:#333 !important; color:#e6e6e6 !important; }
         [data-theme="dark"] #email-viewer-attachments { background:#121212 !important; border-color:#333 !important; }
         [data-theme="dark"] #email-viewer-attachments-title { color:#ddd !important; }
+        [data-theme="dark"] #email-viewer-attachments-footer { background:#1a1a1a !important; border-color:#333 !important; color:#ccc !important; }
         [data-theme="dark"] #email-viewer-meta { color:#ccc !important; }
         /* Simple button styles for Settings actions */
         .btn { cursor: pointer; border: 1px solid transparent; border-radius: 8px; padding: 8px 12px; font-weight: 600; }
@@ -1218,6 +1219,7 @@
             <button type="button" id="email-viewer-close" class="cancel-btn" style="position:absolute; top:14px; right:14px; z-index:10;">{% trans "Close" %}</button>
             <iframe id="email-viewer-iframe" sandbox="allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts" referrerpolicy="no-referrer" style="display:none; width:100%; height:50vh; max-height:50vh; border:1px solid #ddd; border-radius:6px; display:block; flex-shrink:1;"></iframe>
             <div id="email-viewer-text" style="display:none; white-space:pre-wrap; background:#f7f7f7; border:1px solid #eee; border-radius:6px; padding:10px; height:50vh; max-height:50vh; overflow-y:auto; overflow-x:hidden; flex-shrink:1;"></div>
+            <div id="email-viewer-attachments-footer" style="display:none; margin-top:12px; padding:12px; background:#f5f5f5; border:1px solid #ddd; border-radius:6px; text-align:center; color:#666; font-size:0.9rem; line-height:1.5;"></div>
             <div id="email-viewer-attachments" style="display:none; margin-top:12px; padding:12px; background:#f7f7f7; border:1px solid #ddd; border-radius:6px; box-sizing:border-box; max-width:100%; overflow-x:hidden; flex:0 0 auto;">
                 <div id="email-viewer-attachments-title" style="font-weight:600; font-size:0.95em; margin-bottom:8px; color:#333;"></div>
                 <div id="email-viewer-attachments-list" style="display:flex; flex-direction:column; gap:6px;"></div>
@@ -7061,6 +7063,7 @@
             const viewerAttachments = document.getElementById('email-viewer-attachments');
             const viewerAttachmentsList = document.getElementById('email-viewer-attachments-list');
             const attachmentsTitle = document.getElementById('email-viewer-attachments-title');
+            const attachmentsFooter = document.getElementById('email-viewer-attachments-footer');
             const loadingOverlay = document.getElementById('loading-overlay');
 
             // Cache opened messages to avoid refetching; debounce concurrent opens
@@ -7200,6 +7203,12 @@
                         onlyAttachmentsBodyMobile: isHebrew
                             ? 'כדי לצפות בהם, השתמש ברשימת הקבצים המצורפים למטה. פתיחה ב‑Gmail זמינה רק במחשב.'
                             : 'To view them, use the attachments list below. Opening in Gmail is only available on desktop.',
+                        attachmentsFooterDesktop: isHebrew
+                            ? 'כדי לצפות בקבצים המצורפים, לחץ על \"פתח ב‑Gmail\".'
+                            : 'To view attachments, click \"Open in Gmail\".',
+                        attachmentsFooterMobile: isHebrew
+                            ? 'כדי לצפות בקבצים המצורפים, פתח את המייל ב‑Gmail. \"פתח ב‑Gmail\" זמין רק במחשב.'
+                            : 'To view attachments open this email in gmail. "Open in Gmail" is only available on desktop.',
                         previewNATitle: isHebrew
                             ? 'לא ניתן להציג תצוגה מקדימה של תוכן ההודעה'
                             : 'Preview is not available for this email',
@@ -7354,6 +7363,7 @@
                         }
                     } else {
                         viewerAttachments.style.display = 'none';
+                        if (attachmentsFooter) attachmentsFooter.style.display = 'none';
                     }
                 }
                 
@@ -7403,12 +7413,32 @@
                             viewerIframe.style.display = 'block';
                             viewerText.style.display = 'none';
                             viewerIframe.srcdoc = sanitized;
+                            
+                            // Show footer message for emails with attachments and content (but not if all attachments are images)
+                            if (hasAttachments && attachmentsFooter) {
+                                // Check if all attachments are images
+                                const allImages = attachments.every(function(att) {
+                                    const mime = (att.mime_type || '').toLowerCase();
+                                    return mime.startsWith('image/');
+                                });
+                                
+                                if (!allImages) {
+                                    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+                                    attachmentsFooter.textContent = isMobile ? i18n.attachmentsFooterMobile : i18n.attachmentsFooterDesktop;
+                                    attachmentsFooter.style.display = 'block';
+                                } else {
+                                    attachmentsFooter.style.display = 'none';
+                                }
+                            } else if (attachmentsFooter) {
+                                attachmentsFooter.style.display = 'none';
+                            }
                         } else {
                             // Fallback: sanitized HTML is empty or essentially only scaffolding
                             viewerText.style.display = 'block';
                             viewerIframe.style.display = 'none';
                             if (hasPlainText && !hasAttachments) {
                                 viewerText.textContent = text;
+                                if (attachmentsFooter) attachmentsFooter.style.display = 'none';
                             } else if (hasAttachments) {
                                 // Attachments but no usable HTML/text – show big friendly message
                                 const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
@@ -7419,8 +7449,10 @@
                                         <div style="font-size:0.95rem; line-height:1.5;">${bodyText}</div>
                                     </div>
                                 `;
+                                if (attachmentsFooter) attachmentsFooter.style.display = 'none';
                             } else {
                                 viewerText.textContent = '(No content)';
+                                if (attachmentsFooter) attachmentsFooter.style.display = 'none';
                             }
                         }
                     }
@@ -7430,6 +7462,7 @@
                         viewerIframe.style.display = 'none';
                         if (hasPlainText && !hasAttachments) {
                             viewerText.textContent = text;
+                            if (attachmentsFooter) attachmentsFooter.style.display = 'none';
                         } else if (hasAttachments) {
                             const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
                             const bodyText = isMobile ? i18n.onlyAttachmentsBodyMobile : i18n.onlyAttachmentsBody;
@@ -7439,8 +7472,27 @@
                                     <div style="font-size:0.95rem; line-height:1.5;">${bodyText}</div>
                                 </div>
                             `;
+                            if (attachmentsFooter) attachmentsFooter.style.display = 'none';
                         } else {
                             viewerText.textContent = '(No content)';
+                            if (attachmentsFooter) attachmentsFooter.style.display = 'none';
+                        }
+                        
+                        // Show footer message for emails with attachments and plain text content (but not if all attachments are images)
+                        if (hasPlainText && hasAttachments && attachmentsFooter) {
+                            // Check if all attachments are images
+                            const allImages = attachments.every(function(att) {
+                                const mime = (att.mime_type || '').toLowerCase();
+                                return mime.startsWith('image/');
+                            });
+                            
+                            if (!allImages) {
+                                const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+                                attachmentsFooter.textContent = isMobile ? i18n.attachmentsFooterMobile : i18n.attachmentsFooterDesktop;
+                                attachmentsFooter.style.display = 'block';
+                            } else {
+                                attachmentsFooter.style.display = 'none';
+                            }
                         }
                     }
                 }
