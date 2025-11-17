@@ -1222,7 +1222,7 @@
             </div>
             <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:10px;">
                 <div id="email-viewer-meta" style="color:#666; font-size:0.95em;" dir="auto"></div>
-                <a id="email-viewer-gmail-link" href="#" target="_blank" rel="noopener noreferrer" style="display:none;">{% trans "Open in Gmail" %}</a>
+                <button id="email-viewer-gmail-link" type="button" class="btn btn-primary" style="display:none;" onclick="if(this.dataset.url) window.open(this.dataset.url, '_blank', 'noopener,noreferrer');">{% trans "Open in Gmail" %}</button>
             </div>
         </div>
     </div>
@@ -7217,7 +7217,7 @@
                         attachmentsTitle.style.textAlign = isHebrew ? 'right' : 'left';
                     }
                     if (gmailLink) {
-                        if (gmailLink.href && gmailLink.href !== '#') {
+                        if (gmailLink.dataset.url) {
                             gmailLink.textContent = i18n.openInGmail;
                         }
                     }
@@ -7248,18 +7248,31 @@
                 }
                 if (gmailLink) {
                     if (data.gmail_url) {
-                        gmailLink.href = data.gmail_url;
+                        gmailLink.dataset.url = data.gmail_url;
                         gmailLink.textContent = i18n.openInGmail;
                         gmailLink.style.display = '';
                     } else {
-                        gmailLink.removeAttribute('href');
+                        gmailLink.removeAttribute('data-url');
                         gmailLink.style.display = 'none';
                     }
                 }
                 // Display attachments
                 const attachments = data.attachments || [];
+                const hasAttachments = attachments && attachments.length > 0;
+                
+                // Set email viewer height to 70vh for all emails
+                const emailHeight = '70vh';
+                if (viewerIframe) {
+                    viewerIframe.style.height = emailHeight;
+                    viewerIframe.style.maxHeight = emailHeight;
+                }
+                if (viewerText) {
+                    viewerText.style.height = emailHeight;
+                    viewerText.style.maxHeight = emailHeight;
+                }
+                
                 if (viewerAttachments && viewerAttachmentsList) {
-                    if (attachments && attachments.length > 0) {
+                    if (hasAttachments) {
                         viewerAttachments.style.display = 'block';
                         // Reset list and prior toggle if present
                         viewerAttachmentsList.innerHTML = '';
@@ -7325,7 +7338,6 @@
                 
                 const html = data.body_html || '';
                 const text = data.body_text || '';
-                const hasAttachments = attachments && attachments.length > 0;
                 const hasPlainText = (function(t){
                     try {
                         t = String(t || '');
