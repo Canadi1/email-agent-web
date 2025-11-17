@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Email AI Agent</title>
+    <title>DoarBox</title>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" />
     <script>
         // Apply saved theme ASAP to avoid white flash on mobile reloads
@@ -1271,7 +1271,7 @@
     </div>
     <div class="container">
         <header>
-            <h1>{% trans "Email AI Agent" %}</h1>
+            <h1>{% trans "DoarBox" %}</h1>
             <form action="{% url 'set_language' %}" method="post" style="margin-top:8px; display:none;">
                 {% csrf_token %}
                 <input type="hidden" name="next" value="{{ request.get_full_path }}">

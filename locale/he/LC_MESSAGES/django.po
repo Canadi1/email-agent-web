@@ -774,8 +774,8 @@ msgstr "התחבר באמצעות Google"
 msgid "Sign out"
 msgstr "התנתק"
 
-msgid "Email AI Agent"
-msgstr "סוכן דוא\"ל חכם"
+msgid "DoarBox"
+msgstr "דוארבוקס"
 
 msgid "Connection Error:"
 msgstr "שגיאת חיבור:"
