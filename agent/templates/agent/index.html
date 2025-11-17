@@ -1224,7 +1224,7 @@
             </div>
             <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:10px;">
                 <div id="email-viewer-meta" style="color:#666; font-size:0.95em;" dir="auto"></div>
-                <button id="email-viewer-gmail-link" type="button" class="btn btn-primary" style="display:none;" onclick="if(this.dataset.url) window.open(this.dataset.url, '_blank', 'noopener,noreferrer');">{% trans "Open in Gmail" %}</button>
+                <button id="email-viewer-gmail-link" type="button" class="btn btn-primary" style="display:none;" onclick="openInGmail(this)">{% trans "Open in Gmail" %}</button>
             </div>
         </div>
     </div>
@@ -7190,12 +7190,16 @@
                         showAll: (n) => isHebrew ? `הצג את כל ${n} הקבצים` : `Show all ${n} attachments`,
                         showFewer: isHebrew ? 'הצג פחות קבצים' : 'Show fewer attachments',
                         openInGmail: isHebrew ? 'פתח ב‑Gmail' : 'Open in Gmail',
+                        openGmail: isHebrew ? 'פתח Gmail' : 'Open Gmail',
                         onlyAttachmentsTitle: isHebrew
                             ? 'הודעה זו מכילה רק קבצים מצורפים'
                             : 'This email contains only attachments',
                         onlyAttachmentsBody: isHebrew
                             ? 'כדי לצפות בהם, השתמש ברשימת הקבצים המצורפים למטה או לחץ על \"פתח ב‑Gmail\".'
                             : 'To view them, use the attachments list below or click \"Open in Gmail\".',
+                        onlyAttachmentsBodyMobile: isHebrew
+                            ? 'כדי לצפות בהם, השתמש ברשימת הקבצים המצורפים למטה. פתיחה ב‑Gmail זמינה רק במחשב.'
+                            : 'To view them, use the attachments list below. Opening in Gmail is only available on desktop.',
                         previewNATitle: isHebrew
                             ? 'לא ניתן להציג תצוגה מקדימה של תוכן ההודעה'
                             : 'Preview is not available for this email',
@@ -7220,7 +7224,15 @@
                     }
                     if (gmailLink) {
                         if (gmailLink.dataset.url) {
-                            gmailLink.textContent = i18n.openInGmail;
+                            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+                            if (isMobile) {
+                                // Hide button on mobile
+                                gmailLink.style.display = 'none';
+                            } else {
+                                // Show button on desktop
+                                gmailLink.textContent = i18n.openInGmail;
+                                gmailLink.style.display = '';
+                            }
                         }
                     }
                 } catch(e) {
@@ -7250,9 +7262,16 @@
                 }
                 if (gmailLink) {
                     if (data.gmail_url) {
-                        gmailLink.dataset.url = data.gmail_url;
-                        gmailLink.textContent = i18n.openInGmail;
-                        gmailLink.style.display = '';
+                        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+                        if (isMobile) {
+                            // Hide button on mobile
+                            gmailLink.style.display = 'none';
+                        } else {
+                            // Show button on desktop
+                            gmailLink.dataset.url = data.gmail_url;
+                            gmailLink.textContent = i18n.openInGmail;
+                            gmailLink.style.display = '';
+                        }
                     } else {
                         gmailLink.removeAttribute('data-url');
                         gmailLink.style.display = 'none';
@@ -7354,10 +7373,12 @@
                 if (!html && !hasPlainText && hasAttachments && viewerText && viewerIframe) {
                     viewerText.style.display = 'block';
                     viewerIframe.style.display = 'none';
+                    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+                    const bodyText = isMobile ? i18n.onlyAttachmentsBodyMobile : i18n.onlyAttachmentsBody;
                     viewerText.innerHTML = `
                         <div style="padding:24px; border-radius:8px; background:#f5f5f5; border:1px solid #ddd; text-align:center; color:#444;">
                             <div style="font-size:1.1rem; font-weight:600; margin-bottom:8px;">${i18n.onlyAttachmentsTitle}</div>
-                            <div style="font-size:0.95rem; line-height:1.5;">${i18n.onlyAttachmentsBody}</div>
+                            <div style="font-size:0.95rem; line-height:1.5;">${bodyText}</div>
                         </div>
                     `;
                     return;
@@ -7390,10 +7411,12 @@
                                 viewerText.textContent = text;
                             } else if (hasAttachments) {
                                 // Attachments but no usable HTML/text – show big friendly message
+                                const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+                                const bodyText = isMobile ? i18n.onlyAttachmentsBodyMobile : i18n.onlyAttachmentsBody;
                                 viewerText.innerHTML = `
                                     <div style="padding:24px; border-radius:8px; background:#f5f5f5; border:1px solid #ddd; text-align:center; color:#444;">
                                         <div style="font-size:1.1rem; font-weight:600; margin-bottom:8px;">${i18n.onlyAttachmentsTitle}</div>
-                                        <div style="font-size:0.95rem; line-height:1.5;">${i18n.onlyAttachmentsBody}</div>
+                                        <div style="font-size:0.95rem; line-height:1.5;">${bodyText}</div>
                                     </div>
                                 `;
                             } else {
@@ -7408,10 +7431,12 @@
                         if (hasPlainText && !hasAttachments) {
                             viewerText.textContent = text;
                         } else if (hasAttachments) {
+                            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+                            const bodyText = isMobile ? i18n.onlyAttachmentsBodyMobile : i18n.onlyAttachmentsBody;
                             viewerText.innerHTML = `
                                 <div style="padding:24px; border-radius:8px; background:#f5f5f5; border:1px solid #ddd; text-align:center; color:#444;">
                                     <div style="font-size:1.1rem; font-weight:600; margin-bottom:8px;">${i18n.onlyAttachmentsTitle}</div>
-                                    <div style="font-size:0.95rem; line-height:1.5;">${i18n.onlyAttachmentsBody}</div>
+                                    <div style="font-size:0.95rem; line-height:1.5;">${bodyText}</div>
                                 </div>
                             `;
                         } else {
@@ -18515,6 +18540,23 @@
         window.resetToHome = function() {
             // Simply reload the page to the base URL (without query params) to show initial state
             window.location.href = window.location.pathname;
+        };
+        
+        // Open Gmail in web browser
+        window.openInGmail = function(button) {
+            const gmailUrl = button.dataset.url;
+            if (!gmailUrl) return;
+            
+            // Detect mobile device
+            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+            
+            if (isMobile) {
+                // On mobile, navigate directly to Gmail web URL
+                window.location.href = gmailUrl;
+            } else {
+                // On desktop, open in new tab/window
+                window.open(gmailUrl, '_blank', 'noopener,noreferrer');
+            }
         };
         
         // Make title clickable - run immediately since script is at end of body
