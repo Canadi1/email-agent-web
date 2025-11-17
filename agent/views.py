@@ -623,14 +623,18 @@ def index(request):
                 gmail_message_id = msg.get('id', '')  # Gmail API message ID
                 rfc822_msgid = _h('Message-ID') or _h('Message-Id') or ''
                 
-                # Priority 1: Try direct message URL using Gmail API message ID
-                # This format attempts to open the message directly in Gmail
-                if gmail_message_id:
-                    gmail_url = f"https://mail.google.com/mail/u/0/#inbox/{gmail_message_id}"
-                # Priority 2: Use thread ID (opens thread, Gmail may auto-scroll to message)
+                # Priority 1: Use thread ID with message ID (most reliable for opening specific message)
+                # This format opens the thread and Gmail will scroll to the specific message
+                if thread_id and gmail_message_id:
+                    gmail_url = f"https://mail.google.com/mail/u/0/#inbox/{thread_id}/{gmail_message_id}"
+                # Priority 2: Use thread ID alone (opens thread, Gmail may auto-scroll to message)
                 elif thread_id:
                     gmail_url = f"https://mail.google.com/mail/u/0/#all/{thread_id}"
-                # Priority 3: Fallback to RFC822 Message-ID search (shows search results)
+                # Priority 3: Try direct message URL using Gmail API message ID
+                elif gmail_message_id:
+                    # Web URL format that works on both desktop and mobile web
+                    gmail_url = f"https://mail.google.com/mail/u/0/#search/{gmail_message_id}"
+                # Priority 4: Fallback to RFC822 Message-ID search (shows search results)
                 elif rfc822_msgid:
                     rid = rfc822_msgid.strip('<>')
                     gmail_url = f"https://mail.google.com/mail/u/0/#search/rfc822msgid:{rid}"
