@@ -18948,6 +18948,14 @@
             console.error('Progress stream error:', event);
             console.error('EventSource readyState:', eventSource.readyState);
             eventSource.close();
+            // Show user-friendly error message
+            const isHebrew = document.documentElement.lang === 'he';
+            const errorMsg = isHebrew ? 'שגיאת חיבור. אנא בדוק את חיבור האינטרנט שלך ונסה שוב.' : 'Connection error. Please check your internet connection and try again.';
+            showSnackbar(errorMsg, 'error');
+            // Hide loading screens
+            if (document.getElementById('loadingScreen')) document.getElementById('loadingScreen').style.display = 'none';
+            if (document.getElementById('statsLoadingScreen')) document.getElementById('statsLoadingScreen').style.display = 'none';
+            if (document.getElementById('emailListingLoadingScreen')) document.getElementById('emailListingLoadingScreen').style.display = 'none';
         };
         
         // Store reference for cleanup if needed

@@ -923,7 +923,7 @@ def index(request):
                     "attachments": formatted_attachments
                 })
             except Exception as e:
-                return JsonResponse({"status": "error", "error": str(e)}, status=500)
+                return JsonResponse({"status": "error", "error": _("Failed to load email. Please try again.")}, status=500)
 
         # Hide a contact (stored in session) - AJAX
         if request.POST.get('hide_contact') == '1':
@@ -1114,7 +1114,7 @@ def index(request):
                     return JsonResponse({"data": res.get('emails', []), "next_page_token": res.get('next_page_token')})
                 return JsonResponse({"error": "Unsupported pagination mode"}, status=400)
             except Exception as e:
-                return JsonResponse({"error": str(e)}, status=500)
+                return JsonResponse({"error": _("Failed to load more emails. Please try again.")}, status=500)
 
         # Favorites management (add/remove)
         if request.POST.get('add_favorite') == '1':

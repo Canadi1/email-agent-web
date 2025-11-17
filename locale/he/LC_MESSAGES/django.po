@@ -1321,6 +1321,12 @@ msgstr "תייג מיילים מ-amazon.com כ-\"Shopping\""
 msgid "Failed to load image. Click \"Open in Gmail\" to view."
 msgstr "נכשל בטעינת התמונה. לחץ על \"פתח ב-Gmail\" כדי לצפות."
 
+msgid "Failed to load email. Please try again."
+msgstr "נכשל בטעינת המייל. אנא נסה שוב."
+
+msgid "Failed to load more emails. Please try again."
+msgstr "נכשל בטעינת מיילים נוספים. אנא נסה שוב."
+
 msgid "Favorite too long (max 200 chars)."
 msgstr "מועדף ארוך מדי (עד 200 תווים)."
 
