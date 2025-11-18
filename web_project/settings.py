@@ -137,6 +137,12 @@ STATIC_URL = 'static/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+# Session configuration (for OAuth token persistence)
+# Sessions persist for 30 days (like Gmail, etc.)
+SESSION_COOKIE_AGE = 60 * 60 * 24 * 30  # 30 days in seconds
+SESSION_EXPIRE_AT_BROWSER_CLOSE = False  # Sessions persist after browser closes
+SESSION_SAVE_EVERY_REQUEST = False  # Only save session when it changes
+
 # Google OAuth 2.0 credentials (Web Application client)
 # Configure in Google Cloud Console → APIs & Services → Credentials
 # Redirect URI should be: http://localhost:8000/agent/auth/google/callback

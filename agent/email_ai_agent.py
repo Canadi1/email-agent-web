@@ -19,7 +19,6 @@ from email.mime.text import MIMEText
 from email.utils import getaddresses, parseaddr
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
-from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 import google.generativeai as genai
@@ -303,15 +302,19 @@ class GmailAIAgent:
     def setup_gmail_api(self, credentials=None):
         """Setup Gmail API authentication
 
-        If 'credentials' is provided (session-based multi-user), use them.
-        Otherwise fall back to legacy token.pickle/credentials.json flow.
+        Requires 'credentials' parameter (session-based multi-user OAuth).
+        No longer supports legacy token.pickle/credentials.json flow.
         """
+        # Require credentials parameter (no legacy fallback)
+        if credentials is None:
+            print("[HTTP] Gmail API setup requires session credentials. Please sign in via OAuth.")
+            return False
+
         # If credentials supplied, reset any existing service to ensure correct user context
-        if credentials is not None:
-            with self._http_lock:
-                self.service = None
-                self._authorized_http = None
-                self._logged_transport_reuse = False
+        with self._http_lock:
+            self.service = None
+            self._authorized_http = None
+            self._logged_transport_reuse = False
 
         if self.service is not None and self._authorized_http is not None:
             if not self._logged_transport_reuse:
@@ -328,46 +331,12 @@ class GmailAIAgent:
 
             try:
                 print("[HTTP] Starting Gmail API setup (hardened transport path).")
-                creds = credentials or None
+                creds = credentials
 
-                # Load existing credentials if available
-                if creds is None and os.path.exists('token.pickle'):
-                    try:
-                        with open('token.pickle', 'rb') as token:
-                            creds = pickle.load(token)
-                    except Exception:
-                        creds = None
-
-                # If no valid credentials, get new ones
+                # Validate provided credentials
                 if not creds or not getattr(creds, 'valid', False):
-                    if creds and getattr(creds, 'expired', False) and getattr(creds, 'refresh_token', None):
-                        try:
-                            creds.refresh(Request())
-                        except Exception:
-                            # Refresh failed (expired/revoked). Remove token and fail gracefully.
-                            try:
-                                os.remove('token.pickle')
-                            except Exception:
-                                pass
-                            return False
-                    else:
-                        # Only attempt interactive auth if credentials.json exists
-                        if credentials is None and not os.path.exists('credentials.json'):
-                            return False
-                        if credentials is None:
-                            try:
-                                flow = InstalledAppFlow.from_client_secrets_file('credentials.json', SCOPES)
-                                creds = flow.run_local_server(port=0)
-                            except Exception:
-                                return False
-
-                # Save credentials for next run
-                if credentials is None:
-                    try:
-                        with open('token.pickle', 'wb') as token:
-                            pickle.dump(creds, token)
-                    except Exception:
-                        pass
+                    print("[HTTP] Invalid credentials provided.")
+                    return False
 
                 # Mitigate intermittent SSL/proxy issues by disabling proxy/env SSL overrides
                 for var in [
