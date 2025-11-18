@@ -1202,7 +1202,8 @@
       data-i18n-undoing="{% trans 'Undoing...' %}"
       data-i18n-loaded-more-with-count="{% trans 'Loaded {count} more' %}"
       data-i18n-failed-load-more="{% trans 'Failed to load more' %}"
-      data-i18n-confirm-clear-favorites="{% trans 'Clear all favorites?' %}">
+      data-i18n-confirm-clear-favorites="{% trans 'Clear all favorites?' %}"
+      data-show-login="{% if show_login %}1{% else %}0{% endif %}">
     <div id="loading-overlay" class="overlay" aria-hidden="true">
         <div class="overlay-content">
             <div class="spinner" aria-hidden="true"></div>
@@ -1210,6 +1211,18 @@
         </div>
     </div>
     <div id="snackbar" class="snackbar" role="status" aria-live="polite"></div>
+    <!-- Login overlay (shown when unauthenticated) -->
+    <div id="login-overlay" class="overlay" style="display:none;">
+        <div class="overlay-content" style="max-width:480px; width:96%; display:flex; flex-direction:column; background:#fff; border-radius:10px; box-shadow:0 10px 30px rgba(0,0,0,0.25); padding:24px; position:relative; color:#333; text-align:center;">
+            <h2 style="margin:0 0 16px 0; font-size:1.5rem;">{% trans "Welcome to DoarBox" %}</h2>
+            <p style="margin:0 0 24px 0; color:#666; line-height:1.6;">
+                {% trans "To get started, please sign in with your Google account. This app only supports Gmail accounts." %}
+            </p>
+            <a href="{% url 'google_login' %}" class="btn btn-primary" style="display:inline-block; text-decoration:none; padding:12px 24px; font-size:1rem; margin:0 auto;">
+                {% trans "Sign in with Google" %}
+            </a>
+        </div>
+    </div>
     <!-- Email viewer overlay -->
     <div id="email-viewer-overlay" class="overlay" style="display:none;">
         <div class="overlay-content" style="max-width:1100px; width:96%; max-height:90vh; overflow-y:auto; overflow-x:hidden; display:flex; flex-direction:column; background:#fff; border-radius:10px; box-shadow:0 10px 30px rgba(0,0,0,0.25); padding:14px; position:relative;">
@@ -1276,6 +1289,9 @@
     <div class="container">
         <header>
             <h1 id="app-title" style="cursor: pointer;">{% trans "DoarBox" %}</h1>
+            {% if user_email %}
+            <div style="font-size:0.85em; color:#666; margin-top:4px;">{{ user_email }}</div>
+            {% endif %}
             <form action="{% url 'set_language' %}" method="post" style="margin-top:8px; display:none;">
                 {% csrf_token %}
                 <input type="hidden" name="next" value="{{ request.get_full_path }}">
@@ -1812,7 +1828,10 @@
     const observer = new MutationObserver(() => {
         setTimeout(forceLabelsTitlePosition, 50);
     });
-    observer.observe(document.querySelector('.results'), { childList: true, subtree: true });
+    const resultsEl = document.querySelector('.results');
+    if (resultsEl) {
+        observer.observe(resultsEl, { childList: true, subtree: true });
+    }
     // Mobile English-only: slightly reduce font size for Example Commands (keep original text/quotes)
     function updateExampleCommandsMobileEn() {
         try {
@@ -2125,7 +2144,6 @@
             const headerLangSelect = document.getElementById('language-select');
             const settingsThemeToggle = document.getElementById('settings-theme-toggle');
             const headerThemeToggle = document.getElementById('theme-toggle');
-            const settingsSignin = document.getElementById('settings-signin');
             const settingsSignout = document.getElementById('settings-signout');
             
             function openSettings() {
@@ -2161,18 +2179,26 @@
                     if (headerThemeToggle) headerThemeToggle.click();
                 });
             }
-            if (settingsSignin) {
-                settingsSignin.addEventListener('click', function(){
-                    try { showSnackbar("{% trans 'Coming soon' %}", 'info'); } catch(e) {}
-                });
-            }
+            // Sign out with confirmation
             if (settingsSignout) {
                 settingsSignout.addEventListener('click', function(){
-                    try { showSnackbar("{% trans 'Coming soon' %}", 'info'); } catch(e) {}
+                    const isHebrew = document.documentElement.lang === 'he';
+                    const confirmMsg = isHebrew ? 'האם אתה בטוח שברצונך להתנתק?' : 'Are you sure you want to sign out?';
+                    if (confirm(confirmMsg)) {
+                        window.location.href = "{% url 'google_logout' %}";
+                    }
                 });
             }
         } catch(e) {}
         
+        // Show login overlay if requested by server
+        try {
+            const loginOverlay = document.getElementById('login-overlay');
+            const showLogin = document.body && document.body.dataset ? (document.body.dataset.showLogin === '1') : false;
+            if (showLogin && loginOverlay) {
+                loginOverlay.style.display = 'flex';
+            }
+        } catch(e) {}
         const commandInput = document.getElementById('command-input');
         const form = document.getElementById('command-form');
         const processBtn = document.getElementById('command-submit');
@@ -19072,7 +19098,7 @@
             eventSource.close();
             // Show user-friendly error message
             const isHebrew = document.documentElement.lang === 'he';
-            const errorMsg = isHebrew ? 'שגיאת חיבור. אנא בדוק את חיבור האינטרנט שלך ונסה שוב.' : 'Connection error. Please check your internet connection and try again.';
+            const errorMsg = isHebrew ? 'הטעינה עשויה לקחת זמן רב מהרגיל. אנא נסה שוב אם צריך.' : 'Loading may take longer than usual. Please try again if needed.';
             showSnackbar(errorMsg, 'error');
             // Hide loading screens
             if (document.getElementById('loadingScreen')) document.getElementById('loadingScreen').style.display = 'none';
@@ -19092,7 +19118,7 @@
             <h3 id="loadingTitle">{% trans 'Processing...' %}</h3>
             <p id="loadingMessage">{% trans 'Please wait while we process your request' %}</p>
                 <p id="sslWarning" style="display:none; margin:8px 0 0 0; padding:10px; border-radius:6px; background:#fff3cd; border:1px solid #ffeeba; color:#856404; font-size:0.9em;">
-                    ⚠️ {% trans 'Connection issues detected. Your VPN/firewall/antivirus may be slowing things down. Try temporarily disabling your VPN or checking firewall settings if loading is slow.' %}
+                    ⚠️ {% trans 'Loading may take longer than usual. Please try again if needed.' %}
                 </p>
             <div class="progress-container">
                 <div class="progress-bar">
@@ -19124,7 +19150,7 @@
             <h3>{% trans 'Analyzing Your Emails' %}</h3>
             <p id="statsLoadingMessage">{% trans 'Fetching email data...' %}</p>
             <p id="statsSslWarning" style="display:none; margin:8px 0 0 0; padding:10px; border-radius:6px; background:#fff3cd; border:1px solid #ffeeba; color:#856404; font-size:0.9em;">
-                ⚠️ {% trans 'Connection issues detected. Your VPN/firewall/antivirus may be slowing things down. Try temporarily disabling your VPN or checking firewall settings if loading is slow.' %}
+                ⚠️ {% trans 'Loading may take longer than usual. Please try again if needed.' %}
             </p>
             <div class="progress-container">
                 <div class="progress-bar">

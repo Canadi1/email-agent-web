@@ -1,6 +1,7 @@
-from django.shortcuts import render
+from django.shortcuts import render, redirect
 from django.http import JsonResponse, StreamingHttpResponse
 from django.utils.translation import gettext as _
+from django.conf import settings
 from datetime import datetime
 from django.utils import translation
 from .email_ai_agent import GmailAIAgent
@@ -12,6 +13,9 @@ import threading
 import random
 import string
 import base64
+from google_auth_oauthlib.flow import Flow
+from google.oauth2.credentials import Credentials
+from google.auth.transport.requests import Request
 
 def get_progress_message(message_key, current_processed=None, total_emails=None, language_code=None):
     """
@@ -108,6 +112,126 @@ def get_progress_message(message_key, current_processed=None, total_emails=None,
     
     return messages.get(message_key, {}).get('he' if is_hebrew else 'en', messages[message_key]['en'])
 
+
+# OAuth helper: build credentials from session and refresh if needed
+def get_credentials_from_session(request):
+    creds_dict = request.session.get('google_credentials')
+    if not creds_dict:
+        return None
+    expiry = None
+    try:
+        if creds_dict.get('expiry'):
+            expiry = datetime.fromisoformat(creds_dict['expiry'])
+    except Exception:
+        expiry = None
+    creds = Credentials(
+        token=creds_dict.get('token'),
+        refresh_token=creds_dict.get('refresh_token'),
+        token_uri=creds_dict.get('token_uri', 'https://oauth2.googleapis.com/token'),
+        client_id=creds_dict.get('client_id', settings.GOOGLE_OAUTH_CLIENT_ID),
+        client_secret=creds_dict.get('client_secret', settings.GOOGLE_OAUTH_CLIENT_SECRET),
+        scopes=creds_dict.get('scopes') or ['https://www.googleapis.com/auth/gmail.modify', 'https://www.googleapis.com/auth/gmail.compose'],
+        expiry=expiry,
+    )
+    if creds.expired and creds.refresh_token:
+        try:
+            creds.refresh(Request())
+            request.session['google_credentials'] = {
+                'token': creds.token,
+                'refresh_token': creds.refresh_token,
+                'token_uri': creds.token_uri,
+                'client_id': creds.client_id,
+                'client_secret': creds.client_secret,
+                'scopes': creds.scopes,
+                'expiry': creds.expiry.isoformat() if creds.expiry else None,
+            }
+        except Exception:
+            request.session.pop('google_credentials', None)
+            request.session.pop('user_email', None)
+            return None
+    return creds
+
+
+# OAuth views
+def google_login(request):
+    # Build flow from client config
+    client_config = {
+        "web": {
+            "client_id": settings.GOOGLE_OAUTH_CLIENT_ID,
+            "client_secret": settings.GOOGLE_OAUTH_CLIENT_SECRET,
+            "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+            "token_uri": "https://oauth2.googleapis.com/token",
+            "redirect_uris": [settings.GOOGLE_OAUTH_REDIRECT_URI],
+        }
+    }
+    flow = Flow.from_client_config(
+        client_config,
+        scopes=['https://www.googleapis.com/auth/gmail.modify', 'https://www.googleapis.com/auth/gmail.compose'],
+        redirect_uri=settings.GOOGLE_OAUTH_REDIRECT_URI,
+    )
+    authorization_url, state = flow.authorization_url(
+        access_type='offline',
+        include_granted_scopes='true',
+        prompt='consent',
+    )
+    request.session['oauth_state'] = state
+    return redirect(authorization_url)
+
+
+def google_callback(request):
+    error = request.GET.get('error')
+    if error:
+        return redirect('/agent/?error=access_denied')
+    state = request.GET.get('state')
+    code = request.GET.get('code')
+    if not code or not state or state != request.session.get('oauth_state'):
+        return redirect('/agent/?error=invalid_state')
+    request.session.pop('oauth_state', None)
+
+    try:
+        client_config = {
+            "web": {
+                "client_id": settings.GOOGLE_OAUTH_CLIENT_ID,
+                "client_secret": settings.GOOGLE_OAUTH_CLIENT_SECRET,
+                "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                "token_uri": "https://oauth2.googleapis.com/token",
+                "redirect_uris": [settings.GOOGLE_OAUTH_REDIRECT_URI],
+            }
+        }
+        flow = Flow.from_client_config(
+            client_config,
+            scopes=['https://www.googleapis.com/auth/gmail.modify', 'https://www.googleapis.com/auth/gmail.compose'],
+            redirect_uri=settings.GOOGLE_OAUTH_REDIRECT_URI,
+            state=state,
+        )
+        flow.fetch_token(code=code)
+        credentials = flow.credentials
+        request.session['google_credentials'] = {
+            'token': credentials.token,
+            'refresh_token': credentials.refresh_token,
+            'token_uri': credentials.token_uri,
+            'client_id': credentials.client_id,
+            'client_secret': credentials.client_secret,
+            'scopes': credentials.scopes,
+            'expiry': credentials.expiry.isoformat() if credentials.expiry else None,
+        }
+        # Fetch user email for display
+        try:
+            from googleapiclient.discovery import build
+            service = build('gmail', 'v1', credentials=credentials)
+            profile = service.users().getProfile(userId='me').execute()
+            request.session['user_email'] = profile.get('emailAddress')
+        except Exception:
+            request.session['user_email'] = None
+        return redirect('/agent/')
+    except Exception as e:
+        return redirect(f'/agent/?error=oauth_error&message={str(e)}')
+
+
+def google_logout(request):
+    request.session.pop('google_credentials', None)
+    request.session.pop('user_email', None)
+    return redirect('/agent/')
 def get_random_fun_fact(language_code=None):
     """Get a random fun fact in the appropriate language"""
     if not language_code:
@@ -567,12 +691,18 @@ def index(request):
     Main view for the email agent.
     Handles command processing and displays results.
     """
-    # Attempt to set up the Gmail API on each request if not already done.
-    # The setup_gmail_api method is now idempotent.
-    is_agent_ready = agent_instance.setup_gmail_api()
+    # Prefer session-based OAuth credentials (multi-user). Fallback to legacy token if missing.
+    session_creds = get_credentials_from_session(request)
+    user_email = request.session.get('user_email')
+    if session_creds:
+        is_agent_ready = agent_instance.setup_gmail_api(credentials=session_creds) if hasattr(agent_instance, 'setup_gmail_api') else False
+    else:
+        is_agent_ready = agent_instance.setup_gmail_api()
     
     context = {
         'is_agent_ready': is_agent_ready,
+        'is_authenticated': bool(session_creds),
+        'user_email': user_email,
         'example_commands': [
             _("delete all promotions older than 30 days"),
             _("list emails from google.com"),
@@ -582,8 +712,10 @@ def index(request):
         ]
     }
 
-    if not is_agent_ready:
-        context['error_message'] = "Failed to connect to Gmail API. Please ensure 'credentials.json' is present and that you have authenticated at least once if 'token.pickle' does not exist."
+    if not is_agent_ready and not session_creds:
+        # Show login overlay when unauthenticated
+        context['show_login'] = True
+        context['error_message'] = "Failed to connect to Gmail API. Please sign in with Google."
         return render(request, 'agent/index.html', context)
 
     if request.method == 'POST':

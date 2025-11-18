@@ -1276,13 +1276,8 @@ msgstr "משחזר מיילים..."
 msgid "Please wait while we process your request"
 msgstr "אנא המתן בזמן שאנו מעבדים את הבקשה שלך"
 
-msgid ""
-"Connection issues detected. Your VPN/firewall/antivirus may be slowing "
-"things down. Try temporarily disabling your VPN or checking firewall "
-"settings if loading is slow."
-msgstr ""
-"זוהו בעיות חיבור. ה-VPN/חומת האש/אנטי-וירוס שלך עלול להאט את התהליך. נסה "
-"להשבית זמנית את ה-VPN או לבדוק את הגדרות חומת האש אם הטעינה איטית."
+msgid "Loading may take longer than usual. Please try again if needed."
+msgstr "הטעינה עשויה לקחת זמן רב מהרגיל. אנא נסה שוב אם צריך."
 
 #, fuzzy
 #| msgid "Fetching emails..."

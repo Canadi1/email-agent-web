@@ -300,8 +300,19 @@ class GmailAIAgent:
     def api_send_message(self, body, user_id='me'):
         return self._execute_with_retries(lambda: self.service.users().messages().send(userId=user_id, body=body), max_retries=5, base_delay=1.0)
     
-    def setup_gmail_api(self):
-        """Setup Gmail API authentication"""
+    def setup_gmail_api(self, credentials=None):
+        """Setup Gmail API authentication
+
+        If 'credentials' is provided (session-based multi-user), use them.
+        Otherwise fall back to legacy token.pickle/credentials.json flow.
+        """
+        # If credentials supplied, reset any existing service to ensure correct user context
+        if credentials is not None:
+            with self._http_lock:
+                self.service = None
+                self._authorized_http = None
+                self._logged_transport_reuse = False
+
         if self.service is not None and self._authorized_http is not None:
             if not self._logged_transport_reuse:
                 print("[HTTP] Gmail transport already initialized; reusing existing client.")
@@ -317,10 +328,10 @@ class GmailAIAgent:
 
             try:
                 print("[HTTP] Starting Gmail API setup (hardened transport path).")
-                creds = None
+                creds = credentials or None
 
                 # Load existing credentials if available
-                if os.path.exists('token.pickle'):
+                if creds is None and os.path.exists('token.pickle'):
                     try:
                         with open('token.pickle', 'rb') as token:
                             creds = pickle.load(token)
@@ -341,20 +352,22 @@ class GmailAIAgent:
                             return False
                     else:
                         # Only attempt interactive auth if credentials.json exists
-                        if not os.path.exists('credentials.json'):
+                        if credentials is None and not os.path.exists('credentials.json'):
                             return False
-                        try:
-                            flow = InstalledAppFlow.from_client_secrets_file('credentials.json', SCOPES)
-                            creds = flow.run_local_server(port=0)
-                        except Exception:
-                            return False
+                        if credentials is None:
+                            try:
+                                flow = InstalledAppFlow.from_client_secrets_file('credentials.json', SCOPES)
+                                creds = flow.run_local_server(port=0)
+                            except Exception:
+                                return False
 
                 # Save credentials for next run
-                try:
-                    with open('token.pickle', 'wb') as token:
-                        pickle.dump(creds, token)
-                except Exception:
-                    pass
+                if credentials is None:
+                    try:
+                        with open('token.pickle', 'wb') as token:
+                            pickle.dump(creds, token)
+                    except Exception:
+                        pass
 
                 # Mitigate intermittent SSL/proxy issues by disabling proxy/env SSL overrides
                 for var in [
