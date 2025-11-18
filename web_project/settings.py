@@ -142,6 +142,12 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 SESSION_COOKIE_AGE = 60 * 60 * 24 * 30  # 30 days in seconds
 SESSION_EXPIRE_AT_BROWSER_CLOSE = False  # Sessions persist after browser closes
 SESSION_SAVE_EVERY_REQUEST = False  # Only save session when it changes
+SESSION_COOKIE_HTTPONLY = True  # Prevent JavaScript access (security)
+SESSION_COOKIE_SECURE = False  # Allow HTTP for localhost (set True in production with HTTPS)
+SESSION_COOKIE_SAMESITE = 'Lax'  # CSRF protection - allows cross-site requests
+SESSION_COOKIE_NAME = 'sessionid'  # Default session cookie name
+SESSION_COOKIE_PATH = '/'  # Make sure cookie is available site-wide
+# Don't set SESSION_COOKIE_DOMAIN - let Django use default (works for localhost)
 
 # Google OAuth 2.0 credentials (Web Application client)
 # Configure in Google Cloud Console → APIs & Services → Credentials

@@ -145,9 +145,13 @@ def get_credentials_from_session(request):
                 'scopes': creds.scopes,
                 'expiry': creds.expiry.isoformat() if creds.expiry else None,
             }
+            request.session.modified = True
+            request.session.save()
         except Exception:
             request.session.pop('google_credentials', None)
             request.session.pop('user_email', None)
+            request.session.modified = True
+            request.session.save()
             return None
     return creds
 
@@ -227,6 +231,11 @@ def google_callback(request):
             request.session['user_email'] = profile.get('emailAddress')
         except Exception:
             request.session['user_email'] = None
+        
+        # CRITICAL: Mark session as modified and save to ensure cookie is set
+        request.session.modified = True
+        request.session.save()
+        
         return redirect('/agent/')
     except Exception as e:
         return redirect(f'/agent/?error=oauth_error&message={str(e)}')
@@ -235,6 +244,8 @@ def google_callback(request):
 def google_logout(request):
     request.session.pop('google_credentials', None)
     request.session.pop('user_email', None)
+    request.session.modified = True
+    request.session.save()
     return redirect('/agent/')
 def get_random_fun_fact(language_code=None):
     """Get a random fun fact in the appropriate language"""
