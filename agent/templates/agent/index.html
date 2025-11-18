@@ -95,9 +95,6 @@
             grid-template-columns: 1fr auto 1fr;
             align-items: flex-start;
         }
-        header > div:first-child {
-            grid-column: 1;
-        }
         header h1 {
             cursor: pointer;
             margin: 0;
@@ -105,16 +102,6 @@
             display: inline-block;
             grid-column: 2;
             text-align: center;
-        }
-        #header-user-email {
-            font-size: 0.9em;
-            color: rgba(255, 255, 255, 0.95);
-            font-weight: 500;
-            margin: 0;
-            text-align: left;
-        }
-        [data-theme="dark"] #header-user-email {
-            color: rgba(255, 255, 255, 0.92);
         }
         main {
             padding: 20px;
@@ -1327,11 +1314,6 @@
     </div>
     <div class="container">
         <header>
-            <div>
-                {% if user_email %}
-                <div id="header-user-email">{{ user_email }}</div>
-                {% endif %}
-            </div>
             <h1 id="app-title" style="cursor: pointer;">{% trans "DoarBox" %}</h1>
             <form action="{% url 'set_language' %}" method="post" style="margin-top:8px; display:none;">
                 {% csrf_token %}
