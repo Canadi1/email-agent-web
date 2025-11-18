@@ -154,6 +154,18 @@ def get_credentials_from_session(request):
 
 # OAuth views
 def google_login(request):
+    # Validate OAuth credentials are configured
+    client_id = settings.GOOGLE_OAUTH_CLIENT_ID
+    client_secret = settings.GOOGLE_OAUTH_CLIENT_SECRET
+    
+    # Debug: print what we're reading
+    print(f"[DEBUG] GOOGLE_OAUTH_CLIENT_ID from settings: {client_id[:20] if client_id else 'EMPTY'}...")
+    print(f"[DEBUG] GOOGLE_OAUTH_CLIENT_SECRET from settings: {client_secret[:10] if client_secret else 'EMPTY'}...")
+    print(f"[DEBUG] From os.environ directly: {os.environ.get('GOOGLE_OAUTH_CLIENT_ID', 'NOT_SET')[:20]}...")
+    
+    if not client_id or not client_secret:
+        print("[ERROR] OAuth credentials not configured! Check environment variables.")
+        return redirect('/agent/?error=oauth_not_configured')
     # Build flow from client config
     client_config = {
         "web": {
