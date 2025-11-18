@@ -1217,9 +1217,9 @@
     <div id="snackbar" class="snackbar" role="status" aria-live="polite"></div>
     <!-- Login overlay (shown when unauthenticated) -->
     <div id="login-overlay" class="overlay" style="display:none;">
-        <div class="overlay-content" style="max-width:480px; width:96%; display:flex; flex-direction:column; background:#fff; border-radius:10px; box-shadow:0 10px 30px rgba(0,0,0,0.25); padding:24px; position:relative; color:#333; text-align:center;">
-            <h2 style="margin:0 0 16px 0; font-size:1.5rem;">{% trans "Welcome to DoarBox" %}</h2>
-            <p style="margin:0 0 24px 0; color:#666; line-height:1.6;">
+        <div class="overlay-content" style="max-width:480px; width:96%; display:flex; flex-direction:column; background:var(--card-bg, #fff); border-radius:10px; box-shadow:0 10px 30px rgba(0,0,0,0.25); padding:24px; position:relative; color:var(--text-color, #333); text-align:center;" dir="auto">
+            <h2 style="margin:0 0 16px 0; font-size:1.5rem; color:var(--text-color, #333);">{% trans "Welcome to DoarBox" %}</h2>
+            <p style="margin:0 0 24px 0; color:var(--text-secondary, #666); line-height:1.6;">
                 {% trans "To get started, please sign in with your Google account. This app only supports Gmail accounts." %}
             </p>
             <a href="{% url 'google_login' %}" class="btn btn-primary" style="display:inline-block; text-decoration:none; padding:12px 24px; font-size:1rem; margin:0 auto;">
@@ -1229,7 +1229,7 @@
     </div>
     <!-- Sign out confirmation overlay -->
     <div id="signout-confirm-overlay" class="overlay" style="display:none;">
-        <div class="overlay-content" style="max-width:480px; width:96%; display:flex; flex-direction:column; background:var(--card-bg, #fff); border-radius:10px; box-shadow:0 10px 30px rgba(0,0,0,0.25); padding:24px; position:relative; color:var(--text-color, #333); text-align:center;">
+        <div class="overlay-content" style="max-width:480px; width:96%; display:flex; flex-direction:column; background:var(--card-bg, #fff); border-radius:10px; box-shadow:0 10px 30px rgba(0,0,0,0.25); padding:24px; position:relative; color:var(--text-color, #333); text-align:center;" dir="auto">
             <h2 style="margin:0 0 16px 0; font-size:1.5rem; color:var(--text-color, #333);">{% trans "Sign Out" %}</h2>
             <p style="margin:0 0 24px 0; color:var(--text-secondary, #666); line-height:1.6;">
                 {% trans "Are you sure you want to sign out?" %}

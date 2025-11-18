@@ -783,6 +783,12 @@ msgstr "האם אתה בטוח שברצונך להתנתק?"
 msgid "DoarBox"
 msgstr "דוארבוקס"
 
+msgid "Welcome to DoarBox"
+msgstr "ברוכים הבאים לדוארבוקס"
+
+msgid "To get started, please sign in with your Google account. This app only supports Gmail accounts."
+msgstr "כדי להתחיל, אנא התחבר באמצעות חשבון Google שלך. האפליקציה הזו תומכת רק בחשבונות Gmail."
+
 msgid "Connection Error:"
 msgstr "שגיאת חיבור:"
 
