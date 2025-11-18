@@ -90,14 +90,31 @@
             background-color: var(--primary-color);
             color: white;
             padding: 20px;
-            text-align: center;
             position: relative;
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
+            align-items: flex-start;
+        }
+        header > div:first-child {
+            grid-column: 1;
         }
         header h1 {
             cursor: pointer;
             margin: 0;
             font-size: 1.8em;
             display: inline-block;
+            grid-column: 2;
+            text-align: center;
+        }
+        #header-user-email {
+            font-size: 0.9em;
+            color: rgba(255, 255, 255, 0.95);
+            font-weight: 500;
+            margin: 0;
+            text-align: left;
+        }
+        [data-theme="dark"] #header-user-email {
+            color: rgba(255, 255, 255, 0.92);
         }
         main {
             padding: 20px;
@@ -1279,6 +1296,11 @@
             <!-- Account (now last) -->
             <section>
                 <h3 style="margin:0 0 8px 0; font-size:1rem;">{% trans "Account" %}</h3>
+                {% if user_email %}
+                <div style="margin-bottom:12px; font-size:0.9em; color:var(--settings-fg, #666);">
+                    {{ user_email }}
+                </div>
+                {% endif %}
                 <div style="display:flex; gap:8px; flex-wrap:wrap;">
                     <button id="settings-signin" type="button" class="btn btn-primary" title="{% trans 'Coming soon' %}">{% trans "Sign in with Google" %}</button>
                     <button id="settings-signout" type="button" class="btn btn-danger" title="{% trans 'Coming soon' %}">{% trans "Sign out" %}</button>
@@ -1288,10 +1310,12 @@
     </div>
     <div class="container">
         <header>
+            <div>
+                {% if user_email %}
+                <div id="header-user-email">{{ user_email }}</div>
+                {% endif %}
+            </div>
             <h1 id="app-title" style="cursor: pointer;">{% trans "DoarBox" %}</h1>
-            {% if user_email %}
-            <div style="font-size:0.85em; color:#666; margin-top:4px;">{{ user_email }}</div>
-            {% endif %}
             <form action="{% url 'set_language' %}" method="post" style="margin-top:8px; display:none;">
                 {% csrf_token %}
                 <input type="hidden" name="next" value="{{ request.get_full_path }}">
