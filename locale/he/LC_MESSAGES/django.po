@@ -774,6 +774,12 @@ msgstr "התחבר באמצעות Google"
 msgid "Sign out"
 msgstr "התנתק"
 
+msgid "Sign Out"
+msgstr "התנתק"
+
+msgid "Are you sure you want to sign out?"
+msgstr "האם אתה בטוח שברצונך להתנתק?"
+
 msgid "DoarBox"
 msgstr "דוארבוקס"
 
