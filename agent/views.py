@@ -183,6 +183,9 @@ def google_login(request):
         prompt='consent',
     )
     request.session['oauth_state'] = state
+    # CRITICAL: Mark session as modified and save before redirecting to Google
+    request.session.modified = True
+    request.session.save()
     return redirect(authorization_url)
 
 
@@ -210,7 +213,6 @@ def google_callback(request):
             client_config,
             scopes=['https://www.googleapis.com/auth/gmail.modify', 'https://www.googleapis.com/auth/gmail.compose'],
             redirect_uri=settings.GOOGLE_OAUTH_REDIRECT_URI,
-            state=state,
         )
         flow.fetch_token(code=code)
         credentials = flow.credentials

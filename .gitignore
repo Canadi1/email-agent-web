@@ -30,9 +30,7 @@ credentials.json
 .DS_Store
 Thumbs.db
 # Secrets and local artifacts
-token.pickle
-db.sqlite3
-*.sqlite3
+.env
 token.pickle
 db.sqlite3
 *.sqlite3
