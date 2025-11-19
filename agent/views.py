@@ -1423,8 +1423,8 @@ def index(request):
 
             # Compose email submit handler
             if request.POST.get('compose_send') == '1':
-                # Accept value from hidden field or visible fallback
-                to_addr = (request.POST.get('compose_to') or request.POST.get('compose_to_visible') or '').strip()
+                # Accept value from hidden field or visible fallback (try multiple field names)
+                to_addr = (request.POST.get('compose_to') or request.POST.get('recipient') or request.POST.get('compose_to_visible') or '').strip()
                 # Normalize formats like "Name <email@domain>" or text containing an email
                 try:
                     m = re.search(r'([A-Za-z0-9._%+\\-]+@[A-Za-z0-9.\\-]+\\.[A-Za-z]{2,})', to_addr)
