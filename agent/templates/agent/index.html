@@ -1196,6 +1196,37 @@
                 color: #fff !important;
             }
         }
+        
+        /* Try to position browser autocomplete above input (limited browser control) */
+        #compose-form label:first-of-type {
+            position: relative;
+        }
+        
+        /* Ensure our custom suggestions have spacing and appear above browser dropdown if possible */
+        .contact-suggestions {
+            z-index: 1000 !important;
+            max-height: 200px;
+            overflow-y: auto;
+            margin-top: 4px;
+        }
+        
+        /* Placeholder styling for contenteditable div */
+        #compose-to.placeholder-shown::before {
+            content: attr(data-placeholder);
+            color: #999;
+            pointer-events: none;
+        }
+        
+        #compose-to {
+            white-space: nowrap;
+            overflow: hidden;
+            line-height: 1.2;
+            font-size: inherit;
+            font-family: inherit;
+            vertical-align: middle;
+            margin: 0;
+            display: block;
+        }
     </style>
 </head>
 <body data-i18n-view-details="{% trans 'View details' %}"
@@ -1375,11 +1406,9 @@
                         <label>
                             <div style="font-weight:600; margin-bottom:4px;">{% trans 'To' %}</div>
                             <!-- Hidden field actually submitted to server -->
-                            <input type="hidden" name="compose_to" value="">
-                            <!-- Offscreen dummy email input to absorb browser autofill -->
-                            <input type="email" name="compose_to_trap" autocomplete="email" tabindex="-1" style="position:absolute; left:-9999px; width:1px; height:1px; opacity:0; pointer-events:none;">
-                            <!-- Visible field for typing (kept as text to reduce browser autofill) -->
-                            <input id="compose-to" name="compose_to_visible" type="text" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px;" required placeholder="name@example.com" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" inputmode="email">
+                            <input type="hidden" name="compose_to" value="" required>
+                            <!-- Contenteditable div instead of input - browsers don't autocomplete contenteditable -->
+                            <div id="compose-to" contenteditable="true" role="textbox" aria-label="{% trans 'To' %}" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px; background:white; outline:none; box-sizing:border-box; height:38px; overflow-y:auto;" data-placeholder="name@example.com"></div>
                         </label>
                         <label>
                             <div style="font-weight:600; margin-bottom:4px;">{% trans 'Subject' %}</div>
@@ -18402,10 +18431,87 @@
         const composeForm = document.getElementById('compose-form');
         const toInput = composeForm ? composeForm.querySelector('#compose-to') : null;
         const toHidden = composeForm ? composeForm.querySelector('input[name="compose_to"]') : null;
+        
+        // Helper to get/set value for contenteditable div
+        const getToValue = () => {
+            if (!toInput) return '';
+            const text = (toInput.textContent || toInput.innerText || '').trim();
+            return text;
+        };
+        const setToValue = (val) => {
+            if (!toInput) return;
+            toInput.textContent = val || '';
+            updatePlaceholder();
+        };
+        const updatePlaceholder = () => {
+            if (!toInput) return;
+            const placeholder = toInput.getAttribute('data-placeholder') || '';
+            const val = getToValue();
+            if (!val && placeholder) {
+                if (!toInput.classList.contains('placeholder-shown')) {
+                    toInput.classList.add('placeholder-shown');
+                    toInput.textContent = placeholder;
+                    toInput.style.color = '#999';
+                }
+            } else if (val && toInput.classList.contains('placeholder-shown')) {
+                toInput.classList.remove('placeholder-shown');
+                toInput.style.color = '';
+            }
+        };
+        
         if (toInput && toHidden) {
-            const syncHidden = () => { toHidden.value = toInput.value; };
+            // Handle placeholder for contenteditable
+            updatePlaceholder();
+            toInput.addEventListener('focus', function() {
+                if (this.classList.contains('placeholder-shown')) {
+                    this.textContent = '';
+                    this.classList.remove('placeholder-shown');
+                    this.style.color = '';
+                }
+                // Also trigger the existing focus handler for suggestions
+                const q = getToValue();
+                prefetchContacts().then(() => {
+                    if (q) {
+                        const lc = q.toLowerCase();
+                        const filtered = (cachedContacts || []).filter(c => {
+                            const em = (c.email||'').toLowerCase();
+                            const nm = (c.name||'').toLowerCase();
+                            return em.includes(lc) || (nm && nm.includes(lc));
+                        }).slice(0, 20);
+                        renderContacts(filtered);
+                    } else {
+                        renderContacts((cachedContacts || []).slice(0, 20));
+                    }
+                });
+            });
+            toInput.addEventListener('blur', updatePlaceholder);
+            
+            // Sync to hidden field
+            const syncHidden = () => { 
+                const val = getToValue();
+                toHidden.value = val;
+                // Also set required validation
+                if (val) {
+                    toHidden.setCustomValidity('');
+                } else {
+                    toHidden.setCustomValidity('Please enter an email address');
+                }
+            };
             toInput.addEventListener('input', syncHidden);
-            composeForm.addEventListener('submit', syncHidden);
+            toInput.addEventListener('paste', function(e) {
+                e.preventDefault();
+                const text = (e.clipboardData || window.clipboardData).getData('text');
+                document.execCommand('insertText', false, text);
+                syncHidden();
+            });
+            composeForm.addEventListener('submit', function(e) {
+                syncHidden();
+                if (!getToValue()) {
+                    e.preventDefault();
+                    toInput.focus();
+                    return false;
+                }
+            });
             // initialize
             syncHidden();
         }
@@ -18456,13 +18562,13 @@
                     e.stopPropagation();
                     hideContact(em).then(() => {
                         // Refresh suggestions with current query
-                        const q = (toInput.value || '').trim();
+                        const q = getToValue();
                         fetchContacts(q).then(renderContacts);
                     });
                 });
                 div.addEventListener('mouseenter', () => { setActiveContact(idx); });
                 div.addEventListener('click', () => {
-                    toInput.value = em;
+                    setToValue(em);
                     closeContacts();
                     toInput.focus();
                 });
@@ -18562,7 +18668,6 @@
         // Kick off prefetch immediately so it warms before user interaction
         prefetchContacts();
         if (toInput) {
-            toInput.setAttribute('autocomplete', 'off');
             // Prefetch early so first keystroke is instant; also prefetch on load
             prefetchContacts();
             window.addEventListener('load', function(){ prefetchContacts(); });
@@ -18573,7 +18678,7 @@
             // Refocus handler to ensure suggestions render after language switch without reload
             document.addEventListener('visibilitychange', function(){
                 if (!document.hidden && document.activeElement === toInput && (!contactsBox)) {
-                    const q = (toInput.value || '').trim();
+                    const q = getToValue();
                     prefetchContacts().then(() => {
                         if (q) {
                             const lc = q.toLowerCase();
@@ -18589,27 +18694,10 @@
                     });
                 }
             });
-            // Show suggestions on focus (before typing)
-            toInput.addEventListener('focus', function() {
-                const q = (this.value || '').trim();
-                prefetchContacts().then(() => {
-                    if (q) {
-                        const lc = q.toLowerCase();
-                        const filtered = (cachedContacts || []).filter(c => {
-                            const em = (c.email||'').toLowerCase();
-                            const nm = (c.name||'').toLowerCase();
-                            return em.includes(lc) || (nm && nm.includes(lc));
-                        }).slice(0, 20);
-                        renderContacts(filtered);
-                    } else {
-                        renderContacts((cachedContacts || []).slice(0, 20));
-                    }
-                });
-            });
             let bgFetchTimer = null;
             let lastFetchQuery = '';
             toInput.addEventListener('input', function() {
-                const q = (this.value || '').trim();
+                const q = getToValue();
                 if (!q) { closeContacts(); return; }
                 
                 // Always filter cached contacts instantly
@@ -18638,7 +18726,7 @@
                 if (filtered.length <= 5 || q.indexOf('@') !== -1) {
                     clearTimeout(bgFetchTimer);
                     bgFetchTimer = setTimeout(() => {
-                        const currentQ = (toInput.value || '').trim();
+                        const currentQ = getToValue();
                         if (currentQ !== q) return; // stale
                         if (lastFetchQuery === q) return; // already fetched
                         lastFetchQuery = q;
@@ -18651,7 +18739,7 @@
                                 cachedContacts = Array.from(byEmail.values());
                                 try { sessionStorage.setItem(CONTACTS_CACHE_KEY, JSON.stringify(cachedContacts)); } catch (e) { /* ignore */ }
                                 // Re-filter and update view only if still on same query
-                                const nowQ = (toInput.value || '').trim().toLowerCase();
+                                const nowQ = getToValue().toLowerCase();
                                 if (nowQ === q.toLowerCase()) {
                                     const updated = cachedContacts.filter(c => {
                                         const em = (c.email||'').toLowerCase();
@@ -18676,7 +18764,7 @@
                         // extract email from "Name <email>"
                         const m = text.match(/<([^>]+)>/);
                         const em = m ? m[1] : text;
-                        toInput.value = em.trim();
+                        setToValue(em.trim());
                         closeContacts();
                     }
                 } else if (e.key === 'Escape') { closeContacts(); }
