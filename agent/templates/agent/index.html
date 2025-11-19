@@ -226,6 +226,13 @@
                 white-space: nowrap;
                 max-width: 100%;
             }
+            /* Ensure compose form fields fit on mobile */
+            #compose-form input,
+            #compose-form textarea,
+            #compose-to {
+                max-width: 100%;
+                box-sizing: border-box;
+            }
         }
         .stats-grid {
             display: grid;
@@ -18445,17 +18452,15 @@
         };
         const updatePlaceholder = () => {
             if (!toInput) return;
-            const placeholder = toInput.getAttribute('data-placeholder') || '';
             const val = getToValue();
-            if (!val && placeholder) {
+            if (!val) {
                 if (!toInput.classList.contains('placeholder-shown')) {
                     toInput.classList.add('placeholder-shown');
-                    toInput.textContent = placeholder;
-                    toInput.style.color = '#999';
                 }
-            } else if (val && toInput.classList.contains('placeholder-shown')) {
-                toInput.classList.remove('placeholder-shown');
-                toInput.style.color = '';
+            } else {
+                if (toInput.classList.contains('placeholder-shown')) {
+                    toInput.classList.remove('placeholder-shown');
+                }
             }
         };
         
@@ -18466,7 +18471,6 @@
                 if (this.classList.contains('placeholder-shown')) {
                     this.textContent = '';
                     this.classList.remove('placeholder-shown');
-                    this.style.color = '';
                 }
                 // Also trigger the existing focus handler for suggestions
                 const q = getToValue();
