@@ -1369,12 +1369,17 @@
                 {% if show_compose %}
                 <div class="stat-card" style="margin-bottom:16px;">
                     <h3 class="compose-title" style="margin-top:0;">{% trans 'Compose Email' %}</h3>
-                    <form method="post" id="compose-form" style="display:grid; gap:10px;">
+                    <form method="post" id="compose-form" style="display:grid; gap:10px;" autocomplete="off">
                         {% csrf_token %}
                         <input type="hidden" name="compose_send" value="1">
                         <label>
                             <div style="font-weight:600; margin-bottom:4px;">{% trans 'To' %}</div>
-                            <input name="compose_to" type="email" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px;" required placeholder="name@example.com" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+                            <!-- Hidden field actually submitted to server -->
+                            <input type="hidden" name="compose_to" value="">
+                            <!-- Offscreen dummy email input to absorb browser autofill -->
+                            <input type="email" name="compose_to_trap" autocomplete="email" tabindex="-1" style="position:absolute; left:-9999px; width:1px; height:1px; opacity:0; pointer-events:none;">
+                            <!-- Visible field for typing (kept as text to reduce browser autofill) -->
+                            <input id="compose-to" name="compose_to_visible" type="text" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px;" required placeholder="name@example.com" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" inputmode="email">
                         </label>
                         <label>
                             <div style="font-weight:600; margin-bottom:4px;">{% trans 'Subject' %}</div>
@@ -18395,7 +18400,15 @@
 
         // Compose To: custom contact suggestions
         const composeForm = document.getElementById('compose-form');
-        const toInput = composeForm ? composeForm.querySelector('input[name="compose_to"]') : null;
+        const toInput = composeForm ? composeForm.querySelector('#compose-to') : null;
+        const toHidden = composeForm ? composeForm.querySelector('input[name="compose_to"]') : null;
+        if (toInput && toHidden) {
+            const syncHidden = () => { toHidden.value = toInput.value; };
+            toInput.addEventListener('input', syncHidden);
+            composeForm.addEventListener('submit', syncHidden);
+            // initialize
+            syncHidden();
+        }
         let contactsBox = null;
         let contactsItems = [];
         let contactsActive = -1;

@@ -162,6 +162,27 @@ def google_login(request):
     if not settings.GOOGLE_OAUTH_CLIENT_ID or not settings.GOOGLE_OAUTH_CLIENT_SECRET:
         return redirect('/agent/?error=oauth_not_configured')
     
+    # Build redirect URI from request host (must match Google Cloud Console)
+    # Note: Google OAuth only allows localhost/127.0.0.1 or public domains
+    # For private IPs (like 10.x.x.x), use localhost or a tunnel service like ngrok
+    host = request.get_host()
+    
+    # Detect scheme: ngrok always uses HTTPS, check for ngrok in host or X-Forwarded-Proto header
+    if 'ngrok' in host.lower() or request.META.get('HTTP_X_FORWARDED_PROTO') == 'https':
+        scheme = 'https'
+    elif request.is_secure():
+        scheme = 'https'
+    else:
+        scheme = 'http'
+    
+    # If using private IP, fall back to localhost (won't work for mobile OAuth)
+    # For mobile testing, use a tunnel service like ngrok
+    if host.startswith('10.') or host.startswith('192.168.') or host.startswith('172.'):
+        # Private IP detected - use localhost (only works on same machine)
+        redirect_uri = "http://localhost:8000/agent/auth/google/callback/"
+    else:
+        redirect_uri = f"{scheme}://{host}/agent/auth/google/callback/"
+    
     # Build flow from client config
     client_config = {
         "web": {
@@ -169,13 +190,17 @@ def google_login(request):
             "client_secret": settings.GOOGLE_OAUTH_CLIENT_SECRET,
             "auth_uri": "https://accounts.google.com/o/oauth2/auth",
             "token_uri": "https://oauth2.googleapis.com/token",
-            "redirect_uris": [settings.GOOGLE_OAUTH_REDIRECT_URI],
+            "redirect_uris": [
+                "http://localhost:8000/agent/auth/google/callback/",
+                "http://127.0.0.1:8000/agent/auth/google/callback/",
+                redirect_uri,
+            ],
         }
     }
     flow = Flow.from_client_config(
         client_config,
         scopes=['https://www.googleapis.com/auth/gmail.modify', 'https://www.googleapis.com/auth/gmail.compose'],
-        redirect_uri=settings.GOOGLE_OAUTH_REDIRECT_URI,
+        redirect_uri=redirect_uri,
     )
     authorization_url, state = flow.authorization_url(
         access_type='offline',
@@ -190,29 +215,62 @@ def google_login(request):
 
 
 def google_callback(request):
+    # Helper to build absolute redirect URL
+    def build_redirect_url(path=''):
+        host = request.get_host()
+        if 'ngrok' in host.lower() or request.META.get('HTTP_X_FORWARDED_PROTO') == 'https':
+            scheme = 'https'
+        elif request.is_secure():
+            scheme = 'https'
+        else:
+            scheme = 'http'
+        return f"{scheme}://{host}/agent/{path}"
+    
     error = request.GET.get('error')
     if error:
-        return redirect('/agent/?error=access_denied')
+        return redirect(build_redirect_url('?error=access_denied'))
     state = request.GET.get('state')
     code = request.GET.get('code')
     if not code or not state or state != request.session.get('oauth_state'):
-        return redirect('/agent/?error=invalid_state')
+        return redirect(build_redirect_url('?error=invalid_state'))
     request.session.pop('oauth_state', None)
 
     try:
+        # Build redirect URI from request host (must match what was used in google_login)
+        # Note: Google OAuth only allows localhost/127.0.0.1 or public domains
+        host = request.get_host()
+        
+        # Detect scheme: ngrok always uses HTTPS, check for ngrok in host or X-Forwarded-Proto header
+        if 'ngrok' in host.lower() or request.META.get('HTTP_X_FORWARDED_PROTO') == 'https':
+            scheme = 'https'
+        elif request.is_secure():
+            scheme = 'https'
+        else:
+            scheme = 'http'
+        
+        # If using private IP, fall back to localhost (won't work for mobile OAuth)
+        if host.startswith('10.') or host.startswith('192.168.') or host.startswith('172.'):
+            redirect_uri = "http://localhost:8000/agent/auth/google/callback/"
+        else:
+            redirect_uri = f"{scheme}://{host}/agent/auth/google/callback/"
+        
         client_config = {
             "web": {
                 "client_id": settings.GOOGLE_OAUTH_CLIENT_ID,
                 "client_secret": settings.GOOGLE_OAUTH_CLIENT_SECRET,
                 "auth_uri": "https://accounts.google.com/o/oauth2/auth",
                 "token_uri": "https://oauth2.googleapis.com/token",
-                "redirect_uris": [settings.GOOGLE_OAUTH_REDIRECT_URI],
+                "redirect_uris": [
+                    "http://localhost:8000/agent/auth/google/callback/",
+                    "http://127.0.0.1:8000/agent/auth/google/callback/",
+                    redirect_uri,
+                ],
             }
         }
         flow = Flow.from_client_config(
             client_config,
             scopes=['https://www.googleapis.com/auth/gmail.modify', 'https://www.googleapis.com/auth/gmail.compose'],
-            redirect_uri=settings.GOOGLE_OAUTH_REDIRECT_URI,
+            redirect_uri=redirect_uri,
         )
         flow.fetch_token(code=code)
         credentials = flow.credentials
@@ -238,9 +296,9 @@ def google_callback(request):
         request.session.modified = True
         request.session.save()
         
-        return redirect('/agent/')
+        return redirect(build_redirect_url())
     except Exception as e:
-        return redirect(f'/agent/?error=oauth_error&message={str(e)}')
+        return redirect(build_redirect_url(f'?error=oauth_error&message={str(e)}'))
 
 
 def google_logout(request):
@@ -248,7 +306,16 @@ def google_logout(request):
     request.session.pop('user_email', None)
     request.session.modified = True
     request.session.save()
-    return redirect('/agent/')
+    # Build absolute URL to preserve ngrok host (don't redirect to localhost)
+    host = request.get_host()
+    if 'ngrok' in host.lower() or request.META.get('HTTP_X_FORWARDED_PROTO') == 'https':
+        scheme = 'https'
+    elif request.is_secure():
+        scheme = 'https'
+    else:
+        scheme = 'http'
+    redirect_url = f"{scheme}://{host}/agent/"
+    return redirect(redirect_url)
 def get_random_fun_fact(language_code=None):
     """Get a random fun fact in the appropriate language"""
     if not language_code:
@@ -708,6 +775,15 @@ def index(request):
     Main view for the email agent.
     Handles command processing and displays results.
     """
+    # Optional: clear hidden contacts list (when user requests a reset)
+    if request.GET.get('reset_hidden_contacts') == '1':
+        try:
+            request.session.pop('hidden_contacts', None)
+            request.session.modified = True
+            request.session.save()
+        finally:
+            return redirect('/agent/?contacts_reset=1')
+
     # Use session-based OAuth credentials (multi-user only, no legacy fallback)
     session_creds = get_credentials_from_session(request)
     user_email = request.session.get('user_email')
@@ -1347,7 +1423,16 @@ def index(request):
 
             # Compose email submit handler
             if request.POST.get('compose_send') == '1':
-                to_addr = request.POST.get('compose_to', '').strip()
+                # Accept value from hidden field or visible fallback
+                to_addr = (request.POST.get('compose_to') or request.POST.get('compose_to_visible') or '').strip()
+                # Normalize formats like "Name <email@domain>" or text containing an email
+                try:
+                    m = re.search(r'([A-Za-z0-9._%+\\-]+@[A-Za-z0-9.\\-]+\\.[A-Za-z]{2,})', to_addr)
+                    if m:
+                        to_addr = m.group(1)
+                    to_addr = to_addr.strip('<> ,;')
+                except Exception:
+                    pass
                 subject = request.POST.get('compose_subject', '').strip()
                 body = request.POST.get('compose_body', '').strip()
                 if not to_addr:
@@ -1360,13 +1445,20 @@ def index(request):
                         try:
                             addr_norm = (to_addr or '').strip()
                             if hasattr(agent_instance, '_is_valid_email_address') and agent_instance._is_valid_email_address(addr_norm):
-                                hidden = set(a.lower() for a in request.session.get('hidden_contacts', []) if isinstance(a, str))
-                                if addr_norm.lower() not in hidden:
-                                    saved = request.session.get('custom_contacts', [])
-                                    lower_set = set(a.lower() for a in saved if isinstance(a, str))
-                                    if addr_norm.lower() not in lower_set:
-                                        saved.insert(0, addr_norm)
-                                        request.session['custom_contacts'] = saved[:200]
+                                # If the address was previously hidden, unhide it upon successful send
+                                hidden_list = request.session.get('hidden_contacts', [])
+                                if isinstance(hidden_list, list) and hidden_list:
+                                    new_hidden = [a for a in hidden_list if isinstance(a, str) and a.lower() != addr_norm.lower()]
+                                    if len(new_hidden) != len(hidden_list):
+                                        request.session['hidden_contacts'] = new_hidden
+                                        request.session.modified = True
+                                # Ensure it appears in suggestions after sending
+                                saved = request.session.get('custom_contacts', [])
+                                lower_set = set(a.lower() for a in saved if isinstance(a, str))
+                                if addr_norm.lower() not in lower_set:
+                                    saved.insert(0, addr_norm)
+                                    request.session['custom_contacts'] = saved[:200]
+                                    request.session.modified = True
                         except Exception:
                             pass
                     else:

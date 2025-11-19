@@ -54,6 +54,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'agent.middleware.DynamicSessionCookieSecureMiddleware',  # Set SESSION_COOKIE_SECURE dynamically
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.locale.LocaleMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -151,8 +152,11 @@ SESSION_COOKIE_AGE = 60 * 60 * 24 * 30  # 30 days in seconds
 SESSION_EXPIRE_AT_BROWSER_CLOSE = False  # Sessions persist after browser closes
 SESSION_SAVE_EVERY_REQUEST = False  # Only save session when it changes
 SESSION_COOKIE_HTTPONLY = True  # Prevent JavaScript access (security)
-SESSION_COOKIE_SECURE = False  # Allow HTTP for localhost (set True in production with HTTPS)
+# SESSION_COOKIE_SECURE will be set dynamically based on request (see middleware)
+SESSION_COOKIE_SECURE = False  # Default to False for localhost, middleware will set True for HTTPS
 SESSION_COOKIE_SAMESITE = 'Lax'  # CSRF protection - allows cross-site requests
+# Trust proxy headers from ngrok to detect HTTPS correctly
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 SESSION_COOKIE_NAME = 'sessionid'  # Default session cookie name
 SESSION_COOKIE_PATH = '/'  # Make sure cookie is available site-wide
 # Don't set SESSION_COOKIE_DOMAIN - let Django use default (works for localhost)
