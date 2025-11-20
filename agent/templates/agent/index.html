@@ -17578,23 +17578,69 @@
                                 if (mHeAny && mHeAny[1]) out.duration = mHeAny[1].trim();
                             }
                         }
-                        // Keyword extraction - EXACT same pattern as sender, just replace מ with עם
+                        // Keyword extraction - handle search commands and label commands separately
                         if (isHebrew) {
-                            // Hebrew keyword: match 'עם' followed by keyword until 'כ' or end - EXACT same as sender pattern
-                            const mKeywordHe = q.match(/עם\s+([A-Za-z0-9._+@-][^\sכ]*?)(?=\s+כ|$)/i) 
-                                            || q.match(/עם([A-Za-z0-9._+@-][^\sכ]*?)(?=\s+כ|$)/i)
-                                            || q.match(/עם\s+([^\sכ]+?)(?=\s+כ|$)/i)
-                                            || q.match(/עם([^\sכ]+?)(?=\s+כ|$)/i);
-                            if (mKeywordHe && mKeywordHe[1]) {
-                                out.keyword = mKeywordHe[1].trim();
-                                console.log('[EXTRACT] Hebrew keyword matched:', { q, keyword: out.keyword, match: mKeywordHe[1] });
-                            } else if (q.includes('עם') && q.includes('כ')) {
-                                console.log('[EXTRACT] Hebrew keyword NOT matched:', { q, matches: [q.match(/עם\s+([A-Za-z0-9._+@-][^\sכ]*?)(?=\s+כ|$)/i), q.match(/עם([A-Za-z0-9._+@-][^\sכ]*?)(?=\s+כ|$)/i), q.match(/עם\s+([^\sכ]+?)(?=\s+כ|$)/i), q.match(/עם([^\sכ]+?)(?=\s+כ|$)/i)] });
+                            // First check for search command: "עם נושא [keyword]" - extract what comes AFTER "נושא"
+                            // Only extract if "עם נושא" is fully typed (not partial like "עם נו")
+                            // Check if it's a search command - use includes instead of word boundary for Hebrew
+                            const isSearchCommand = q.includes('חפש') && q.includes('מיילים');
+                            
+                            if (isSearchCommand) {
+                                // For search commands, extract what comes AFTER "נושא"
+                                // Only extract if "נושא" is fully present (not partial like "נו")
+                                if (q.includes('נושא')) {
+                                    const nosuIndex = q.indexOf('נושא');
+                                    if (nosuIndex !== -1) {
+                                        // Get everything after "נושא"
+                                        const afterNosu = q.substring(nosuIndex + 'נושא'.length).trim();
+                                        
+                                        // Only extract if there's actual text after "נושא" and it's not a partial match
+                                        if (afterNosu && afterNosu.length >= 2 && !/^נ(ו|וש|ושא)?$/.test(afterNosu)) {
+                                            out.keyword = afterNosu;
+                                        }
+                                    }
+                                }
+                            } else {
+                                // Then check for label command: "עם [keyword] כ" - EXACT same as sender pattern
+                                // But skip if it's a search command context (has "חפש")
+                                const isSearchContext = q.includes('חפש');
+                                if (!isSearchContext) {
+                                    const mKeywordHe = q.match(/עם\s+([A-Za-z0-9._+@-][^\sכ]*?)(?=\s+כ|$)/i) 
+                                                    || q.match(/עם([A-Za-z0-9._+@-][^\sכ]*?)(?=\s+כ|$)/i)
+                                                    || q.match(/עם\s+([^\sכ]+?)(?=\s+כ|$)/i)
+                                                    || q.match(/עם([^\sכ]+?)(?=\s+כ|$)/i);
+                                    if (mKeywordHe && mKeywordHe[1]) {
+                                        out.keyword = mKeywordHe[1].trim();
+                                    }
+                                }
                             }
                         } else {
-                            const mKeyword = q.match(/\bwith\s+([^]+?)(?=\s+(as|from|with|older than|ago|yesterday|today|last|this)\b|$)/i);
-                            if (mKeyword && mKeyword[1]) {
-                                out.keyword = mKeyword[1].trim();
+                            // First check for search command: "with subject [keyword]" - extract what comes AFTER "subject"
+                            // Handle typos in "with" (wit, wth, etc.) and "subject" (subjct, subect, subjet, etc.)
+                            const isSearchCommand = /\bsearch\s+emails\b/i.test(q);
+                            
+                            if (isSearchCommand) {
+                                // For search commands, look for "with" (or typo) + "subject" (or typo) + keyword
+                                // Handle common typos: wit/wth/with + subj/subect/subjet/subjct/subjec/subject + keyword
+                                const mSearch = q.match(/\b(wit|wth|with)\s+(subj|subect|subjet|subjct|subjec|subject)\s+([^\s]+?)(?:\s*$|$)/i);
+                                if (mSearch && mSearch[3]) {
+                                    out.keyword = mSearch[3].trim();
+                                }
+                            } else {
+                                // Then check for label command: "with [keyword] as" - but ONLY if it's not a search command
+                                // Don't extract if it looks like partial typing of "subject" (s, su, sub, subj, subje, subjec)
+                                const isPartialSubject = /\bwith\s+(s|su|sub|subj|subje|subjec)\s*$/i.test(q);
+                                
+                                if (!isPartialSubject) {
+                                    const mKeyword = q.match(/\bwith\s+([^]+?)(?=\s+(as|from|with|older than|ago|yesterday|today|last|this)\b|$)/i);
+                                    if (mKeyword && mKeyword[1]) {
+                                        const keywordText = mKeyword[1].trim();
+                                        // Don't extract "subject" as keyword
+                                        if (keywordText.toLowerCase() !== 'subject') {
+                                            out.keyword = keywordText;
+                                        }
+                                    }
+                                }
                             }
                         }
                         // Label extraction - capture everything after כ until end
@@ -17662,10 +17708,18 @@
                             }
                         }
                     }
-                    // Keyword placeholders (EN/HE)
+                    // Keyword placeholders (EN/HE) - preserve quotes if present in template
                     if (slots.keyword) {
                         console.log('[REPLACE] Replacing keyword:', { keyword: slots.keyword, before: out });
-                        out = out.replace(/\[keyword\]/gi, slots.keyword).replace(/\[מילת מפתח\]/g, slots.keyword);
+                        // Check if template has quotes around [keyword] or [מילת מפתח]
+                        const hasQuotes = /"\[keyword\]"|"\[מילת מפתח\]"/.test(out);
+                        if (hasQuotes) {
+                            // Replace with quoted keyword
+                            out = out.replace(/"\[keyword\]"/gi, `"${slots.keyword}"`).replace(/"\[מילת מפתח\]"/g, `"${slots.keyword}"`);
+                        } else {
+                            // Replace without quotes
+                            out = out.replace(/\[keyword\]/gi, slots.keyword).replace(/\[מילת מפתח\]/g, slots.keyword);
+                        }
                         console.log('[REPLACE] After keyword replace:', { after: out });
                     }
                     // Label placeholders (EN/HE)
@@ -17971,18 +18025,69 @@
                                             if (mHeAny && mHeAny[1]) out.duration = mHeAny[1].trim();
                                         }
                                     }
-                                    // Keyword extraction - EXACT same pattern as sender, just replace מ with עם
+                                    // Keyword extraction - handle search commands and label commands separately
                                     if (isHebrew) {
-                                        // Hebrew keyword: match 'עם' followed by keyword until 'כ' or end - EXACT same as sender pattern
-                                        const mKeywordHe = q.match(/עם\s+([A-Za-z0-9._+@-][^\sכ]*?)(?=\s+כ|$)/i) 
-                                                        || q.match(/עם([A-Za-z0-9._+@-][^\sכ]*?)(?=\s+כ|$)/i)
-                                                        || q.match(/עם\s+([^\sכ]+?)(?=\s+כ|$)/i)
-                                                        || q.match(/עם([^\sכ]+?)(?=\s+כ|$)/i);
-                                        if (mKeywordHe && mKeywordHe[1]) out.keyword = mKeywordHe[1].trim();
+                                        // First check for search command: "עם נושא [keyword]" - extract what comes AFTER "נושא"
+                                        // Only extract if "עם נושא" is fully typed (not partial like "עם נו")
+                                        // Check if it's a search command - use includes instead of word boundary for Hebrew
+                                        const isSearchCommand = q.includes('חפש') && q.includes('מיילים');
+                                        
+                                        if (isSearchCommand) {
+                                            // For search commands, extract what comes AFTER "נושא"
+                                            // Only extract if "נושא" is fully present (not partial like "נו")
+                                            if (q.includes('נושא')) {
+                                                const nosuIndex = q.indexOf('נושא');
+                                                if (nosuIndex !== -1) {
+                                                    // Get everything after "נושא"
+                                                    const afterNosu = q.substring(nosuIndex + 'נושא'.length).trim();
+                                                    
+                                                    // Only extract if there's actual text after "נושא" and it's not a partial match
+                                                    if (afterNosu && afterNosu.length >= 2 && !/^נ(ו|וש|ושא)?$/.test(afterNosu)) {
+                                                        out.keyword = afterNosu;
+                                                    }
+                                                }
+                                            }
+                                        } else {
+                                            // Then check for label command: "עם [keyword] כ" - EXACT same as sender pattern
+                                            // But skip if it's a search command context (has "חפש")
+                                            const isSearchContext = q.includes('חפש');
+                                            if (!isSearchContext) {
+                                                const mKeywordHe = q.match(/עם\s+([A-Za-z0-9._+@-][^\sכ]*?)(?=\s+כ|$)/i) 
+                                                                || q.match(/עם([A-Za-z0-9._+@-][^\sכ]*?)(?=\s+כ|$)/i)
+                                                                || q.match(/עם\s+([^\sכ]+?)(?=\s+כ|$)/i)
+                                                                || q.match(/עם([^\sכ]+?)(?=\s+כ|$)/i);
+                                                if (mKeywordHe && mKeywordHe[1]) {
+                                                    out.keyword = mKeywordHe[1].trim();
+                                                }
+                                            }
+                                        }
                                     } else {
-                                        const mKeyword = q.match(/\bwith\s+([^]+?)(?=\s+(as|from|with|older than|ago|yesterday|today|last|this)\b|$)/i);
-                                        if (mKeyword && mKeyword[1]) {
-                                            out.keyword = mKeyword[1].trim();
+                                        // First check for search command: "with subject [keyword]" - extract what comes AFTER "subject"
+                                        // Handle typos in "with" (wit, wth, etc.) and "subject" (subjct, subect, subjet, etc.)
+                                        const isSearchCommand = /\bsearch\s+emails\b/i.test(q);
+                                        
+                                        if (isSearchCommand) {
+                                            // For search commands, look for "with" (or typo) + "subject" (or typo) + keyword
+                                            // Match: (wit|wth|with) + (subj|subect|subjet|subjct|subject) + keyword
+                                            const mSearch = q.match(/\b(wit|wth|with)\s+(subj|subect|subjet|subjct|subject)\s+([^\s]+?)(?:\s*$|$)/i);
+                                            if (mSearch && mSearch[3]) {
+                                                out.keyword = mSearch[3].trim();
+                                            }
+                                        } else {
+                                            // Then check for label command: "with [keyword] as" - but ONLY if it's not a search command
+                                            // Don't extract if it looks like partial typing of "subject" (s, su, sub, subj, subje, subjec)
+                                            const isPartialSubject = /\bwith\s+(s|su|sub|subj|subje|subjec)\s*$/i.test(q);
+                                            
+                                            if (!isPartialSubject) {
+                                                const mKeyword = q.match(/\bwith\s+([^]+?)(?=\s+(as|from|with|older than|ago|yesterday|today|last|this)\b|$)/i);
+                                                if (mKeyword && mKeyword[1]) {
+                                                    const keywordText = mKeyword[1].trim();
+                                                    // Don't extract "subject" as keyword
+                                                    if (keywordText.toLowerCase() !== 'subject') {
+                                                        out.keyword = keywordText;
+                                                    }
+                                                }
+                                            }
                                         }
                                     }
                                     // Label extraction - capture everything after כ until end
@@ -18038,7 +18143,15 @@
                                     if (!/from\s+\d+/.test(out)) out = out.replace(/\[time\s*period\]/gi, `${slots.duration} ago`);
                                 }
                             }
-                            if (slots.keyword) out = out.replace(/\[keyword\]/gi, slots.keyword).replace(/\[מילת מפתח\]/g, slots.keyword);
+                            if (slots.keyword) {
+                                // Preserve quotes if present in template
+                                const hasQuotes = /"\[keyword\]"|"\[מילת מפתח\]"/.test(out);
+                                if (hasQuotes) {
+                                    out = out.replace(/"\[keyword\]"/gi, `"${slots.keyword}"`).replace(/"\[מילת מפתח\]"/g, `"${slots.keyword}"`);
+                                } else {
+                                    out = out.replace(/\[keyword\]/gi, slots.keyword).replace(/\[מילת מפתח\]/g, slots.keyword);
+                                }
+                            }
                             if (slots.label) out = out.replace(/\[label\]/gi, slots.label).replace(/\[תווית\]/g, slots.label);
                             return out.replace(/\s{2,}/g, ' ').trim();
                         })(text, commandInput.value || '');
@@ -18209,18 +18322,69 @@
                                             if (mHeAny && mHeAny[1]) out.duration = mHeAny[1].trim();
                                         }
                                     }
-                                    // Keyword extraction - EXACT same pattern as sender, just replace מ with עם
+                                    // Keyword extraction - handle search commands and label commands separately
                                     if (isHebrew) {
-                                        // Hebrew keyword: match 'עם' followed by keyword until 'כ' or end - EXACT same as sender pattern
-                                        const mKeywordHe = q.match(/עם\s+([A-Za-z0-9._+@-][^\sכ]*?)(?=\s+כ|$)/i) 
-                                                        || q.match(/עם([A-Za-z0-9._+@-][^\sכ]*?)(?=\s+כ|$)/i)
-                                                        || q.match(/עם\s+([^\sכ]+?)(?=\s+כ|$)/i)
-                                                        || q.match(/עם([^\sכ]+?)(?=\s+כ|$)/i);
-                                        if (mKeywordHe && mKeywordHe[1]) out.keyword = mKeywordHe[1].trim();
+                                        // First check for search command: "עם נושא [keyword]" - extract what comes AFTER "נושא"
+                                        // Only extract if "עם נושא" is fully typed (not partial like "עם נו")
+                                        // Check if it's a search command - use includes instead of word boundary for Hebrew
+                                        const isSearchCommand = q.includes('חפש') && q.includes('מיילים');
+                                        
+                                        if (isSearchCommand) {
+                                            // For search commands, extract what comes AFTER "נושא"
+                                            // Only extract if "נושא" is fully present (not partial like "נו")
+                                            if (q.includes('נושא')) {
+                                                const nosuIndex = q.indexOf('נושא');
+                                                if (nosuIndex !== -1) {
+                                                    // Get everything after "נושא"
+                                                    const afterNosu = q.substring(nosuIndex + 'נושא'.length).trim();
+                                                    
+                                                    // Only extract if there's actual text after "נושא" and it's not a partial match
+                                                    if (afterNosu && afterNosu.length >= 2 && !/^נ(ו|וש|ושא)?$/.test(afterNosu)) {
+                                                        out.keyword = afterNosu;
+                                                    }
+                                                }
+                                            }
+                                        } else {
+                                            // Then check for label command: "עם [keyword] כ" - EXACT same as sender pattern
+                                            // But skip if it's a search command context (has "חפש")
+                                            const isSearchContext = q.includes('חפש');
+                                            if (!isSearchContext) {
+                                                const mKeywordHe = q.match(/עם\s+([A-Za-z0-9._+@-][^\sכ]*?)(?=\s+כ|$)/i) 
+                                                                || q.match(/עם([A-Za-z0-9._+@-][^\sכ]*?)(?=\s+כ|$)/i)
+                                                                || q.match(/עם\s+([^\sכ]+?)(?=\s+כ|$)/i)
+                                                                || q.match(/עם([^\sכ]+?)(?=\s+כ|$)/i);
+                                                if (mKeywordHe && mKeywordHe[1]) {
+                                                    out.keyword = mKeywordHe[1].trim();
+                                                }
+                                            }
+                                        }
                                     } else {
-                                        const mKeyword = q.match(/\bwith\s+([^]+?)(?=\s+(as|from|with|older than|ago|yesterday|today|last|this)\b|$)/i);
-                                        if (mKeyword && mKeyword[1]) {
-                                            out.keyword = mKeyword[1].trim();
+                                        // First check for search command: "with subject [keyword]" - extract what comes AFTER "subject"
+                                        // Handle typos in "with" (wit, wth, etc.) and "subject" (subjct, subect, subjet, etc.)
+                                        const isSearchCommand = /\bsearch\s+emails\b/i.test(q);
+                                        
+                                        if (isSearchCommand) {
+                                            // For search commands, look for "with" (or typo) + "subject" (or typo) + keyword
+                                            // Match: (wit|wth|with) + (subj|subect|subjet|subjct|subject) + keyword
+                                            const mSearch = q.match(/\b(wit|wth|with)\s+(subj|subect|subjet|subjct|subject)\s+([^\s]+?)(?:\s*$|$)/i);
+                                            if (mSearch && mSearch[3]) {
+                                                out.keyword = mSearch[3].trim();
+                                            }
+                                        } else {
+                                            // Then check for label command: "with [keyword] as" - but ONLY if it's not a search command
+                                            // Don't extract if it looks like partial typing of "subject" (s, su, sub, subj, subje, subjec)
+                                            const isPartialSubject = /\bwith\s+(s|su|sub|subj|subje|subjec)\s*$/i.test(q);
+                                            
+                                            if (!isPartialSubject) {
+                                                const mKeyword = q.match(/\bwith\s+([^]+?)(?=\s+(as|from|with|older than|ago|yesterday|today|last|this)\b|$)/i);
+                                                if (mKeyword && mKeyword[1]) {
+                                                    const keywordText = mKeyword[1].trim();
+                                                    // Don't extract "subject" as keyword
+                                                    if (keywordText.toLowerCase() !== 'subject') {
+                                                        out.keyword = keywordText;
+                                                    }
+                                                }
+                                            }
                                         }
                                     }
                                     // Label extraction - capture everything after כ until end
@@ -18260,7 +18424,15 @@
                                     if (!/from\s+\d+/.test(out)) out = out.replace(/\[time\s*period\]/gi, `${slots.duration} ago`);
                                 }
                             }
-                            if (slots.keyword) out = out.replace(/\[keyword\]/gi, slots.keyword).replace(/\[מילת מפתח\]/g, slots.keyword);
+                            if (slots.keyword) {
+                                // Preserve quotes if present in template
+                                const hasQuotes = /"\[keyword\]"|"\[מילת מפתח\]"/.test(out);
+                                if (hasQuotes) {
+                                    out = out.replace(/"\[keyword\]"/gi, `"${slots.keyword}"`).replace(/"\[מילת מפתח\]"/g, `"${slots.keyword}"`);
+                                } else {
+                                    out = out.replace(/\[keyword\]/gi, slots.keyword).replace(/\[מילת מפתח\]/g, slots.keyword);
+                                }
+                            }
                             if (slots.label) out = out.replace(/\[label\]/gi, slots.label).replace(/\[תווית\]/g, slots.label);
                             return out.replace(/\s{2,}/g, ' ').trim();
                         })(text, commandInput.value || '');
@@ -18612,7 +18784,7 @@
                 }
             } else {
                 if (toInput.classList.contains('placeholder-shown')) {
-                    toInput.classList.remove('placeholder-shown');
+                toInput.classList.remove('placeholder-shown');
                 }
             }
         };
