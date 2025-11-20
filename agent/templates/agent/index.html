@@ -1230,7 +1230,6 @@
             line-height: 1.2;
             font-size: inherit;
             font-family: inherit;
-            vertical-align: middle;
             margin: 0;
             display: block;
         }
@@ -16736,7 +16735,10 @@
                         div.addEventListener('mouseenter', () => { setActive(idx); activeByKeyboard = false; });
                         div.addEventListener('click', () => {
                             // Use slot filling so existing sender/label the user typed are preserved
-                            const filled = fillTemplateWithSlots(cmd, commandInput.value || '');
+                            const currentValue = commandInput.value || '';
+                            console.log('[CLICK] Before fillTemplateWithSlots:', { cmd, currentValue });
+                            const filled = fillTemplateWithSlots(cmd, currentValue);
+                            console.log('[CLICK] After fillTemplateWithSlots:', { filled });
                             commandInput.value = filled;
                             closeAllLists();
                             commandInput.focus();
@@ -16852,7 +16854,13 @@
                         
                         // Attach and append now, then skip rest of rendering for this item
                         div.addEventListener('mouseenter', () => { setActive(idx); activeByKeyboard = false; });
-                        div.addEventListener('click', () => { commandInput.value = cmd; closeAllLists(); commandInput.focus(); });
+                        div.addEventListener('click', () => {
+                            // Use slot filling so existing keyword/label the user typed are preserved
+                            const filled = fillTemplateWithSlots(cmd, commandInput.value || '');
+                            commandInput.value = filled;
+                            closeAllLists();
+                            commandInput.focus();
+                        });
                         suggestionsContainer.appendChild(div);
                         suggestionItems.push(div);
                         console.log('[HE-LABEL-WITH-BOLD] Applied progressive bold.', { hasKeywordTyped, hasKafTyped, hasLabelText });
@@ -17364,7 +17372,7 @@
                 });
                 // Helper: extract sender and duration (basic EN/HE) from current input
                 function extractSlots(input) {
-                    const out = { sender: '', duration: '', hadOlderThan: false, timeframe: '', label: '' };
+                    const out = { sender: '', duration: '', hadOlderThan: false, timeframe: '', label: '', keyword: '' };
                     // Normalize input: strip bidi markers, collapse whitespace
                     const raw = (input || '');
                     const q = raw
@@ -17570,16 +17578,40 @@
                                 if (mHeAny && mHeAny[1]) out.duration = mHeAny[1].trim();
                             }
                         }
-                        // Label extraction (EN: "as [label]", HE: "כ [label]")
+                        // Keyword extraction - EXACT same pattern as sender, just replace מ with עם
                         if (isHebrew) {
-                            // Hebrew: extract text after "כ" (as) - capture everything after כ until end or next keyword
-                            const mLabelHe = q.match(/כ\s*["']?([^"']+?)(?:\s*["']?\s*$|$)/) || q.match(/כ\s+(.+?)(?:\s*$|$)/);
-                            if (mLabelHe && mLabelHe[1]) {
-                                out.label = mLabelHe[1].trim();
+                            // Hebrew keyword: match 'עם' followed by keyword until 'כ' or end - EXACT same as sender pattern
+                            const mKeywordHe = q.match(/עם\s+([A-Za-z0-9._+@-][^\sכ]*?)(?=\s+כ|$)/i) 
+                                            || q.match(/עם([A-Za-z0-9._+@-][^\sכ]*?)(?=\s+כ|$)/i)
+                                            || q.match(/עם\s+([^\sכ]+?)(?=\s+כ|$)/i)
+                                            || q.match(/עם([^\sכ]+?)(?=\s+כ|$)/i);
+                            if (mKeywordHe && mKeywordHe[1]) {
+                                out.keyword = mKeywordHe[1].trim();
+                                console.log('[EXTRACT] Hebrew keyword matched:', { q, keyword: out.keyword, match: mKeywordHe[1] });
+                            } else if (q.includes('עם') && q.includes('כ')) {
+                                console.log('[EXTRACT] Hebrew keyword NOT matched:', { q, matches: [q.match(/עם\s+([A-Za-z0-9._+@-][^\sכ]*?)(?=\s+כ|$)/i), q.match(/עם([A-Za-z0-9._+@-][^\sכ]*?)(?=\s+כ|$)/i), q.match(/עם\s+([^\sכ]+?)(?=\s+כ|$)/i), q.match(/עם([^\sכ]+?)(?=\s+כ|$)/i)] });
                             }
                         } else {
-                            // English: extract text after "as"
-                            const mLabel = q.match(/\bas\s+["']?([^"']+?)(?:\s*["']?\s*$|$)/i) || q.match(/\bas\s+(.+?)(?:\s*$|$)/i);
+                            const mKeyword = q.match(/\bwith\s+([^]+?)(?=\s+(as|from|with|older than|ago|yesterday|today|last|this)\b|$)/i);
+                            if (mKeyword && mKeyword[1]) {
+                                out.keyword = mKeyword[1].trim();
+                            }
+                        }
+                        // Label extraction - capture everything after כ until end
+                        if (isHebrew) {
+                            // Hebrew label: match 'כ' followed by label until end
+                            const mLabelHe = q.match(/כ\s+([A-Za-z0-9._+@-][^\s]*?)(?:\s*$|$)/i)
+                                          || q.match(/כ([A-Za-z0-9._+@-][^\s]*?)(?:\s*$|$)/i)
+                                          || q.match(/כ\s+([^\s]+?)(?:\s*$|$)/i)
+                                          || q.match(/כ([^\s]+?)(?:\s*$|$)/i);
+                            if (mLabelHe && mLabelHe[1]) {
+                                out.label = mLabelHe[1].trim();
+                                console.log('[EXTRACT] Hebrew label matched:', { q, label: out.label, match: mLabelHe[1] });
+                            } else if (q.includes('כ')) {
+                                console.log('[EXTRACT] Hebrew label NOT matched:', { q, matches: [q.match(/כ\s+([A-Za-z0-9._+@-][^\s]*?)(?:\s*$|$)/i), q.match(/כ([A-Za-z0-9._+@-][^\s]*?)(?:\s*$|$)/i), q.match(/כ\s+([^\s]+?)(?:\s*$|$)/i), q.match(/כ([^\s]+?)(?:\s*$|$)/i)] });
+                            }
+                        } else {
+                            const mLabel = q.match(/\bas\s+([^]+?)(?:\s*$|$)/i);
                             if (mLabel && mLabel[1]) {
                                 out.label = mLabel[1].trim();
                             }
@@ -17590,7 +17622,7 @@
                 // Helper: fill template with detected slots, preserving 'older than' if present
                 function fillTemplateWithSlots(templateCmd, currentInput) {
                     // If the suggestion has no placeholders, return it verbatim (avoid accidental mutations)
-                    if (!/\[(sender|שולח|duration|משך|time\s*period|timeframe|label|תווית)\]/i.test(templateCmd)) {
+                    if (!/\[(sender|שולח|duration|משך|time\s*period|timeframe|label|תווית|keyword|מילת מפתח)\]/i.test(templateCmd)) {
                         return String(templateCmd || '').trim();
                     }
                     const slots = extractSlots(currentInput);
@@ -17630,9 +17662,20 @@
                             }
                         }
                     }
+                    // Keyword placeholders (EN/HE)
+                    if (slots.keyword) {
+                        console.log('[REPLACE] Replacing keyword:', { keyword: slots.keyword, before: out });
+                        out = out.replace(/\[keyword\]/gi, slots.keyword).replace(/\[מילת מפתח\]/g, slots.keyword);
+                        console.log('[REPLACE] After keyword replace:', { after: out });
+                    }
                     // Label placeholders (EN/HE)
                     if (slots.label) {
+                        console.log('[REPLACE] Replacing label:', { label: slots.label, before: out });
                         out = out.replace(/\[label\]/gi, slots.label).replace(/\[תווית\]/g, slots.label);
+                        console.log('[REPLACE] After label replace:', { after: out });
+                    }
+                    if (slots.keyword || slots.label) {
+                        console.log('[REPLACE] Final result:', { slots, final: out });
                     }
                     return out.replace(/\s{2,}/g, ' ').trim();
                 }
@@ -17709,7 +17752,7 @@
                     if (text) {
                         const filled = (function(templateCmd, currentInput){
                             const slots = (function(input){
-                                const out = { sender: '', duration: '', hadOlderThan: false, timeframe: '', label: '' };
+                                const out = { sender: '', duration: '', hadOlderThan: false, timeframe: '', label: '', keyword: '' };
                                 const q = (input || '').trim();
                                 const isHebrew = document.documentElement.dir === 'rtl' || document.documentElement.lang === 'he';
                                 try {
@@ -17928,16 +17971,30 @@
                                             if (mHeAny && mHeAny[1]) out.duration = mHeAny[1].trim();
                                         }
                                     }
-                                    // Label extraction (EN: "as [label]", HE: "כ [label]")
+                                    // Keyword extraction - EXACT same pattern as sender, just replace מ with עם
                                     if (isHebrew) {
-                                        // Hebrew: extract text after "כ" (as) - capture everything after כ until end
-                                        const mLabelHe = q.match(/כ\s*["']?([^"']+?)(?:\s*["']?\s*$|$)/) || q.match(/כ\s+(.+?)(?:\s*$|$)/);
-                                        if (mLabelHe && mLabelHe[1]) {
-                                            out.label = mLabelHe[1].trim();
-                                        }
+                                        // Hebrew keyword: match 'עם' followed by keyword until 'כ' or end - EXACT same as sender pattern
+                                        const mKeywordHe = q.match(/עם\s+([A-Za-z0-9._+@-][^\sכ]*?)(?=\s+כ|$)/i) 
+                                                        || q.match(/עם([A-Za-z0-9._+@-][^\sכ]*?)(?=\s+כ|$)/i)
+                                                        || q.match(/עם\s+([^\sכ]+?)(?=\s+כ|$)/i)
+                                                        || q.match(/עם([^\sכ]+?)(?=\s+כ|$)/i);
+                                        if (mKeywordHe && mKeywordHe[1]) out.keyword = mKeywordHe[1].trim();
                                     } else {
-                                        // English: extract text after "as"
-                                        const mLabel = q.match(/\bas\s+["']?([^"']+?)(?:\s*["']?\s*$|$)/i) || q.match(/\bas\s+(.+?)(?:\s*$|$)/i);
+                                        const mKeyword = q.match(/\bwith\s+([^]+?)(?=\s+(as|from|with|older than|ago|yesterday|today|last|this)\b|$)/i);
+                                        if (mKeyword && mKeyword[1]) {
+                                            out.keyword = mKeyword[1].trim();
+                                        }
+                                    }
+                                    // Label extraction - capture everything after כ until end
+                                    if (isHebrew) {
+                                        // Hebrew label: match 'כ' followed by label until end
+                                        const mLabelHe = q.match(/כ\s+([A-Za-z0-9._+@-][^\s]*?)(?:\s*$|$)/i)
+                                                      || q.match(/כ([A-Za-z0-9._+@-][^\s]*?)(?:\s*$|$)/i)
+                                                      || q.match(/כ\s+([^\s]+?)(?:\s*$|$)/i)
+                                                      || q.match(/כ([^\s]+?)(?:\s*$|$)/i);
+                                        if (mLabelHe && mLabelHe[1]) out.label = mLabelHe[1].trim();
+                                    } else {
+                                        const mLabel = q.match(/\bas\s+([^]+?)(?:\s*$|$)/i);
                                         if (mLabel && mLabel[1]) {
                                             out.label = mLabel[1].trim();
                                         }
@@ -17981,6 +18038,7 @@
                                     if (!/from\s+\d+/.test(out)) out = out.replace(/\[time\s*period\]/gi, `${slots.duration} ago`);
                                 }
                             }
+                            if (slots.keyword) out = out.replace(/\[keyword\]/gi, slots.keyword).replace(/\[מילת מפתח\]/g, slots.keyword);
                             if (slots.label) out = out.replace(/\[label\]/gi, slots.label).replace(/\[תווית\]/g, slots.label);
                             return out.replace(/\s{2,}/g, ' ').trim();
                         })(text, commandInput.value || '');
@@ -17999,7 +18057,7 @@
                         // Use slot fill on TAB accept too
                         const filled = (function(templateCmd, currentInput){
                             const slots = (function(input){
-                                const out = { sender: '', duration: '', hadOlderThan: false, timeframe: '', label: '' };
+                                const out = { sender: '', duration: '', hadOlderThan: false, timeframe: '', label: '', keyword: '' };
                                 const q = (input || '').trim();
                                 const isHebrew = document.documentElement.dir === 'rtl' || document.documentElement.lang === 'he';
                                 try {
@@ -18151,16 +18209,30 @@
                                             if (mHeAny && mHeAny[1]) out.duration = mHeAny[1].trim();
                                         }
                                     }
-                                    // Label extraction (EN: "as [label]", HE: "כ [label]")
+                                    // Keyword extraction - EXACT same pattern as sender, just replace מ with עם
                                     if (isHebrew) {
-                                        // Hebrew: extract text after "כ" (as) - capture everything after כ until end
-                                        const mLabelHe = q.match(/כ\s*["']?([^"']+?)(?:\s*["']?\s*$|$)/) || q.match(/כ\s+(.+?)(?:\s*$|$)/);
-                                        if (mLabelHe && mLabelHe[1]) {
-                                            out.label = mLabelHe[1].trim();
-                                        }
+                                        // Hebrew keyword: match 'עם' followed by keyword until 'כ' or end - EXACT same as sender pattern
+                                        const mKeywordHe = q.match(/עם\s+([A-Za-z0-9._+@-][^\sכ]*?)(?=\s+כ|$)/i) 
+                                                        || q.match(/עם([A-Za-z0-9._+@-][^\sכ]*?)(?=\s+כ|$)/i)
+                                                        || q.match(/עם\s+([^\sכ]+?)(?=\s+כ|$)/i)
+                                                        || q.match(/עם([^\sכ]+?)(?=\s+כ|$)/i);
+                                        if (mKeywordHe && mKeywordHe[1]) out.keyword = mKeywordHe[1].trim();
                                     } else {
-                                        // English: extract text after "as"
-                                        const mLabel = q.match(/\bas\s+["']?([^"']+?)(?:\s*["']?\s*$|$)/i) || q.match(/\bas\s+(.+?)(?:\s*$|$)/i);
+                                        const mKeyword = q.match(/\bwith\s+([^]+?)(?=\s+(as|from|with|older than|ago|yesterday|today|last|this)\b|$)/i);
+                                        if (mKeyword && mKeyword[1]) {
+                                            out.keyword = mKeyword[1].trim();
+                                        }
+                                    }
+                                    // Label extraction - capture everything after כ until end
+                                    if (isHebrew) {
+                                        // Hebrew label: match 'כ' followed by label until end
+                                        const mLabelHe = q.match(/כ\s+([A-Za-z0-9._+@-][^\s]*?)(?:\s*$|$)/i)
+                                                      || q.match(/כ([A-Za-z0-9._+@-][^\s]*?)(?:\s*$|$)/i)
+                                                      || q.match(/כ\s+([^\s]+?)(?:\s*$|$)/i)
+                                                      || q.match(/כ([^\s]+?)(?:\s*$|$)/i);
+                                        if (mLabelHe && mLabelHe[1]) out.label = mLabelHe[1].trim();
+                                    } else {
+                                        const mLabel = q.match(/\bas\s+([^]+?)(?:\s*$|$)/i);
                                         if (mLabel && mLabel[1]) {
                                             out.label = mLabel[1].trim();
                                         }
@@ -18188,6 +18260,7 @@
                                     if (!/from\s+\d+/.test(out)) out = out.replace(/\[time\s*period\]/gi, `${slots.duration} ago`);
                                 }
                             }
+                            if (slots.keyword) out = out.replace(/\[keyword\]/gi, slots.keyword).replace(/\[מילת מפתח\]/g, slots.keyword);
                             if (slots.label) out = out.replace(/\[label\]/gi, slots.label).replace(/\[תווית\]/g, slots.label);
                             return out.replace(/\s{2,}/g, ' ').trim();
                         })(text, commandInput.value || '');
