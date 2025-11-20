@@ -1400,7 +1400,24 @@
             {% else %}
                 <form method="post" class="command-form" id="command-form" autocomplete="off">
                     {% csrf_token %}
-                    <input type="text" id="command-input" name="command" dir="{% if LANGUAGE_BIDI %}rtl{% else %}ltr{% endif %}" placeholder="{% trans 'e.g., list recent emails' %}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+                    <input type="text" id="command-input" name="command" dir="{% if LANGUAGE_BIDI %}rtl{% else %}ltr{% endif %}" placeholder="{% trans 'e.g., list recent emails' %}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" autofocus>
+                    <script>
+                        // Remove autofocus on mobile immediately (before browser processes it)
+                        (function() {
+                            if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+                                var input = document.getElementById('command-input');
+                                if (input) {
+                                    input.removeAttribute('autofocus');
+                                    // Blur if already focused
+                                    setTimeout(function() {
+                                        if (document.activeElement === input) {
+                                            input.blur();
+                                        }
+                                    }, 0);
+                                }
+                            }
+                        })();
+                    </script>
                     <button type="submit" id="command-submit">{% trans 'Process' %}</button>
                 </form>
                 {% if show_compose %}
@@ -2414,40 +2431,66 @@
             setTimeout(showSnackbarOnLoad, 100);
             setTimeout(showSnackbarOnLoad, 500);
             
-            // Auto-focus input only on desktop (not mobile)
-            // Mobile keyboards should only appear when user taps the input
-            function isMobileDevice() {
-                return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
-                       (window.matchMedia && window.matchMedia('(max-width: 768px)').matches && 'ontouchstart' in window);
-            }
-            
-            // Helper function to focus input only on desktop
-            window.focusCommandInputIfDesktop = function() {
-                if (!isMobileDevice()) {
-                    const commandInput = document.getElementById('command-input');
-                    if (commandInput) {
-                        try {
-                            commandInput.focus();
-                        } catch(e) {}
+            // Mobile-only: Remove autofocus to prevent keyboard popup
+            const commandInput = document.getElementById('command-input');
+            if (commandInput) {
+                // Check if mobile device (by user agent only)
+                const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+                
+                if (isMobile) {
+                    // MOBILE: Remove autofocus attribute immediately
+                    commandInput.removeAttribute('autofocus');
+                    
+                    // Blur immediately and on multiple attempts to ensure keyboard doesn't show
+                    function blurIfFocused() {
+                        if (document.activeElement === commandInput) {
+                            commandInput.blur();
+                        }
                     }
-                }
-            };
-            
-            // Auto-focus on page load only for desktop
-            if (!isMobileDevice()) {
-                const commandInput = document.getElementById('command-input');
-                if (commandInput) {
-                    // Only focus on desktop after a short delay to ensure page is fully loaded
+                    
+                    // Try immediately and at multiple intervals
+                    blurIfFocused();
+                    setTimeout(blurIfFocused, 0);
+                    setTimeout(blurIfFocused, 50);
+                    setTimeout(blurIfFocused, 100);
+                    setTimeout(blurIfFocused, 200);
+                    setTimeout(blurIfFocused, 500);
+                    
+                    // Prevent automatic focus from triggering keyboard
+                    // Use a flag to track if we're still in the initial page load phase
+                    let isInitialLoad = true;
                     setTimeout(function() {
-                        window.focusCommandInputIfDesktop();
-                    }, 100);
+                        isInitialLoad = false;
+                    }, 2000); // After 2 seconds, allow normal focus (user-initiated)
+                    
+                    commandInput.addEventListener('focus', function(e) {
+                        // Only blur if it's during initial page load (automatic focus)
+                        if (isInitialLoad) {
+                            setTimeout(function() {
+                                commandInput.blur();
+                            }, 0);
+                        }
+                    }, { passive: true });
                 }
+                // DESKTOP: Keep autofocus (already in HTML) - do nothing
             }
         });
         
         // Also try on window load as a fallback
         window.addEventListener('load', function() {
             setTimeout(showSnackbarOnLoad, 100);
+            // Focus input on desktop after full page load
+            const commandInput = document.getElementById('command-input');
+            if (commandInput) {
+                const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+                if (!isMobile) {
+                    setTimeout(function() {
+                        try {
+                            commandInput.focus();
+                        } catch(e) {}
+                    }, 200);
+                }
+            }
         });
 
         // Helper: shorten a sender like 'Name <no-reply@info.yad2.co.il>' -> 'Name' (or 'yad2' from domain)
