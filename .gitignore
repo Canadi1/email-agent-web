@@ -34,3 +34,14 @@ Thumbs.db
 token.pickle
 db.sqlite3
 *.sqlite3
+
+# Local development files
+*.bat
+start-*.bat
+cloudflared.exe
+cloudflared
+staticfiles/
+
+# Deployment guides (optional - you can remove this line if you want to keep them)
+PYTHONANYWHERE_SETUP.md
+DEPLOYMENT_GUIDE.md
