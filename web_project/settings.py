@@ -34,10 +34,17 @@ except ImportError:
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'dev-insecure-key')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# Set DEBUG=False in production via environment variable
+DEBUG = os.environ.get('DEBUG', 'True').lower() == 'true'
 
 # Allow all hosts in development so you can test from your phone on the same Wi‑Fi
-ALLOWED_HOSTS = ['*']
+# In production, set ALLOWED_HOSTS via environment variable (comma-separated)
+# Example: ALLOWED_HOSTS=yourdomain.com,www.yourdomain.com
+allowed_hosts_env = os.environ.get('ALLOWED_HOSTS', '')
+if allowed_hosts_env:
+    ALLOWED_HOSTS = [host.strip() for host in allowed_hosts_env.split(',')]
+else:
+    ALLOWED_HOSTS = ['*']  # Development default
 
 
 # Application definition
