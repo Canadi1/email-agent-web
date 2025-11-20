@@ -184,7 +184,20 @@ class GmailAIAgent:
                                 pass
                     except Exception:
                         pass
-                    delay = base_delay * (2 ** attempt)
+                    
+                    # Use shorter initial delay for SSL errors to recover faster
+                    is_ssl_error = False
+                    try:
+                        error_str = str(exc).lower()
+                        is_ssl_error = any(token in error_str for token in ['ssl', 'tls', 'certificate'])
+                    except Exception:
+                        pass
+                    
+                    # Shorter delay for SSL errors on first retry (0.3s instead of base_delay)
+                    if is_ssl_error and attempt == 0:
+                        delay = 0.3
+                    else:
+                        delay = base_delay * (2 ** attempt)
                     delay = min(delay, 10.0)  # Cap max delay at 10 seconds
                     jitter = random.uniform(0, max(0.1, 0.25 * delay))
                     total_delay = delay + jitter
@@ -366,6 +379,19 @@ class GmailAIAgent:
                 self.service = build('gmail', 'v1', http=authed_http, cache_discovery=False)
                 self._gmail_transport_strategy = 'authorized_http'
                 print("[HTTP] Gmail service build succeeded (strategy=authorized_http).")
+                
+                # Warm up SSL connection with a lightweight test request to reduce initial SSL errors
+                try:
+                    print("[HTTP] Warming up SSL connection...")
+                    # Make a lightweight request to establish SSL connection
+                    test_request = self.service.users().getProfile(userId='me')
+                    test_request.execute(num_retries=2)
+                    print("[HTTP] SSL connection warmed up successfully.")
+                except Exception as warmup_error:
+                    # Don't fail setup if warmup fails - connection will be established on first real request
+                    error_msg = str(warmup_error)[:100]
+                    print(f"[HTTP] Connection warmup failed (non-critical): {error_msg}")
+                
                 return True
             except Exception as setup_exc:
                 self._gmail_transport_strategy = 'setup_failed'
