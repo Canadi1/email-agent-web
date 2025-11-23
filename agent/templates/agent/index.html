@@ -17431,13 +17431,15 @@
                     try {
                         // Sender
                         if (isHebrew) {
-                            // Hebrew sender: match ' מ' or 'מ' directly before alphanumeric (from)
-                            // Capture everything after מ until we hit כ or end of string
-                            const mSenderHe = q.match(/מ\s+([A-Za-z0-9._+@-][^\sכ]*?)(?=\s+כ|$)/i) 
-                                            || q.match(/מ([A-Za-z0-9._+@-][^\sכ]*?)(?=\s+כ|$)/i)
-                                            || q.match(/מ\s+([^\sכ]+?)(?=\s+כ|$)/i)
-                                            || q.match(/מ([^\sכ]+?)(?=\s+כ|$)/i);
-                            if (mSenderHe && mSenderHe[1]) out.sender = mSenderHe[1].trim();
+                            // Hebrew sender: require 'מ ' (with space) to avoid colliding with 'מלפני/מהיום/מאתמול' etc.
+                            // Stop at duration/label/timeframe boundaries or end-of-string
+                            const mSenderHe =
+                                // Support both 'מ google' and 'מgoogle', but avoid 'מלפני/מהיום/מאתמול/...' collisions
+                                q.match(/מ\s*(?!לפ|לפנ|לפני|את|הי|הש|הח)\s*([^\s]+?)(?=(?:\s+(?:כ|מלפני|ישנים(?:\s+מ)?|מהיום|מאתמול|מהשבוע(?:\s+שעבר)?|מהחודש(?:\s+שעבר)?|מהשנה(?:\s+שעברה)?))|$)/)
+                                || q.match(/ישנים\s+מ\s*([^\s]+?)(?=(?:\s+(?:כ|מלפני|מהיום|מאתמול|מהשבוע(?:\s+שעבר)?|מהחודש(?:\s+שעבר)?|מהשנה(?:\s+שעברה)?))|$)/);
+                            if (mSenderHe && mSenderHe[1]) {
+                                out.sender = mSenderHe[1].trim();
+                            }
                         } else {
                             const mSender = q.match(/\bfrom\s+([^]+?)(?=\s+(older than|from|with|as|ago|yesterday|today|last|this)\b|$)/i);
                             if (mSender && mSender[1]) {
