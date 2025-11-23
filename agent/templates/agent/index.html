@@ -17779,6 +17779,12 @@
                         out = out.replace(/\[label\]/gi, slots.label).replace(/\[תווית\]/g, slots.label);
                         console.log('[REPLACE] After label replace:', { after: out });
                     }
+                    // English cleanup: avoid duplication with partial 'older t/tha'
+                    out = out
+                        .replace(/\bolder\s+(?=older\s+than\b)/gi, '')                 // "older older than" -> "older than"
+                        .replace(/\bolder\s+(?:t|th|tha)\b\s+(?=older\s+than\b)/gi, ''); // "older tha older than" -> "older than"
+                    // Also, collapse accidental double "older than"
+                    out = out.replace(/\bolder\s+than\s+(?=older\s+than\b)/gi, '');
                     if (slots.keyword || slots.label) {
                         console.log('[REPLACE] Final result:', { slots, final: out });
                     }
