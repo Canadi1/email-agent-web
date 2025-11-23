@@ -316,6 +316,16 @@ def google_logout(request):
         scheme = 'http'
     redirect_url = f"{scheme}://{host}/agent/"
     return redirect(redirect_url)
+
+
+def privacy(request):
+    """Privacy policy page"""
+    return render(request, 'agent/privacy.html')
+
+
+def terms(request):
+    """Terms of service page"""
+    return render(request, 'agent/terms.html')
 def get_random_fun_fact(language_code=None):
     """Get a random fun fact in the appropriate language"""
     if not language_code:

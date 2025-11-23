@@ -8,4 +8,6 @@ urlpatterns = [
     path('auth/google/login/', views.google_login, name='google_login'),
     path('auth/google/callback/', views.google_callback, name='google_callback'),
     path('auth/google/logout/', views.google_logout, name='google_logout'),
+    path('privacy/', views.privacy, name='privacy'),
+    path('terms/', views.terms, name='terms'),
 ]
