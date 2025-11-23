@@ -1880,6 +1880,10 @@
                     {% else %}
                     <p style="margin:10px 0 0 0; color:#888;">{% trans 'Found an issue or a bug? Contact me at' %} <a href="mailto:yossefmalka8@gmail.com">yossefmalka8@gmail.com</a>.</p>
                     {% endif %}
+                    <p style="margin:10px 0 0 0; color:#888; font-size:0.9em;">
+                        <a href="{% url 'privacy' %}" style="color:#007bff; text-decoration:none;">{% trans 'Privacy Policy' %}</a> • 
+                        <a href="{% url 'terms' %}" style="color:#007bff; text-decoration:none;">{% trans 'Terms of Service' %}</a>
+                    </p>
                 </div>
             </details>
         </main>
