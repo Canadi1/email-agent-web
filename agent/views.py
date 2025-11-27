@@ -2085,7 +2085,7 @@ def _translate_hebrew_command_to_english(command: str) -> str:
         (r"^[\s]*הראה\s+סטטיסטיק", "show email stats"),
         (r"^[\s]*סטטיסטיק", "show email stats"),
         (r"^[\s]*(שלח|כתוב|חבר)\s+(דוא\"?ל|דואל|מייל)\s*$", "send email"),
-        (r"^[\s]*שלח\s+(דוא""ל|מייל)\s+ל", "send email to "),
+        (r"^[\s]*שלח\s+(דוא\"?ל|מייל)\s+ל", "send email to "),
         (r"^[\s]*הצ[א]?ג\s+תווית\s+\"([^\"]+)\"", r'show label "\1"'),
         (r"^[\s]*הצ[א]?ג\s+תווית\s+'([^']+)'", r'show label "\1"'),
         (r"^[\s]*הצ[א]?ג\s+תווית\s+([^\s\"']+)", r'show label "\1"'),

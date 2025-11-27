@@ -1,0 +1,17 @@
+.git
+__pycache__
+*.py[cod]
+*.log
+*.sqlite3
+db.sqlite3
+.env
+env/
+venv/
+.venv/
+*.egg-info
+staticfiles
+.pytest_cache
+.mypy_cache
+*.swp
+node_modules
+credentials.json

@@ -1,0 +1,11 @@
+services:
+  web:
+    build: .
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    # Mount credentials.json if you use local OAuth credentials
+    # volumes:
+    #   - ./credentials.json:/app/credentials.json:ro
+    restart: unless-stopped
